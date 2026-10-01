@@ -315,7 +315,6 @@ local ENTITY_DEFS = {
     { "Blitz", "Backdoor", { "backdoorrush", "blitz" } },
     { "Lookman", "Backdoor", { "backdoorlookman", "lookman" } },
     { "Haste", "Backdoor", { "haste" } },
-    { "Dread", "Backdoor", { "dread" } },
     -- The Mines
     { "Grumble", "Mines", { "grumble" } },
     { "Queen Grumble", "Mines", { "queengrumble" } },
