@@ -2,6 +2,7 @@
   R4NS0M CD-1  |  Team CHX
   Version 1.0.0
   Tabs: Main, Info, Visuals, Player, Automation, Anticheat, Antis, Alerts, Misc, Keybinds, Configs
+  Ransomity is real
 ]]
 -- Services
 local HttpService = game:GetService("HttpService")
@@ -199,7 +200,7 @@ local ITEM_NAMES = {
     "Starlight Bottle", "Starlight Jug", "Starlight Vial", "Straplight", "Tip Jar", "Vitamins",
     -- Items sacados del Explorer (Dex) que antes no se reconocian
     "Big Bomb", "Bomb", "Cheese", "Knockbomb", "Nanner", "Nanner Peel", "Rift Candle", "Rift Smoothie",
-    "Snake Box", "Stop Sign",
+    "Snake Box", "Stop Sign", -- "Verity"
 }
 
 local function Norm(s)
@@ -297,7 +298,7 @@ local ENTITY_DEFS = {
     { "Ambush", "*", { "ambushmoving", "ambush" } },
     { "Eyes", "*", { "eyes" } },
     { "Halt", "*", { "halt" } },
-    { "Jeff", "*", { "jeff" } },
+    { "Jeff", "*", { "jeffthekiller", "jeff" } },
     { "Jeff the Killer", "*", { "jeffthekiller" } },
     { "Snare", "*", { "snare" } },
     { "Glitch", "*", {} },
@@ -2833,7 +2834,7 @@ end
 ----------------------------------------------------
 PlayerTab:Section({ Title = "Speed" })
 AddToggle(PlayerTab, "Speed", "Speed Boost", "Makes you faster than normal (up to 90).", Ex.Speed, function(v) Apply("Speed", v) end)
-AddSlider(PlayerTab, "SpeedValue", "Speed", "Target speed in studs per second. Doors' normal walk speed is about 16.", 16, 90, Ex.SpeedValue, function(v) Ex.SpeedValue = v end)
+AddSlider(PlayerTab, "SpeedValue", "Speed", "Target speed in studs per second. Doors' normal walk speed is about 16.", 4, 100, Ex.SpeedValue, function(v) Ex.SpeedValue = v end)
 AddDropdown(PlayerTab, "SpeedMethod", "Speed Method",
     "Velocity (recommended): smooth push that the server tolerates best. CFrame: small position steps. WalkSpeed: changes the value directly (easiest to detect).",
     { "Velocity", "CFrame", "WalkSpeed" }, Ex.SpeedMethod, function(v) Ex.SpeedMethod = v end)
@@ -2877,8 +2878,8 @@ AddToggle(AntiCheatTab, "ACM", "Anticheat Manipulator", "Main switch. PC: keybin
 AddDropdown(AntiCheatTab, "ACMMode", "Mode",
     "Phase Walk: automatic forward glide through obstacles (recommended). Noclip: collisions are always off.",
     { "Phase Walk", "Noclip" }, Ex.ACMMode, function(v) Ex.ACMMode = v end)
-AddSlider(AntiCheatTab, "PhaseSpeed", "Phase Speed", "Glide speed while crossing an obstacle. Higher means less time inside the wall; lower is gentler.", 6, 60, Ex.PhaseSpeed, function(v) Ex.PhaseSpeed = v end)
-AddSlider(AntiCheatTab, "PhaseMax", "Max Wall Thickness", "Longest obstacle (in studs) it will cross in one glide.", 4, 24, Ex.PhaseMax, function(v) Ex.PhaseMax = v end)
+AddSlider(AntiCheatTab, "PhaseSpeed", "Phase Speed", "Glide speed while crossing an obstacle. Higher means less time inside the wall; lower is gentler.", 1, 16, Ex.PhaseSpeed, function(v) Ex.PhaseSpeed = v end)
+AddSlider(AntiCheatTab, "PhaseMax", "Max Wall Thickness", "Longest obstacle (in studs) it will cross in one glide.", 8, 48, Ex.PhaseMax, function(v) Ex.PhaseMax = v end)
 AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot.", Ex.VoidGuard, function(v) Ex.VoidGuard = v end)
 
 AntiCheatTab:Section({ Title = "Speed Guard" })
