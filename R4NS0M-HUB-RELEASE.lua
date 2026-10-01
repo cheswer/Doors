@@ -312,15 +312,9 @@ local ENTITY_DEFS = {
     { "Gloombat", "Mines", { "gloombat" } },
     { "Firedamp", "Mines", { "firedamp" } },
     -- The Backdoor
-    { "Blitz", "Backdoor", { "backdoorrush", "blitz" } },
-    { "Lookman", "Backdoor", { "backdoorlookman", "lookman" } },
-    { "Haste", "Backdoor", { "haste" } },
     -- The Mines
     { "Grumble", "Mines", { "grumble" } },
     { "Queen Grumble", "Mines", { "queengrumble" } },
-    { "Giggle", "Mines", { "giggle" } },
-    { "Gloombat", "Mines", { "gloombat" } },
-    { "Firedamp", "Mines", { "firedamp" } },
     -- The Outdoors
     { "Groundskeeper", "Outdoors", { "groundskeeper", "thegroundskeeper" } },
     { "Caw", "Outdoors", { "caw" } },
