@@ -278,6 +278,7 @@ local KEY_NAMES = {
     FuseObtain = "Fuse",
 }
 local OBJECTIVE_NAMES = {
+    TimerLever = "Time Lever"
     LeverForGate = "Lever",
     LiveHintBook = "Library Book",
     LiveBreakerPolePickup = "Breaker Pole",
