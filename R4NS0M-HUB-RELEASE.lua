@@ -540,8 +540,8 @@ local MODE_CATS = {
     Backdoor  = { "doors", "objectives", "entities", "items", "drawers", "glitch", "stardust" },
     Outdoors  = { "doors", "gold", "keys", "entities", "items", "lotus", "stardust", "interactables", "glitch" },
     Archives  = { "doors", "entities", "items", "drawers", "interactables", "glitch", "stardust" },
-    Stairwell = { "doors", "entities", "items", "interactables", "glitch", "stardust" },
-    Rooms     = { "doors", "entities", "items", "wardrobes", "lockers", "glitch", "stardust" },
+    Stairwell = { "doors", "entities", "items", "interactables" },
+    Rooms     = { "doors", "entities", "items", "wardrobes", "lockers", "stardust" },
     -- Modo no detectado: solo lo basico y seguro (sin Dupe ni extras)
     Unknown   = { "doors", "gold", "keys", "wardrobes", "chests", "objectives", "entities", "items", "drawers", "lockers" },
 }
