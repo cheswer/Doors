@@ -279,6 +279,9 @@ local KEY_NAMES = {
 }
 local OBJECTIVE_NAMES = {
     LeverForGate = "Lever",
+    -- TimerLever vive directo en CurrentRooms > [sala] > TimerLever (NO dentro de Assets).
+    -- El escaneo recorre todo Workspace, asi que se detecta por nombre sin importar la ruta.
+    TimerLever = "Timer Lever",
     LiveHintBook = "Library Book",
     LiveBreakerPolePickup = "Breaker Pole",
     ["Sally's Toy"] = "Sally's Toy",
@@ -820,12 +823,28 @@ local function HasTrackedAncestor(inst)
     return false
 end
 
+-- Si el objeto aun no tiene ninguna parte (se esta cargando), reintenta unos segundos
+local function RegisterWhenReady(inst, cat, label)
+    Register(inst, cat, label)
+    if Tracked[inst] or GetPart(inst) then return end
+    task.spawn(function()
+        for _ = 1, 30 do
+            task.wait(0.2)
+            if not inst.Parent or Tracked[inst] then return end
+            if GetPart(inst) then
+                Register(inst, cat, label)
+                return
+            end
+        end
+    end)
+end
+
 local function RegisterByName(target)
     local n = target.Name
     if KEY_NAMES[n] then
         Register(target, "keys", KEY_NAMES[n])
     elseif OBJECTIVE_NAMES[n] then
-        Register(target, "objectives", OBJECTIVE_NAMES[n])
+        RegisterWhenReady(target, "objectives", OBJECTIVE_NAMES[n])
     elseif STARDUST_NAMES[n] then
         Register(target, "stardust", STARDUST_NAMES[n])
     elseif GOLD_NAMES[n] then
@@ -858,25 +877,6 @@ local function HideLabel(name)
 end
 local CHEST_EXACT = { ChestBox = "Chest", ChestBoxLocked = "Locked Chest" }
 
--- Sube desde el prompt hasta el modelo real del item (soporta Attachment y partes genericas)
-local function ResolveTarget(prompt)
-    local t = prompt.Parent
-    if t and t:IsA("Attachment") then t = t.Parent end
-    if not t then return nil end
-    if t:IsA("BasePart") then
-        local pm = t.Parent
-        if pm and pm:IsA("Model") and pm.Parent ~= CurrentRooms then t = pm end
-    end
-    while GENERIC_PARTS[t.Name] and t.Parent and t.Parent:IsA("Model") and t.Parent.Parent ~= CurrentRooms do
-        t = t.Parent
-    end
-    return t
-end
-
-local function CleanName(name)
-    return (name:gsub("_", " "):gsub("(%l)(%u)", "%1 %2"))
-end
-
 -- Contenedores con loot: Hotel/Backdoor (Drawers), Mines (Item Lockers, Toolboxes, Makeshift Drawers)
 local CONTAINER_WORDS = { "drawer", "dresser", "desk", "table", "cabinet", "shelf", "nightstand", "makeshift" }
 
@@ -894,10 +894,51 @@ local function ClassifyContainer(name)
     end
 end
 
+-- Objeto que ya tiene nombre propio conocido (item, llave, objetivo, oro, Sally...)
+local function IsKnownObject(name)
+    if KEY_NAMES[name] or OBJECTIVE_NAMES[name] or STARDUST_NAMES[name] or GOLD_NAMES[name] then return true end
+    if Norm(name):find("sally", 1, true) then return true end
+    return ResolveItem({ name }) ~= nil
+end
+
+-- Modelo que es un contenedor (cajon, casillero...) o ya esta registrado como tal
+local function IsContainerModel(m)
+    if not m then return false end
+    if ClassifyContainer(m.Name) then return true end
+    local e = Tracked[m]
+    return e ~= nil and (e.Cat == "drawers" or e.Cat == "lockers" or e.Cat == "chests" or e.Cat == "wardrobes")
+end
+
+-- Sube desde el prompt hasta el modelo real del item (soporta Attachment y partes genericas).
+-- FIX: ya NO sube hasta el cajon/casillero que contiene al item. Antes, un item (Sally's Toy,
+-- llaves, etc.) dentro de un cajon se "convertia" en el cajon, que ya estaba registrado, y el
+-- item se descartaba sin marcarse.
+local function ResolveTarget(prompt)
+    local t = prompt.Parent
+    if t and t:IsA("Attachment") then t = t.Parent end
+    if not t then return nil end
+    if IsKnownObject(t.Name) then return t end -- ya es el objeto real
+    if t:IsA("BasePart") then
+        local pm = t.Parent
+        if pm and pm:IsA("Model") and pm.Parent ~= CurrentRooms and not IsContainerModel(pm) then t = pm end
+    end
+    while GENERIC_PARTS[t.Name] and t.Parent and t.Parent:IsA("Model") and t.Parent.Parent ~= CurrentRooms
+        and not IsContainerModel(t.Parent) and not IsKnownObject(t.Name) do
+        t = t.Parent
+    end
+    return t
+end
+
+local function CleanName(name)
+    return (name:gsub("_", " "):gsub("(%l)(%u)", "%1 %2"))
+end
+
 local function ProcessContainerPrompt(prompt)
     local t = ResolveTarget(prompt)
     if not t or t == Workspace then return end
-    if CurrentRooms and t.Parent == CurrentRooms then return end
+    if CurrentRooms and t.Parent == CurrentRooms and not OBJECTIVE_NAMES[t.Name] then return end
+    -- Items/objetivos dentro de un cajon: se registran por su nombre aunque el cajon ya este marcado
+    if RegisterByName(t) then return end
     if HasTrackedAncestor(t) then return end
 
     local low = Norm(t.Name)
@@ -930,11 +971,13 @@ local function Process(inst)
             if not (Active.items or Active.keys or Active.objectives or Active.gold
                 or Active.stardust or Active.glitch or Active.lotus) then return end
             local t = ResolveTarget(inst)
-            if not t or Tracked[t] or RegisterByName(t) then return end
+            if not t then return end
+            if RegisterByName(t) then return end
+            if Tracked[t] and not IsContainerModel(t) then return end
 
             local nn = Norm(t.Name)
             if nn:find("sally", 1, true) then
-                Register(t, "objectives", "Sally's Toy")
+                RegisterWhenReady(t, "objectives", "Sally's Toy")
                 return
             end
 
@@ -1435,7 +1478,7 @@ local CATEGORY_UI = {
     { id = "wardrobes", section = "Hiding & Objectives", title = "ESP Hiding Spots",
       desc = "Places you can hide in: closets, beds, lockers and tool sheds." },
     { id = "objectives", section = "Hiding & Objectives", title = "ESP Objectives",
-      desc = "Room puzzle pieces: levers, library books, breaker poles and Sally's toy." },
+      desc = "Room puzzle pieces: levers, timer levers, library books, breaker poles and Sally's toy (also when they are inside a drawer)." },
 
     { id = "entities", section = "Entities", title = "ESP Entities",
       desc = "Monsters that belong to the detected game mode only. Entities from other modes are never shown. Pick which ones in the Entity Filter below." },
