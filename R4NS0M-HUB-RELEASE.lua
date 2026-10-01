@@ -1,7 +1,7 @@
 --[[
   R4NS0M CD-1  |  Team CHX
   Version 1.0.0
-  Tabs: Main, Info, Visuals, Player, Automation, Anti cheat, Antis, Alerts, Misc, Keybinds, Configs
+  Tabs: Main, Info, Visuals, Player, Automation, Anticheat, Antis, Alerts, Misc, Keybinds, Configs
 ]]
 -- Services
 local HttpService = game:GetService("HttpService")
@@ -139,7 +139,7 @@ local InfoTab       = Window:Tab({ Title = "Info",       Icon = "info" })
 local VisualsTab    = Window:Tab({ Title = "Visuals",    Icon = "eye" })
 local PlayerTab     = Window:Tab({ Title = "Player",     Icon = "user" })
 local AutomationTab = Window:Tab({ Title = "Automation", Icon = "zap" })
-local AntiCheatTab  = Window:Tab({ Title = "Anti cheat", Icon = "shield" })
+local AntiCheatTab  = Window:Tab({ Title = "Anticheat", Icon = "shield" })
 local AntisTab      = Window:Tab({ Title = "Antis",      Icon = "ban" })
 local AlertsTab     = Window:Tab({ Title = "Alerts",     Icon = "bell" })
 local MiscTab       = Window:Tab({ Title = "Misc",       Icon = "ellipsis" })
@@ -304,6 +304,13 @@ local ENTITY_DEFS = {
     { "Glitch", "*", {} },
     { "Glitched Rush", "*", {} },
     { "Glitched Ambush", "*", {} },
+    { "Blitz", "Backdoor", { "backdoorrush", "blitz" } },
+    { "Lookman", "Backdoor", { "backdoorlookman", "lookman" } },
+    { "Haste", "Backdoor", { "haste" } },
+    { "Dread", "Backdoor", { "dread" } },
+    { "Giggle", "Mines", { "giggle" } },
+    { "Gloombat", "Mines", { "gloombat" } },
+    { "Firedamp", "Mines", { "firedamp" } },
     -- The Backdoor
     { "Blitz", "Backdoor", { "backdoorrush", "blitz" } },
     { "Lookman", "Backdoor", { "backdoorlookman", "lookman" } },
