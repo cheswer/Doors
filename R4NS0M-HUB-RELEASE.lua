@@ -535,7 +535,7 @@ local Mode = { Name = "Unknown", Raw = "" }
 
 -- Categorias de ESP que existen en cada modo
 local MODE_CATS = {
-    Hotel     = { "doors", "dupe", "gold", "keys", "wardrobes", "chests", "objectives", "entities", "items", "drawers", "glitch", "stardust" },
+    Hotel     = { "doors", "dupe", "gold", "keys", "wardrobes", "chests", "objectives", "entities", "items", "drawers", "glitch" },
     Mines     = { "doors", "gold", "keys", "wardrobes", "chests", "objectives", "entities", "items", "drawers", "lockers", "glitch" },
     Backdoor  = { "doors", "objectives", "entities", "items", "drawers", "glitch" },
     Outdoors  = { "doors", "gold", "keys", "entities", "items", "lotus", "stardust", "interactables" },
