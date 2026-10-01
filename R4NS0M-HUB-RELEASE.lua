@@ -536,12 +536,12 @@ local Mode = { Name = "Unknown", Raw = "" }
 -- Categorias de ESP que existen en cada modo
 local MODE_CATS = {
     Hotel     = { "doors", "dupe", "gold", "keys", "wardrobes", "chests", "objectives", "entities", "items", "drawers", "glitch", "stardust" },
-    Mines     = { "doors", "gold", "keys", "wardrobes", "chests", "objectives", "entities", "items", "drawers", "lockers", "glitch", "stardust" },
-    Backdoor  = { "doors", "objectives", "entities", "items", "drawers", "glitch", "stardust" },
-    Outdoors  = { "doors", "gold", "keys", "entities", "items", "lotus", "stardust", "interactables", "glitch" },
-    Archives  = { "doors", "entities", "items", "drawers", "interactables", "glitch", "stardust" },
+    Mines     = { "doors", "gold", "keys", "wardrobes", "chests", "objectives", "entities", "items", "drawers", "lockers", "glitch" },
+    Backdoor  = { "doors", "objectives", "entities", "items", "drawers", "glitch" },
+    Outdoors  = { "doors", "gold", "keys", "entities", "items", "lotus", "stardust", "interactables" },
+    Archives  = { "doors", "entities", "items", "drawers", "interactables" },
     Stairwell = { "doors", "entities", "items", "interactables" },
-    Rooms     = { "doors", "entities", "items", "wardrobes", "lockers", "stardust" },
+    Rooms     = { "doors", "entities", "items", "wardrobes", "lockers" },
     -- Modo no detectado: solo lo basico y seguro (sin Dupe ni extras)
     Unknown   = { "doors", "gold", "keys", "wardrobes", "chests", "objectives", "entities", "items", "drawers", "lockers" },
 }
