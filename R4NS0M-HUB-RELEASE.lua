@@ -421,13 +421,55 @@ local function EntityLabel(name, strict, allowSkip)
     end
 end
 
+-- PERF: cache de funciones de nombres. En Outdoors se crean miles de modelos con nombres repetidos
+-- (arboles, rocas...) y antes cada uno recorria ~100 tokens con gsub. Ahora cada nombre se calcula UNA vez.
+do
+    local rawNorm, rawExcl, rawLabel = Norm, IsExcludedEntity, EntityLabel
+    local normC, normN = {}, 0
+    Norm = function(x)
+        if type(x) ~= "string" then return rawNorm(x) end
+        local v = normC[x]
+        if v == nil then
+            if normN > 8000 then normC, normN = {}, 0 end
+            v = rawNorm(x)
+            normC[x] = v
+            normN = normN + 1
+        end
+        return v
+    end
+    local exC, exN = {}, 0
+    IsExcludedEntity = function(name)
+        local v = exC[name]
+        if v == nil then
+            if exN > 8000 then exC, exN = {}, 0 end
+            v = rawExcl(name) and true or false
+            exC[name] = v
+            exN = exN + 1
+        end
+        return v
+    end
+    local lbC, lbN = { {}, {}, {}, {} }, 0
+    EntityLabel = function(name, strict, allowSkip)
+        local c = lbC[(strict and 1 or 0) + (allowSkip and 2 or 0) + 1]
+        local v = c[name]
+        if v == nil then
+            if lbN > 8000 then lbC, lbN = { {}, {}, {}, {} }, 0; c = lbC[(strict and 1 or 0) + (allowSkip and 2 or 0) + 1] end
+            v = rawLabel(name, strict, allowSkip) or false
+            c[name] = v
+            lbN = lbN + 1
+        end
+        return v or nil
+    end
+end
+
 local GOLD_NAMES = { GoldPile = "Gold" }
 local HIDE_NAMES = { Wardrobe = "Closet", Bed = "Bed", Toolshed = "Tool Shed", Locker = "Locker" }
 
-local MAX_HIGHLIGHTS = 30 -- Roblox solo renderiza ~31 Highlights a la vez
+local MAX_HIGHLIGHTS = 20 -- Roblox solo renderiza ~31 Highlights a la vez; menos = menos lag (el resto usa cajas)
 
 local Cfg = {
     MaxDistance = 400,
+    MaxObjects = 120, -- tope de objetos dibujados a la vez (los mas cercanos); evita lag en mapas grandes
     TextSize = 22,
     Font = "Oswald",
     PlayerNames = "Display Name",
@@ -711,21 +753,80 @@ local function GetPart(inst)
     end
 end
 
+-- PERF: las instancias visuales (Highlight, caja, billboard, linea) se crean SOLO cuando un objeto
+-- se va a dibujar y se liberan cuando lleva unos segundos oculto. Antes se creaban 5 instancias por
+-- cada objeto detectado aunque el ESP estuviera apagado.
+Mode.Free = function(e)
+    local hl, box, bb, line = e.HL, e.Box, e.BB, e.Line
+    e.HL, e.Box, e.BB, e.TL, e.Line = nil, nil, nil, nil, nil
+    e.Col, e.Fill, e.Out, e.Text, e.TS, e.TF, e.BoxT, e.HidSince = nil, nil, nil, nil, nil, nil, nil, nil
+    if hl then pcall(hl.Destroy, hl) end
+    if box then pcall(box.Destroy, box) end
+    if bb then pcall(bb.Destroy, bb) end
+    if line then pcall(line.Destroy, line) end
+end
+
+Mode.Build = function(e)
+    if e.HL then return end
+    local hl = Instance.new("Highlight")
+    hl.Adornee = e.Inst
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Enabled = false
+    hl.Parent = Holder
+
+    -- Respaldo cuando Highlight no se ve (partes invisibles) o se pasa del limite
+    local box = Instance.new("BoxHandleAdornment")
+    box.Adornee = e.Part
+    box.AlwaysOnTop = true
+    box.ZIndex = 5
+    box.Size = e.Part.Size
+    box.Visible = false
+    box.Parent = Holder
+
+    local bb = Instance.new("BillboardGui")
+    bb.Adornee = e.Part
+    bb.AlwaysOnTop = true
+    bb.Size = UDim2.fromOffset(300, 80)
+    bb.StudsOffset = Vector3.new(0, 2, 0)
+    bb.LightInfluence = 0
+    bb.ResetOnSpawn = false
+    bb.Enabled = false
+    bb.Parent = Holder
+
+    local tl = Instance.new("TextLabel")
+    tl.BackgroundTransparency = 1
+    tl.Size = UDim2.fromScale(1, 1)
+    tl.Font = FONT_MAP[Cfg.Font] or Enum.Font.Oswald
+    tl.TextStrokeTransparency = 0.35
+    tl.TextStrokeColor3 = Color3.new(0, 0, 0)
+    tl.Parent = bb
+
+    e.HL, e.Box, e.BB, e.TL = hl, box, bb, tl
+end
+
 local function RemoveEntry(inst)
     local e = Tracked[inst]
     if not e then return end
     Tracked[inst] = nil
-    pcall(function() e.HL:Destroy() end)
-    pcall(function() e.Box:Destroy() end)
-    pcall(function() e.BB:Destroy() end)
-    pcall(function() e.Line:Destroy() end)
+    if e.Conn then pcall(e.Conn.Disconnect, e.Conn); e.Conn = nil end
+    Mode.Free(e)
 end
 
 local function HideEntry(e)
-    e.HL.Enabled = false
-    e.Box.Visible = false
-    e.BB.Enabled = false
-    e.Line.Visible = false
+    e.Shown = false
+    if not e.HL and not e.Line then return end
+    if e.HL then
+        e.HL.Enabled = false
+        e.Box.Visible = false
+        e.BB.Enabled = false
+    end
+    if e.Line then e.Line.Visible = false end
+    local now = os.clock()
+    if not e.HidSince then
+        e.HidSince = now
+    elseif now - e.HidSince > 5 then
+        Mode.Free(e) -- lleva 5s oculto: se liberan las instancias
+    end
 end
 
 local OnEntitySeen -- lo asigna el Entity Notifier
@@ -752,55 +853,15 @@ local function Register(inst, cat, label, opts)
     local part = (opts and opts.Part) or GetPart(inst)
     if not part then return end
 
-    local hl = Instance.new("Highlight")
-    hl.Adornee = inst
-    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.Enabled = false
-    hl.Parent = Holder
-
-    -- Respaldo cuando Highlight no se ve (partes invisibles) o se pasa del limite
-    local box = Instance.new("BoxHandleAdornment")
-    box.Adornee = part
-    box.AlwaysOnTop = true
-    box.ZIndex = 5
-    box.Size = part.Size
-    box.Visible = false
-    box.Parent = Holder
-
-    local bb = Instance.new("BillboardGui")
-    bb.Adornee = part
-    bb.AlwaysOnTop = true
-    bb.Size = UDim2.fromOffset(300, 80)
-    bb.StudsOffset = Vector3.new(0, 2, 0)
-    bb.LightInfluence = 0
-    bb.ResetOnSpawn = false
-    bb.Enabled = false
-    bb.Parent = Holder
-
-    local tl = Instance.new("TextLabel")
-    tl.BackgroundTransparency = 1
-    tl.Size = UDim2.fromScale(1, 1)
-    tl.Font = FONT_MAP[Cfg.Font] or Enum.Font.Oswald
-    tl.TextStrokeTransparency = 0.35
-    tl.TextStrokeColor3 = Color3.new(0, 0, 0)
-    tl.Parent = bb
-
-    local line = Instance.new("Frame")
-    line.BorderSizePixel = 0
-    line.AnchorPoint = Vector2.new(0.5, 0.5)
-    line.Visible = false
-    line.Parent = Gui
+    local conn = inst.AncestryChanged:Connect(function(_, parent)
+        if not parent then RemoveEntry(inst) end
+    end)
 
     Tracked[inst] = {
-        Inst = inst, Cat = cat, Label = label, Part = part,
-        HL = hl, Box = box, BB = bb, TL = tl, Line = line,
+        Inst = inst, Cat = cat, Label = label, Part = part, Conn = conn,
         Known = opts and opts.Known, Key = opts and opts.Key, Prompt = opts and opts.Prompt, GeoT = 0, NoGeo = false, RoomNum = opts and opts.RoomNum,
         Dist = 0, Shown = false,
     }
-
-    inst.AncestryChanged:Connect(function(_, parent)
-        if not parent then RemoveEntry(inst) end
-    end)
 
     if OnEntitySeen and (cat == "entities" or cat == "dupe") and opts and opts.Known then
         pcall(OnEntitySeen, opts.Key or label, inst)
@@ -1015,20 +1076,28 @@ local function Process(inst)
         if RegisterByName(inst) then return end
         if inst:IsA("Model") then
             local n = inst.Name
+            local lab = (Active.entities and Cfg.RoomEntities and inst.Parent ~= Workspace) and EntityLabel(n, true) or nil
             if HIDE_EXACT[n] then
                 Register(inst, "wardrobes", HIDE_EXACT[n])
-            elseif Active.entities and Cfg.RoomEntities and inst.Parent ~= Workspace and EntityLabel(n, true) and not HasTrackedAncestor(inst) then
-                local lab = EntityLabel(n, true)
+            elseif lab and not HasTrackedAncestor(inst) then
                 Register(inst, "entities", lab, { Known = true, Key = lab })
-            elseif CHEST_EXACT[n] then
-                Register(inst, "chests", CHEST_EXACT[n])
             else
-                local low = n:lower()
-                if low:find("chest", 1, true) and not HasTrackedAncestor(inst) then
-                    local label = "Chest"
-                    if low:find("locked", 1, true) then label = "Locked Chest"
-                    elseif low:find("vine", 1, true) then label = "Vine Chest" end
-                    Register(inst, "chests", label)
+                local cl = CHEST_EXACT[n]
+                if type(cl) == "string" then
+                    Register(inst, "chests", cl)
+                else
+                    if cl == nil then -- se clasifica el nombre una sola vez (false = no es cofre)
+                        local low = n:lower()
+                        cl = false
+                        if low:find("chest", 1, true) then
+                            local label = "Chest"
+                            if low:find("locked", 1, true) then label = "Locked Chest"
+                            elseif low:find("vine", 1, true) then label = "Vine Chest" end
+                            cl = { label }
+                        end
+                        CHEST_EXACT[n] = cl
+                    end
+                    if cl and not HasTrackedAncestor(inst) then Register(inst, "chests", cl[1]) end
                 end
             end
         end
@@ -1157,6 +1226,8 @@ local function ProcessStairs(d)
 end
 
 local function OnDescendant(d)
+    -- PERF: solo estas clases importan; el resto (Decals, Sounds, Attachments, Scripts...) se descarta ya
+    if not (d:IsA("ProximityPrompt") or d:IsA("Model") or d:IsA("BasePart") or d:IsA("Humanoid") or d:IsA("AnimationController")) then return end
     Process(d)
     ProcessStairs(d)
     if d:IsA("Model") then
@@ -1176,12 +1247,19 @@ local function OnDescendant(d)
 end
 
 Rescan = function()
+    Mode.Gen = (Mode.Gen or 0) + 1
+    local gen = Mode.Gen
     task.spawn(function()
-        local n = 0
+        local n, t0 = 0, os.clock()
         for _, d in ipairs(Workspace:GetDescendants()) do
             pcall(OnDescendant, d)
             n = n + 1
-            if n % 300 == 0 then task.wait() end
+            -- PERF: presupuesto de ~4ms por frame (antes 300 objetos fijos, que en Outdoors dejaba tirones)
+            if n % 100 == 0 and os.clock() - t0 > 0.004 then
+                task.wait()
+                t0 = os.clock()
+                if Mode.Gen ~= gen then return end -- empezo un rescan nuevo: este se cancela
+            end
         end
         for _, c in ipairs(Workspace:GetChildren()) do pcall(ProcessEntity, c, true) end
         if CurrentRooms then
@@ -1193,7 +1271,29 @@ Rescan = function()
 end
 
 -- Conexiones (se crean una sola vez, despues de detectar el modo)
-Workspace.DescendantAdded:Connect(function(d) pcall(OnDescendant, d) end)
+-- PERF: los objetos nuevos (el mapa de Outdoors carga miles) entran a una cola y se procesan con un
+-- presupuesto de ~3ms por frame, en vez de todos de golpe dentro del evento.
+do
+    local queue, head, tail = {}, 1, 0
+    Workspace.DescendantAdded:Connect(function(d)
+        if d:IsA("ProximityPrompt") or d:IsA("Model") or d:IsA("BasePart") or d:IsA("Humanoid") or d:IsA("AnimationController") then
+            tail = tail + 1
+            queue[tail] = d
+        end
+    end)
+    RunService.Heartbeat:Connect(function()
+        if head > tail then return end
+        local t0 = os.clock()
+        while head <= tail do
+            local d = queue[head]
+            queue[head] = nil
+            head = head + 1
+            if d.Parent then pcall(OnDescendant, d) end
+            if head % 10 == 0 and os.clock() - t0 > 0.003 then break end
+        end
+        if head > tail then head, tail = 1, 0 end
+    end)
+end
 Workspace.ChildAdded:Connect(function(c) pcall(ProcessEntity, c, false) end)
 
 CurrentRooms = Workspace:FindFirstChild("CurrentRooms")
@@ -1260,19 +1360,44 @@ local function HasVisibleGeometry(inst)
     return false
 end
 
+Mode.Sort = function(a, b)
+    local pa = a.Cat == "entities" and 0 or 1
+    local pb = b.Cat == "entities" and 0 or 1
+    if pa ~= pb then return pa < pb end
+    return a.Dist < b.Dist
+end
+
 local function Refresh()
     local cam = Workspace.CurrentCamera
     if not cam then return end
+
+    -- PERF: si no hay ninguna categoria activada no se recorre nada y se liberan las instancias
+    local any = false
+    for id, c in pairs(Cfg.Categories) do
+        if c.Enabled and Active[id] then any = true break end
+    end
+    if not any then
+        for _, e in pairs(Tracked) do
+            if e.Shown or e.HL or e.Line then Mode.Free(e) end
+            e.Shown = false
+        end
+        Mode.TracerList = nil
+        return
+    end
+
     local camPos = cam.CFrame.Position
     local currentRoom = LocalPlayer:GetAttribute("CurrentRoom")
-    local list = {}
+    local list, n = {}, 0
+    local maxDist = Cfg.MaxDistance
 
     for inst, e in pairs(Tracked) do
-        if not e.Part.Parent then
+        local part = e.Part
+        if not part.Parent then
             RemoveEntry(inst)
         else
-            local ok = Active[e.Cat] and Cfg.Categories[e.Cat].Enabled and FilterPasses(e)
-            if ok and (e.Cat == "doors" or e.Cat == "dupe") and e.RoomNum and currentRoom and e.RoomNum < currentRoom then
+            local cat = e.Cat
+            local ok = Active[cat] and Cfg.Categories[cat].Enabled and FilterPasses(e)
+            if ok and (cat == "doors" or cat == "dupe") and e.RoomNum and currentRoom and e.RoomNum < currentRoom then
                 ok = false -- puertas de cuartos ya superados
             end
             if ok and e.Prompt and Cfg.HideLooted then
@@ -1280,81 +1405,139 @@ local function Refresh()
                 if not pr.Parent or pr.Enabled == false then ok = false end -- ya abierto/saqueado
             end
             if ok then
-                e.Dist = (e.Part.Position - camPos).Magnitude
-                ok = e.Cat == "entities" or e.Dist <= Cfg.MaxDistance
+                local d = (part.Position - camPos).Magnitude
+                e.Dist = d
+                ok = cat == "entities" or d <= maxDist
             end
-            e.Shown = ok
-            if ok then list[#list + 1] = e else HideEntry(e) end
+            if ok then
+                n = n + 1
+                list[n] = e
+            else
+                HideEntry(e)
+            end
         end
     end
 
-    -- Entidades primero (prioridad para el limite de Highlights), luego por distancia
-    table.sort(list, function(a, b)
-        local pa = a.Cat == "entities" and 0 or 1
-        local pb = b.Cat == "entities" and 0 or 1
-        if pa ~= pb then return pa < pb end
-        return a.Dist < b.Dist
-    end)
-    local now = os.clock()
+    -- Orden (entidades primero, luego por distancia) solo si hace falta: limite de Highlights o de objetos
+    local cap = Cfg.MaxObjects or 120
+    if n > MAX_HIGHLIGHTS or n > cap then
+        table.sort(list, Mode.Sort)
+        for i = cap + 1, n do
+            HideEntry(list[i])
+            list[i] = nil
+        end
+        if n > cap then n = cap end
+    end
 
+    local now = os.clock()
     local meters = Cfg.Unit == "Meters"
     local fontEnum = FONT_MAP[Cfg.Font] or Enum.Font.Oswald
-    local bbHeight = math.ceil(Cfg.TextSize * 2.5) + 6
-    for i, e in ipairs(list) do
-        local color = Cfg.Categories[e.Cat].Color
+    local textSize = Cfg.TextSize
+    local bbHeight = math.ceil(textSize * 2.5) + 6
+    local fillT, outT = Cfg.FillTransparency, Cfg.OutlineTransparency
+    local showName, showDist = Cfg.ShowName, Cfg.ShowDistance
+    local tracers, tn = {}, 0
 
-        if e.Cat == "doors" then
+    for i = 1, n do
+        local e = list[i]
+        local cat = e.Cat
+        local cc = Cfg.Categories[cat]
+        local color = cc.Color
+        e.Shown = true
+        e.HidSince = nil
+        if not e.HL then Mode.Build(e) end
+
+        if cat == "doors" then
             e.Base = e.Base or e.Label
             e.Label = e.Base .. (e.Inst:FindFirstChild("Lock") and " [Locked]" or "")
-        elseif e.Cat == "players" then
+        elseif cat == "players" then
             local plr = Players:GetPlayerFromCharacter(e.Inst)
             if plr then e.Label = (Cfg.PlayerNames == "Username") and plr.Name or plr.DisplayName end
         end
 
-        if now - e.GeoT > 2 then
+        -- PERF: revisar la geometria visible (GetDescendants) solo cada 6s
+        if now - e.GeoT > 6 then
             e.GeoT = now
             e.NoGeo = not HasVisibleGeometry(e.Inst)
         end
         local useBox = e.NoGeo or i > MAX_HIGHLIGHTS
 
-        local hl = e.HL
-        hl.FillColor = color
-        hl.OutlineColor = color
-        hl.FillTransparency = Cfg.FillTransparency
-        hl.OutlineTransparency = Cfg.OutlineTransparency
-        hl.Enabled = not useBox
+        local hl, box, bb, tl = e.HL, e.Box, e.BB, e.TL
 
-        local box = e.Box
+        -- PERF: solo se escriben propiedades cuando cambian
+        if e.Col ~= color or e.Fill ~= fillT or e.Out ~= outT then
+            e.Col, e.Fill, e.Out = color, fillT, outT
+            hl.FillColor = color
+            hl.OutlineColor = color
+            hl.FillTransparency = fillT
+            hl.OutlineTransparency = outT
+            box.Color3 = color
+            box.Transparency = math.max(0.55, fillT)
+            tl.TextColor3 = color
+            if e.Line then e.Line.BackgroundColor3 = color end
+        end
+
+        hl.Enabled = not useBox
         box.Visible = useBox
         if useBox then
-            box.Color3 = color
-            box.Transparency = math.max(0.55, Cfg.FillTransparency)
-            if e.Inst:IsA("Model") then
-                local okb, cf, size = pcall(e.Inst.GetBoundingBox, e.Inst)
-                if okb then
-                    box.CFrame = e.Part.CFrame:ToObjectSpace(cf)
-                    box.Size = size
+            -- las cajas de entidades/jugadores se actualizan siempre; el resto cada 1.5s
+            if cat == "entities" or cat == "players" or cat == "dupe" or now - (e.BoxT or 0) > 1.5 then
+                e.BoxT = now
+                if e.Inst:IsA("Model") then
+                    local okb, cf, size = pcall(e.Inst.GetBoundingBox, e.Inst)
+                    if okb then
+                        box.CFrame = e.Part.CFrame:ToObjectSpace(cf)
+                        box.Size = size
+                    end
+                else
+                    box.CFrame = CFrame.new()
+                    box.Size = e.Part.Size
                 end
-            else
-                box.CFrame = CFrame.new()
-                box.Size = e.Part.Size
             end
         end
 
-        local parts = {}
-        if Cfg.ShowName then parts[#parts + 1] = e.Label end
-        if Cfg.ShowDistance then
+        local dtxt
+        if showDist then
             local d = meters and (e.Dist * 0.28) or e.Dist
-            parts[#parts + 1] = string.format(meters and "[%dm]" or "[%d]", math.floor(d + 0.5))
+            dtxt = string.format(meters and "[%dm]" or "[%d]", math.floor(d + 0.5))
         end
-        e.TL.Text = table.concat(parts, "\n")
-        e.TL.TextColor3 = color
-        e.TL.TextSize = Cfg.TextSize
-        e.TL.Font = fontEnum
-        e.BB.Size = UDim2.fromOffset(300, bbHeight)
-        e.BB.Enabled = #parts > 0
-        e.Line.BackgroundColor3 = color
+        local text
+        if showName then
+            text = showDist and (e.Label .. "\n" .. dtxt) or e.Label
+        else
+            text = dtxt or ""
+        end
+        if e.Text ~= text then
+            e.Text = text
+            tl.Text = text
+        end
+        if e.TS ~= textSize or e.TF ~= fontEnum then
+            e.TS, e.TF = textSize, fontEnum
+            tl.TextSize = textSize
+            tl.Font = fontEnum
+            bb.Size = UDim2.fromOffset(300, bbHeight)
+        end
+        bb.Enabled = text ~= ""
+
+        -- Tracers: la linea solo se crea si la categoria tiene tracer y se dibuja desde RenderStepped
+        if cc.Tracer then
+            if not e.Line then
+                local line = Instance.new("Frame")
+                line.BorderSizePixel = 0
+                line.AnchorPoint = Vector2.new(0.5, 0.5)
+                line.Visible = false
+                line.BackgroundColor3 = color
+                line.Parent = Gui
+                e.Line = line
+            end
+            tn = tn + 1
+            tracers[tn] = e
+        elseif e.Line and e.Line.Visible then
+            e.Line.Visible = false
+        end
     end
+
+    Mode.TracerList = tracers
 end
 
 task.spawn(function()
@@ -1372,7 +1555,10 @@ task.spawn(function()
     end
 end)
 
+-- PERF: solo se recorren los objetos con tracer activo (antes se recorrian TODOS cada frame)
 RunService.RenderStepped:Connect(function()
+    local tracers = Mode.TracerList
+    if not tracers or #tracers == 0 then return end
     local cam = Workspace.CurrentCamera
     if not cam then return end
 
@@ -1388,23 +1574,25 @@ RunService.RenderStepped:Connect(function()
         origin = Vector2.new(vp.X / 2, vp.Y)
     end
 
-    for _, e in pairs(Tracked) do
+    for i = 1, #tracers do
+        local e = tracers[i]
         local line = e.Line
-        local catCfg = Cfg.Categories[e.Cat]
-        if catCfg and catCfg.Tracer and e.Shown then
-            local v = cam:WorldToViewportPoint(e.Part.Position)
-            if v.Z > 0 then
-                local target = Vector2.new(v.X, v.Y)
-                local diff = target - origin
-                line.Size = UDim2.fromOffset(diff.Magnitude, Cfg.TracerThickness)
-                line.Position = UDim2.fromOffset((origin.X + target.X) / 2, (origin.Y + target.Y) / 2)
-                line.Rotation = math.deg(math.atan2(diff.Y, diff.X))
-                line.Visible = true
-            else
+        if line then
+            if e.Shown and e.Part.Parent then
+                local v = cam:WorldToViewportPoint(e.Part.Position)
+                if v.Z > 0 then
+                    local target = Vector2.new(v.X, v.Y)
+                    local diff = target - origin
+                    line.Size = UDim2.fromOffset(diff.Magnitude, Cfg.TracerThickness)
+                    line.Position = UDim2.fromOffset((origin.X + target.X) / 2, (origin.Y + target.Y) / 2)
+                    line.Rotation = math.deg(math.atan2(diff.Y, diff.X))
+                    line.Visible = true
+                else
+                    line.Visible = false
+                end
+            elseif line.Visible then
                 line.Visible = false
             end
-        elseif line.Visible then
-            line.Visible = false
         end
     end
 end)
@@ -1583,6 +1771,9 @@ VisualsTab:Section({ Title = "Display" })
 AddSlider(VisualsTab, "MaxDistance", "Max Distance",
     "Objects farther than this many studs are hidden. Entities are always shown, whatever the distance.",
     50, 2000, Cfg.MaxDistance, function(v) Cfg.MaxDistance = v end)
+AddSlider(VisualsTab, "MaxObjects", "Max ESP Objects",
+    "Most objects drawn at once (the closest ones win; entities always have priority). Lower it if the game lags, mainly in The Outdoors.",
+    20, 400, Cfg.MaxObjects, function(v) Cfg.MaxObjects = v end)
 AddToggle(VisualsTab, "HideLooted", "Hide Looted Containers",
     "Hides drawers, lockers and chests once they have been opened or emptied.",
     Cfg.HideLooted, function(v) Cfg.HideLooted = v end)
@@ -1912,6 +2103,7 @@ local Ex = {
     InstantPrompt = false,
     -- Keybinds (nombres de Enum.KeyCode)
     Key_ACM = "X", Key_Noclip = "N", Key_Fly = "G", Key_Speed = "B", Key_Slide = "Z",
+    Key_Hub = "RightShift", -- abrir / cerrar el hub
 }
 for _, n in ipairs(ENTITY_LIST) do Ex.NotifyFilter[n] = not NOT_WORTH[n] end
 Ex.NotifyFilter.Dupe = true
@@ -2638,10 +2830,33 @@ end)
 ----------------------------------------------------
 -- Teclas (PC)
 ----------------------------------------------------
+FX.HubOpen = true
+FX.ToggleHub = function()
+    local ok = false
+    if type(Window.Toggle) == "function" then
+        ok = pcall(function() Window:Toggle() end)
+    end
+    if not ok then
+        if FX.HubOpen then
+            ok = pcall(function() Window:Close() end)
+        else
+            ok = pcall(function() Window:Open() end)
+        end
+    end
+    if ok then FX.HubOpen = not FX.HubOpen end
+end
+
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
     local k = input.KeyCode.Name
-    if k == Ex.Key_ACM then Flip("ACM", "Anticheat Manipulator")
+    if k == Ex.Key_Hub then
+        -- pequeno retraso: si la tecla se estaba reasignando en la pestana Keybinds, no se abre/cierra
+        local pressed = os.clock()
+        task.delay(0.08, function()
+            if (FX.LastKeySet or 0) >= pressed - 0.05 then return end
+            FX.ToggleHub()
+        end)
+    elseif k == Ex.Key_ACM then Flip("ACM", "Anticheat Manipulator")
     elseif k == Ex.Key_Noclip then Flip("Noclip", "Noclip")
     elseif k == Ex.Key_Fly then Flip("Fly", "Fly")
     elseif k == Ex.Key_Speed then Flip("Speed", "Speed")
@@ -2710,13 +2925,14 @@ end
 ----------------------------------------------------
 -- UI helpers extra
 ----------------------------------------------------
-local KEY_CHOICES = { "X", "N", "G", "B", "Z", "V", "H", "J", "K", "L", "R", "T", "Y", "U", "M", "C", "F", "Q" }
+local KEY_CHOICES = { "RightShift", "RightControl", "Insert", "Home", "X", "N", "G", "B", "Z", "V", "H", "J", "K", "L", "R", "T", "Y", "U", "M", "C", "F", "Q" }
 
 local function AddKeybind(tab, id, title, desc, default)
     local function set(v)
         local name = typeof(v) == "EnumItem" and v.Name or tostring(v)
         local ok = pcall(function() return Enum.KeyCode[name] end)
         if ok then Ex[id] = name end
+        FX.LastKeySet = os.clock() -- para no abrir/cerrar el hub al reasignar una tecla
     end
     local el
     local ok = pcall(function()
@@ -2905,6 +3121,8 @@ AddToggle(AntiCheatTab, "BtnSlide", "SLIDE Button", "Show the SLIDE floating but
 ----------------------------------------------------
 -- KEYBINDS TAB
 ----------------------------------------------------
+KeybindsTab:Section({ Title = "Hub" })
+AddKeybind(KeybindsTab, "Key_Hub", "Open / Close Hub", "Shows or hides this menu with one key (default: Right Shift).", Ex.Key_Hub)
 KeybindsTab:Section({ Title = "Movement & Anticheat Manipulator" })
 AddKeybind(KeybindsTab, "Key_ACM", "Anticheat Manipulator", "Turns the Anticheat Manipulator on or off.", Ex.Key_ACM)
 AddKeybind(KeybindsTab, "Key_Noclip", "Noclip", "Turns Noclip on or off.", Ex.Key_Noclip)
@@ -2961,7 +3179,7 @@ local EXTRA_KEYS = {
     "NotifySoundId", "NotifyIconId",
     "Speed", "SpeedValue", "SpeedMethod", "SpeedAuto", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "BtnSlide", "InstantPrompt",
-    "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide",
+    "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
 }
 
 ExtraSerialize = function()
@@ -2993,7 +3211,7 @@ end
 -- Guardar / cargar config de Visuals
 ----------------------------------------------------
 local SCALAR_KEYS = {
-    "MaxDistance", "TextSize", "Font", "ShowName", "ShowDistance", "Unit",
+    "MaxDistance", "MaxObjects", "TextSize", "Font", "ShowName", "ShowDistance", "Unit",
     "TracerOrigin", "TracerThickness", "PlayerNames", "UnlistedItems", "UnlistedEntities", "RoomEntities", "HideLooted", "AutoPreset",
 }
 
