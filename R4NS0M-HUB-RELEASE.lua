@@ -289,32 +289,35 @@ local STARDUST_NAMES = { Stardust = "Stardust" }
 -- Entidades: { nombre, modos donde aparece ("*" = todos), tokens de nombre interno (normalizados) }
 -- Fuentes: DOORS Wiki (Entities, The Great Outdoors Update, The Archives Update, The Stairwell)
 local ENTITY_DEFS = {
+    -- All Floors
     { "Rush", "*", { "rushmoving", "rush" } },
     { "Ambush", "*", { "ambushmoving", "ambush" } },
-    { "Seek", "Hotel Mines", { "seekmoving", "seekrig", "seek" } },
-    { "Figure", "Hotel", { "figureragdoll", "figurerig", "figure" } },
     { "Eyes", "*", { "eyes" } },
     { "Halt", "*", { "halt" } },
-    { "Timothy", "Hotel", { "timothy" } },
-    { "Jeff", "*", { "jeffthekiller", "jeff" } },
-    { "Void", "Hotel", { "void" } },
+    { "Jeff", "*", { "jeff" } },
+    { "Jeff the Killer", "*", { "jeffthekiller" } },
     { "Snare", "*", { "snare" } },
-    { "Bob", "Hotel", { "bob" } },
-    { "El Goblino", "Hotel", { "elgoblino", "goblino" } },
     { "Glitch", "*", {} },
     { "Glitched Rush", "*", {} },
     { "Glitched Ambush", "*", {} },
-    { "Blitz", "Backdoor", { "backdoorrush", "blitz" } },
-    { "Lookman", "Backdoor", { "backdoorlookman", "lookman" } },
-    { "Haste", "Backdoor", { "haste" } },
-    { "Dread", "Backdoor", { "dread" } },
-    { "Giggle", "Mines", { "giggle" } },
-    { "Gloombat", "Mines", { "gloombat" } },
-    { "Firedamp", "Mines", { "firedamp" } },
-    -- The Backdoor
+    -- Main Floors
+    { "Seek", "Hotel Mines", { "seekmoving", "seekrig", "seek" } },
+    { "Figure", "Hotel Mines", { "figureragdoll", "figurerig", "figure" } },
+    { "Timothy", "Hotel Mines", { "timothy" } },
+    { "Void", "Hotel Mines", { "void" } },
+    { "Bob", "Hotel Mines", { "bob" } },
+    { "El Goblino", "Hotel Mines", { "elgoblino", "goblino" } },
+    { "Dread", "Hotel Mines", { "dread" } },
     -- The Mines
     { "Grumble", "Mines", { "grumble" } },
     { "Queen Grumble", "Mines", { "queengrumble" } },
+    { "Giggle", "Hotel Mines", { "giggle" } },
+    { "Gloombat", "Hotel Mines", { "gloombat" } },
+    { "Firedamp", "Hotel Mines", { "firedamp" } },
+    -- The Backdoor
+    { "Blitz", "Hotel Mines Backdoor", { "backdoorrush", "blitz" } },
+    { "Lookman", "Hotel Mines Backdoor", { "backdoorlookman", "lookman" } },
+    { "Haste", "Hotel Backdoor", { "haste" } },
     -- The Outdoors
     { "Groundskeeper", "Outdoors", { "groundskeeper", "thegroundskeeper" } },
     { "Caw", "Outdoors", { "caw" } },
@@ -337,9 +340,9 @@ local ENTITY_DEFS = {
     { "Discoloration", "Archives", { "discoloration" } },
     { "Currents", "Archives", { "currents" } },
     -- The Stairwell
-    { "Creak", "Archives Stairwell", { "creak" } },
-    { "Noise", "Archives Stairwell", { "noise" } },
-    { "Stem", "Archives Stairwell", { "stem" } },
+    { "Creak", "Stairwell", { "creak" } },
+    { "Noise", "Stairwell", { "noise" } },
+    { "Stem", "Stairwell", { "stem" } },
     { "Meld", "Stairwell", { "meld" } },
     { "Cobbler", "Stairwell", { "cobbler" } },
     { "Hijack", "Stairwell", { "hijack" } },
