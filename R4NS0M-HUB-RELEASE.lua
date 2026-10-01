@@ -1906,7 +1906,7 @@ local Ex = {
     Fly = false, FlySpeed = 40,
     Noclip = false, Fullbright = false,
     -- Anticheat Manipulator
-    ACM = false, ACMMode = "Phase Walk", PhaseSpeed = 18, PhaseMax = 14, VoidGuard = true,
+    ACM = false, ACMMode = "Phase Walk", PhaseSpeed = 2, PhaseMax = 48, VoidGuard = true,
     FloatButtons = UserInputService.TouchEnabled, BtnACM = true, BtnFly = true, BtnSlide = true,
     -- Automation
     InstantPrompt = false,
@@ -2878,7 +2878,7 @@ AddToggle(AntiCheatTab, "ACM", "Anticheat Manipulator", "Main switch. PC: keybin
 AddDropdown(AntiCheatTab, "ACMMode", "Mode",
     "Phase Walk: automatic forward glide through obstacles (recommended). Noclip: collisions are always off.",
     { "Phase Walk", "Noclip" }, Ex.ACMMode, function(v) Ex.ACMMode = v end)
-AddSlider(AntiCheatTab, "PhaseSpeed", "Phase Speed", "Glide speed while crossing an obstacle. Higher means less time inside the wall; lower is gentler.", 1, 16, Ex.PhaseSpeed, function(v) Ex.PhaseSpeed = v end)
+AddSlider(AntiCheatTab, "PhaseSpeed", "Phase Speed", "Glide speed while crossing an obstacle. Higher means less time inside the wall; lower is gentler.", 1, 4, Ex.PhaseSpeed, function(v) Ex.PhaseSpeed = v end)
 AddSlider(AntiCheatTab, "PhaseMax", "Max Wall Thickness", "Longest obstacle (in studs) it will cross in one glide.", 8, 48, Ex.PhaseMax, function(v) Ex.PhaseMax = v end)
 AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot.", Ex.VoidGuard, function(v) Ex.VoidGuard = v end)
 
