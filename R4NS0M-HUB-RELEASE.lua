@@ -537,10 +537,10 @@ local MODE_CATS = {
     Hotel     = { "doors", "dupe", "gold", "keys", "wardrobes", "chests", "objectives", "stardust", "entities", "items", "drawers", "glitch" },
     Mines     = { "doors", "gold", "keys", "wardrobes", "chests", "objectives", "stardust", "entities", "items", "drawers", "lockers", "glitch" },
     Backdoor  = { "doors", "objectives", "stardust", "entities", "items", "drawers", "glitch" },
-    Outdoors  = { "doors", "gold", "keys", "stardust", "entities", "items", "lotus", "stardust", "interactables" },
-    Archives  = { "doors", "stardust", "entities", "items", "drawers", "interactables" },
-    Stairwell = { "doors", "stardust", "entities", "items", "interactables" },
-    Rooms     = { "doors", "stardust", "entities", "items", "wardrobes", "lockers" },
+    Outdoors  = { "doors", "gold", "keys", "stardust", "entities", "items", "glitch", "lotus", "stardust", "interactables" },
+    Archives  = { "doors", "stardust", "entities", "items", "drawers", "interactables", "glitch" },
+    Stairwell = { "doors", "stardust", "entities", "items", "interactables", "glitch" },
+    Rooms     = { "doors", "stardust", "entities", "items", "wardrobes", "lockers", "glitch" },
     -- Modo no detectado: solo lo basico y seguro (sin Dupe ni extras)
     Unknown   = { "doors", "gold", "keys", "wardrobes", "chests", "objectives", "entities", "items", "drawers", "lockers" },
 }
