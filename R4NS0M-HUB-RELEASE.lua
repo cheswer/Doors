@@ -2196,7 +2196,7 @@ local ENTITY_TIPS = {
 
 local Ex = {
     -- Notifier
-    Notify = false, NotifyStyle = "Doors Achievement", NotifySound = true, NotifyVolume = 100,
+    Notify = true, NotifyStyle = "Doors Achievement", NotifySound = true, NotifyVolume = 100,
     NotifyDuration = 5, NotifyCooldown = 4, NotifyTips = true, NotifySoundId = "", NotifyIconId = "",
     NotifyFilter = {},
     -- Movement
@@ -2266,6 +2266,9 @@ local function NativeToast(title, desc, reason)
     local holder = main and main:FindFirstChild("AchievementsHolder")
     local template = holder and holder:FindFirstChild("Achievement")
     if not template then return false end
+    -- si la interfaz de logros del juego esta oculta/desactivada, el aviso no se veria: se usa el propio
+    local okv, vis = pcall(function() return main.Enabled ~= false and holder.Visible ~= false end)
+    if okv and not vis then return false end
 
     local a = template:Clone()
     local frame = a:FindFirstChild("Frame")
@@ -2452,6 +2455,14 @@ OnEntitySeen = function(label, inst)
     ShowEntityToast(label)
 end
 
+-- Detector independiente del ESP: avisa aunque el ESP este apagado o el modelo aun no tenga partes.
+-- (Mandrake se omite: lo gestiona el ESP, que solo lo marca cuando se mueve y te ataca.)
+Workspace.ChildAdded:Connect(function(m)
+    if not m:IsA("Model") or Players:GetPlayerFromCharacter(m) then return end
+    local ok, label = pcall(EntityLabel, m.Name, false)
+    if ok and label and label ~= "Mandrake" then pcall(OnEntitySeen, label, m) end
+end)
+
 ----------------------------------------------------
 -- Estado del personaje
 ----------------------------------------------------
@@ -2525,6 +2536,70 @@ pcall(function()
         return old(self, ...)
     end))
 end)
+
+-- ANTI CHEAT BYPASS (beta): bloquea al instante cualquier teletransporte/rubber-band del servidor.
+-- Se revisa en CADA evento posible: cambio de CFrame del HumanoidRootPart, Stepped, Heartbeat y RenderStepped.
+-- La posicion "ancla" (ultima valida) NO avanza cuando se bloquea un tp, asi no te manda mas atras.
+function FX.BypassCheck()
+    if not Ex.ACBypass then St.BAcc = nil; return end
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then St.BAcc = nil; return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local now = os.clock()
+    local cf = root.CFrame
+    local acc = St.BAcc
+
+    if not acc or acc.root ~= root or now < (St.BSkip or 0) or (hum and hum.Health <= 0) then
+        St.BAcc = { cf = cf, t = now, root = root, vel = root.AssemblyLinearVelocity }
+        return
+    end
+
+    local d = cf.Position - acc.cf.Position
+    local flat = Vector3.new(d.X, 0, d.Z).Magnitude
+    local dt = math.max(now - acc.t, 1 / 120)
+    local top = math.max(hum and hum.WalkSpeed or 16, 16)
+    if Ex.Speed then top = math.max(top, Ex.SpeedValue) end
+    if Ex.SpeedHack then top = math.max(top, Ex.SpeedHackValue) end
+    if Ex.Fly then top = math.max(top, Ex.FlySpeed) end
+    if Ex.Slide then top = math.max(top, Ex.SlideSpeed) end
+    local limit = top * dt * 1.6 + 4
+    local vlimit = 130 * dt + 4
+
+    if flat > limit or math.abs(d.Y) > vlimit then
+        -- tp del servidor: se devuelve el personaje a la ultima posicion valida y el ancla no se mueve
+        root.CFrame = acc.cf
+        root.AssemblyLinearVelocity = acc.vel or Vector3.zero
+        acc.t = now
+        if Cfg.Debug and now - (St.BDbg or 0) > 0.1 then
+            St.BDbg = now
+            print(string.format("[R4NS0M] AC bypass: blocked teleport of %.1f studs", d.Magnitude))
+        end
+    else
+        St.BAcc = { cf = cf, t = now, root = root, vel = root.AssemblyLinearVelocity }
+    end
+end
+
+RunService.Stepped:Connect(function() FX.BypassCheck() end)
+RunService.RenderStepped:Connect(function() FX.BypassCheck() end)
+
+do
+    local conn
+    local function hookRoot(root)
+        if conn then conn:Disconnect(); conn = nil end
+        if root then
+            conn = root:GetPropertyChangedSignal("CFrame"):Connect(function() FX.BypassCheck() end)
+        end
+    end
+    local function onChar(char)
+        St.BSkip, St.BAcc = os.clock() + 1.5, nil
+        task.spawn(function()
+            hookRoot(char:WaitForChild("HumanoidRootPart", 10))
+        end)
+    end
+    if LocalPlayer.Character then onChar(LocalPlayer.Character) end
+    LocalPlayer.CharacterAdded:Connect(onChar)
+end
 
 -- Activa/restaura los atributos propios del juego ("CanJump", "CanSlide"...) para que el salto y el slide
 -- nativos de DOORS funcionen. Busca cualquier atributo booleano del personaje/jugador con ese nombre.
@@ -2811,6 +2886,7 @@ end)
 
 RunService.Heartbeat:Connect(function(dt)
     local now = os.clock()
+    FX.BypassCheck()
 
     -- Fullbright (el juego cambia la iluminacion por cuarto, asi que se reaplica)
     if Ex.Fullbright and now - St.LastLight > 0.2 then
@@ -2841,40 +2917,9 @@ RunService.Heartbeat:Connect(function(dt)
     if hum.FloorMaterial ~= Enum.Material.Air then St.LastSafe = root.CFrame end
     if Ex.VoidGuard and St.LastSafe and (Ex.Noclip or Ex.ACM or Ex.Fly)
         and root.Position.Y < St.LastSafe.Position.Y - 60 then
+        St.BSkip, St.BAcc = os.clock() + 0.3, nil
         root.CFrame = St.LastSafe + Vector3.new(0, 3, 0)
         root.AssemblyLinearVelocity = Vector3.zero
-        St.BypassLast = nil
-    end
-
-    -- ANTI CHEAT BYPASS (beta): bloquea teletransportes del servidor hacia atras
-    do
-        local pos = root.Position
-        local last = St.BypassLast
-        if Ex.ACBypass and last and not St.Glide and now >= (St.BypassPause or 0) then
-            local delta = pos - last
-            local flat = Vector3.new(delta.X, 0, delta.Z)
-            local intent = Slide.dir or hum.MoveDirection
-            intent = Vector3.new(intent.X, 0, intent.Z)
-            local top = math.max(St.Cur, Ex.FlySpeed, Ex.SlideSpeed, Ex.SpeedHackValue, hum.WalkSpeed, 16)
-            local limit = math.max(5, top * dt * 2.5 + 4)
-            -- salto grande + en sentido contrario a hacia donde caminas = rubber-band del servidor
-            if flat.Magnitude > limit and intent.Magnitude > 0.05 and flat.Unit:Dot(intent.Unit) < -0.2 then
-                St.BypassHits = (now - (St.BypassT or 0) < 2) and ((St.BypassHits or 0) + 1) or 1
-                St.BypassT = now
-                if St.BypassHits > 6 then
-                    St.BypassPause = now + 3 -- teletransporte forzado real (muerte, cambio de zona): no pelear
-                    St.BypassHits = 0
-                else
-                    root.CFrame = CFrame.new(last) * (root.CFrame - root.CFrame.Position)
-                    pos = last
-                    if now - St.LastNote > 4 then
-                        St.LastNote = now
-                        NotifyUI("Anti cheat bypass", "Blocked a server teleport.")
-                    end
-                end
-            end
-        end
-        St.BypassLast = pos
     end
 
     -- Speed
