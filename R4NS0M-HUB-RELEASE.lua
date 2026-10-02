@@ -2550,30 +2550,57 @@ function FX.BypassCheck()
     local cf = root.CFrame
     local acc = St.BAcc
 
+    -- Anti-congelamiento: si tras un tp bloqueado el servidor te deja anclado / en PlatformStand, se libera
+    if (Ex.Speed or Ex.SpeedHack or Ex.Fly) and now - (St.BLastBlock or -99) < 3 and not char:GetAttribute("Hiding") then
+        if root.Anchored or (hum and hum.PlatformStand) then
+            St.BFrozen = St.BFrozen or now
+            if now - St.BFrozen > 0.3 then
+                root.Anchored = false
+                if hum then hum.PlatformStand = false end
+            end
+        else
+            St.BFrozen = nil
+        end
+    else
+        St.BFrozen = nil
+    end
+
     if not acc or acc.root ~= root or now < (St.BSkip or 0) or (hum and hum.Health <= 0) then
         St.BAcc = { cf = cf, t = now, root = root, vel = root.AssemblyLinearVelocity }
         return
     end
 
-    local d = cf.Position - acc.cf.Position
-    local flat = Vector3.new(d.X, 0, d.Z).Magnitude
-    local dt = math.max(now - acc.t, 1 / 120)
+    -- Posicion que deberias tener segun tu propio movimiento. Lo que se desvie de eso = empujon del servidor.
+    local dt = math.min(math.max(now - acc.t, 1 / 240), 0.25)
+    local vel = acc.vel or Vector3.zero
+    local predicted = acc.cf.Position + vel * dt
+    local dev = cf.Position - predicted
+    local flatDev = Vector3.new(dev.X, 0, dev.Z).Magnitude
     local top = math.max(hum and hum.WalkSpeed or 16, 16)
     if Ex.Speed then top = math.max(top, Ex.SpeedValue) end
     if Ex.SpeedHack then top = math.max(top, Ex.SpeedHackValue) end
     if Ex.Fly then top = math.max(top, Ex.FlySpeed) end
     if Ex.Slide then top = math.max(top, Ex.SlideSpeed) end
-    local limit = top * dt * 1.6 + 4
-    local vlimit = 130 * dt + 4
 
-    if flat > limit or math.abs(d.Y) > vlimit then
-        -- tp del servidor: se devuelve el personaje a la ultima posicion valida y el ancla no se mueve
-        root.CFrame = acc.cf
-        root.AssemblyLinearVelocity = acc.vel or Vector3.zero
-        acc.t = now
+    if flatDev > 3 + 1.3 * top * dt or math.abs(dev.Y) > 5 + 60 * dt then
+        -- Empujon/tp del servidor: se ANULA solo el desvio y sigues avanzando (la referencia avanza contigo,
+        -- ya no se queda anclada en un punto viejo, que era lo que te congelaba).
+        local newCF = CFrame.new(predicted) * acc.cf.Rotation
+        St.BAcc = { cf = newCF, t = now, root = root, vel = vel }
+        St.BLastBlock = now
+        root.CFrame = newCF
+        root.AssemblyLinearVelocity = vel
+
+        St.BN = (St.BN or 0) + 1
+        local log = St.BLog or {}
+        St.BLog = log
+        log[#log + 1] = string.format("#%d t=%.2f push=%.1f dev=%.1f dt=%.3f anch=%s plat=%s ws=%.1f speed=%s hack=%s(%s)",
+            St.BN, now, dev.Magnitude, flatDev, dt, tostring(root.Anchored), tostring(hum and hum.PlatformStand),
+            hum and hum.WalkSpeed or -1, tostring(Ex.Speed), tostring(Ex.SpeedHack), tostring(Ex.SpeedHackValue))
+        if #log > 60 then table.remove(log, 1) end
         if Cfg.Debug and now - (St.BDbg or 0) > 0.1 then
             St.BDbg = now
-            print(string.format("[R4NS0M] AC bypass: blocked teleport of %.1f studs", d.Magnitude))
+            print("[R4NS0M] AC bypass: " .. log[#log])
         end
     else
         St.BAcc = { cf = cf, t = now, root = root, vel = root.AssemblyLinearVelocity }
@@ -3281,6 +3308,20 @@ AntiCheatTab:Section({ Title = "Bypass" })
 AddToggle(AntiCheatTab, "ACBypass", "Anti cheat bypass (beta)",
     "Blocks server teleports that pull you backwards and blocks kicks. On by default every time you run the script.",
     Ex.ACBypass, function(v) Ex.ACBypass = v end)
+AntiCheatTab:Button({
+    Title = "Copy Bypass Log",
+    Desc = "Copies the last blocked teleports (distance, state, speed settings). Send it if the bypass still fails.",
+    Callback = function()
+        local text = "Blocked: " .. tostring(St.BN or 0) .. "\n" .. table.concat(St.BLog or {}, "\n")
+        if setclipboard then
+            setclipboard(text)
+            NotifyUI("Bypass", "Log copied.")
+        else
+            print(text)
+            NotifyUI("Bypass", "setclipboard not available; printed in console.")
+        end
+    end
+})
 
 AntiCheatTab:Section({ Title = "Mobile Buttons" })
 AddToggle(AntiCheatTab, "FloatButtons", "Floating Buttons", "Small draggable buttons for ACM, SLIDE and FLY. On by default on touch devices.", Ex.FloatButtons, function(v)
