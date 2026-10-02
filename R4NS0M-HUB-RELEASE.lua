@@ -407,7 +407,7 @@ local function EntityLabel(name, strict, allowSkip)
     if not strict and n:sub(1, 6) == "glitch" and not n:find("fragment", 1, true) then
         if n:find("ambush", 1, true) then return "Glitched Ambush" end
         if n:find("rush", 1, true) then return "Glitched Rush" end
-        return "Glitch"
+        return nil -- el "Glitch" generico (efectos del Glitch Fragment) aparecia sin parar: ya no se marca
     end
     for _, t in ipairs(ENTITY_TOKENS) do
         local tok = t[1]
@@ -2201,7 +2201,7 @@ local Ex = {
     NotifyFilter = {},
     -- Movement
     Speed = false, SpeedValue = 30, SpeedMethod = "Velocity",
-    SpeedHack = false, SpeedHackValue = 30, ACBypass = true,
+    SpeedHack = false, SpeedHackValue = 30, ACBypass = true, ACBMode = "Smart",
     Jump = false, JumpPower = 50, InfJump = false,
     Slide = false, SlideSpeed = 55,
     Fly = false, FlySpeed = 40,
@@ -2224,7 +2224,7 @@ local St = {
     Seen = setmetatable({}, { __mode = "k" }), Last = {},
     ReadyAt = os.clock() + 5, -- ignora lo que ya existia al cargar el script
     PhaseUntil = 0, LastLight = 0,
-    Cur = 0, SpeedCap = 0, GlideScale = 1, Penalty = 0, LastSnap = 0, LastNote = 0, Snaps = 0,
+    Scale = 1, Cur = 0, SpeedCap = 0, GlideScale = 1, Penalty = 0, LastSnap = 0, LastNote = 0, Snaps = 0,
     BoostT = 0, BoostKind = "", LastAttr = 0, LastPrompt = 0, GlideCd = 0,
     PromptOrig = setmetatable({}, { __mode = "k" }),
     BadgeSound = "rbxassetid://10469938989", -- sonido de badge/logro de DOORS
@@ -2450,7 +2450,9 @@ OnEntitySeen = function(label, inst)
     St.Seen[inst] = true
     if not Ex.NotifyFilter[label] then return end
     local now = os.clock()
-    if St.Last[label] and now - St.Last[label] < Ex.NotifyCooldown then return end
+    local cd = Ex.NotifyCooldown
+    if label:find("Glitch", 1, true) then cd = math.max(cd, 20) end
+    if St.Last[label] and now - St.Last[label] < cd then return end
     St.Last[label] = now
     ShowEntityToast(label)
 end
@@ -2540,6 +2542,12 @@ end)
 -- ANTI CHEAT BYPASS (beta): bloquea al instante cualquier teletransporte/rubber-band del servidor.
 -- Se revisa en CADA evento posible: cambio de CFrame del HumanoidRootPart, Stepped, Heartbeat y RenderStepped.
 -- La posicion "ancla" (ultima valida) NO avanza cuando se bloquea un tp, asi no te manda mas atras.
+-- Velocidad efectiva: en modo Smart se reduce sola lo justo para que el servidor deje de devolverte
+function FX.Eff(v)
+    if not Ex.ACBypass or Ex.ACBMode == "Block all" or v <= 16 then return v end
+    return 16 + (v - 16) * St.Scale
+end
+
 function FX.BypassCheck()
     if not Ex.ACBypass then St.BAcc = nil; return end
     local char = LocalPlayer.Character
@@ -2549,6 +2557,12 @@ function FX.BypassCheck()
     local now = os.clock()
     local cf = root.CFrame
     local acc = St.BAcc
+
+    -- Smart: si lleva 20s sin tirones, sube un poco la velocidad segura (busca el maximo que tolera el servidor)
+    if St.Scale < 1 and now - (St.SnapT or -99) > 20 and now - (St.ScaleUp or 0) > 20 then
+        St.ScaleUp = now
+        St.Scale = math.min(1, St.Scale + 0.03)
+    end
 
     -- Anti-congelamiento: si tras un tp bloqueado el servidor te deja anclado / en PlatformStand, se libera
     if (Ex.Speed or Ex.SpeedHack or Ex.Fly) and now - (St.BLastBlock or -99) < 3 and not char:GetAttribute("Hiding") then
@@ -2583,6 +2597,26 @@ function FX.BypassCheck()
     if Ex.Slide then top = math.max(top, Ex.SlideSpeed) end
 
     if flatDev > 3 + 1.3 * top * dt or math.abs(dev.Y) > 5 + 60 * dt then
+        if Ex.ACBMode ~= "Block all" then
+            -- SMART: se ACEPTA la posicion del servidor (asi tu posicion real y la del servidor coinciden y
+            -- las interacciones funcionan) y se baja la velocidad para que no te vuelva a devolver.
+            St.BAcc = { cf = cf, t = now, root = root, vel = root.AssemblyLinearVelocity }
+            St.BSkip = now + 0.4
+            St.BLastBlock = now
+            if now - (St.SnapT or -99) > 0.8 then
+                St.SnapT = now
+                St.Scale = math.max(0.05, St.Scale * 0.7)
+                St.BN = (St.BN or 0) + 1
+                local log = St.BLog or {}
+                St.BLog = log
+                log[#log + 1] = string.format("#%d t=%.2f SMART accepted push=%.1f -> safe scale=%.2f (hack %.1f / boost %.1f)",
+                    St.BN, now, dev.Magnitude, St.Scale, FX.Eff(Ex.SpeedHackValue), FX.Eff(Ex.SpeedValue))
+                if #log > 60 then table.remove(log, 1) end
+                if Cfg.Debug then print("[R4NS0M] AC bypass: " .. log[#log]) end
+            end
+            return
+        end
+
         -- Empujon/tp del servidor: se ANULA solo el desvio y sigues avanzando (la referencia avanza contigo,
         -- ya no se queda anclada en un punto viejo, que era lo que te congelaba).
         local newCF = CFrame.new(predicted) * acc.cf.Rotation
@@ -2822,7 +2856,7 @@ function FX.Speed(hum, root, dt, now)
         if St.WSTouched and Saved.WS then hum.WalkSpeed = Saved.WS; St.WSTouched = nil end
         base = hum.WalkSpeed
     end
-    local target = Ex.SpeedValue
+    local target = FX.Eff(Ex.SpeedValue)
     local md = hum.MoveDirection
     if md.Magnitude < 0.05 or target <= base then
         St.Cur = base
@@ -2956,7 +2990,8 @@ RunService.Heartbeat:Connect(function(dt)
 
     -- Speed Hack: cambia el WalkSpeed de verdad (1-100); se reaplica cada frame
     if Ex.SpeedHack and not Ex.Fly then
-        if hum.WalkSpeed ~= Ex.SpeedHackValue then hum.WalkSpeed = Ex.SpeedHackValue end
+        local want = FX.Eff(Ex.SpeedHackValue)
+        if hum.WalkSpeed ~= want then hum.WalkSpeed = want end
     end
 
     -- Jump (atributos del juego + valores del Humanoid)
@@ -3308,6 +3343,14 @@ AntiCheatTab:Section({ Title = "Bypass" })
 AddToggle(AntiCheatTab, "ACBypass", "Anti cheat bypass (beta)",
     "Blocks server teleports that pull you backwards and blocks kicks. On by default every time you run the script.",
     Ex.ACBypass, function(v) Ex.ACBypass = v end)
+AddDropdown(AntiCheatTab, "ACBMode", "Bypass Mode",
+    "Smart (recommended): accepts the server's pull-back so interactions keep working and lowers your speed just enough to stop it, then slowly tests higher again. Block all: cancels every teleport (your speed stays, but the server loses track of you, so doors, items and prompts may stop working).",
+    { "Smart", "Block all" }, Ex.ACBMode, function(v) Ex.ACBMode = v; St.Scale = 1 end)
+AntiCheatTab:Button({
+    Title = "Reset Safe Speed",
+    Desc = "Smart mode: forgets the learned safe speed and tries your full speed again.",
+    Callback = function() St.Scale = 1; NotifyUI("Bypass", "Safe speed reset.") end
+})
 AntiCheatTab:Button({
     Title = "Copy Bypass Log",
     Desc = "Copies the last blocked teleports (distance, state, speed settings). Send it if the bypass still fails.",
@@ -3390,7 +3433,7 @@ FX.UpdateButtons()
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "ACBMode", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
 }
