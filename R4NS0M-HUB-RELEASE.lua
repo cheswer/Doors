@@ -197,10 +197,10 @@ local ITEM_NAMES = {
     "Knockback Stick", "Lantern", "Laser Pointer", "Leftovers", "Lighter", "Lockpicks", "Lotus",
     "Moonlight Candle", "Moonlight Float", "Multitool", "NVCS-3000", "Paper Plane",
     "Pizza", "Pocket Mirror", "Rift Jar", "Shakelight", "Shears", "Skeleton Key", "Smoothie", "Spotlight",
-    "Starlight Bottle", "Starlight Jug", "Starlight Vial", "Straplight", "Tip Jar", "Vitamins", "Pack of Bottles", "Fuel Container"
+    "Starlight Bottle", "Starlight Jug", "Starlight Vial", "Straplight", "Tip Jar", "Vitamins",
     -- Items sacados del Explorer (Dex) que antes no se reconocian
     "Big Bomb", "Bomb", "Cheese", "Knockbomb", "Nanner", "Nanner Peel", "Rift Candle", "Rift Smoothie",
-    "Hiding Box", "Stop Sign", -- "Verity"
+    "Snake Box", "Stop Sign", -- "Verity"
 }
 
 local function Norm(s)
@@ -235,15 +235,15 @@ ITEM_LOOKUP["batterypack"] = "Battery Pack"
 -- Alias de nombres internos reales (sacados del Explorer / Dex)
 local INTERNAL_ALIASES = {
     AlarmClock = "Alarm Clock", AloeVera = "Aloe", BandagePack = "Bandage Pack", BatteryPack = "Battery Pack",
-    BigBomb = "Big Bomb", Bomb = "Bomb", BottleCrate = "Pack of Bottles", BoxingGloves = "Boxing Gloves", Bread = "Bread", Bulklight = "Bulklight",
+    BigBomb = "Big Bomb", Bomb = "Bomb", BoxingGloves = "Boxing Gloves", Bread = "Bread", Bulklight = "Bulklight",
     Candle = "Candle", Cheese = "Cheese", Compass = "Compass", Crucifix = "Crucifix", Donut = "Donut",
     Flashlight = "Flashlight", Glowsticks = "Glowstick", GoldGun = "Gold Gun", GoldBlaster = "Gold Gun",
-    GweenSoda = "Gween Soda", GweenSodaPack = "Pack of Gween Soda", HolyGrenade = "Holy Hand Grenade", JerryCan = "Fuel Container", KnockbackStick = "Knockback Stick",
+    GweenSoda = "Gween Soda", HolyGrenade = "Holy Hand Grenade", KnockbackStick = "Knockback Stick",
     Knockbomb = "Knockbomb", Lantern = "Lantern", LaserPointer = "Laser Pointer", Lighter = "Lighter",
     Lockpick = "Lockpicks", Multitool = "Multitool", Nanner = "Nanner", NannerPeel = "Nanner Peel",
     Pizza = "Pizza", PocketMirror = "Pocket Mirror", RiftCandle = "Rift Candle", RiftJar = "Rift Jar",
     RiftSmoothie = "Rift Smoothie", Shakelight = "Shakelight", Shears = "Shears", SkeletonKey = "Skeleton Key",
-    Smoothie = "Smoothie", SnakeBox = "Hiding Box", StarBottle = "Starlight Bottle", StarJug = "Starlight Jug",
+    Smoothie = "Smoothie", SnakeBox = "Snake Box", StarBottle = "Starlight Bottle", StarJug = "Starlight Jug",
     StarVial = "Starlight Vial", StopSign = "Stop Sign", Straplight = "Straplight", TipJar = "Tip Jar",
     Vitamins = "Vitamins",
 }
