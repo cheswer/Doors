@@ -285,6 +285,9 @@ local OBJECTIVE_NAMES = {
     TimerLever = "Timer Lever",
     LiveHintBook = "Library Book",
     LiveBreakerPolePickup = "Breaker Pole",
+    -- Stairwell: Workspace.CurrentRooms.[sala].Assets.Switches.StairwellFireAlarm (hay varias carpetas Switches;
+    -- se detecta por nombre en todas, sin importar en cual este)
+    StairwellFireAlarm = "Fire Alarm Lever",
     ["Sally's Toy"] = "Sally's Toy",
     SallysToy = "Sally's Toy",
     SallyToy = "Sally's Toy",
@@ -350,6 +353,7 @@ local ENTITY_DEFS = {
     { "Meld", "Stairwell", { "meld" } },
     { "Cobbler", "Stairwell", { "cobbler" } },
     { "Hijack", "Stairwell", { "hijack" } },
+    { "Crusher", "Stairwell", { "crusher" } },
 }
 
 local ENTITY_LIST, ENTITY_MODES, ENTITY_TOKENS = {}, {}, {}
@@ -507,6 +511,8 @@ local Cfg = {
         glitch     = { Enabled = false, Color = Color3.fromHex("#8100a6") },
         lotus      = { Enabled = false, Color = Color3.fromHex("#ff6ff7") },
         stairs     = { Enabled = false, Color = Color3.fromHex("#ff5fa2") },
+        exit       = { Enabled = false, Color = Color3.fromHex("#93ff85") },
+        cart       = { Enabled = false, Color = Color3.fromHex("#6d77ff") },
         players    = { Enabled = false, Color = Color3.fromHex("#3b82f6") },
     }
 }
@@ -586,7 +592,7 @@ local MODE_CATS = {
     Backdoor  = { "doors", "objectives", "stardust", "entities", "items", "drawers", "glitch" },
     Outdoors  = { "doors", "gold", "keys", "stardust", "entities", "items", "glitch", "lotus", "stardust", "interactables" },
     Archives  = { "doors", "stardust", "entities", "items", "drawers", "interactables", "glitch" },
-    Stairwell = { "doors", "stardust", "entities", "items", "interactables", "glitch" },
+    Stairwell = { "doors", "stardust", "entities", "items", "interactables", "glitch", "objectives", "exit", "cart" },
     Rooms     = { "doors", "stardust", "entities", "items", "wardrobes", "lockers", "glitch" },
     -- Lobby: no hay partida, solo jugadores
     Lobby     = {},
@@ -871,6 +877,7 @@ local PRIORITY = {
     items = 3, chests = 3, glitch = 3, lotus = 3, stardust = 3,
     keys = 4, gold = 4, objectives = 4, wardrobes = 4,
     entities = 6, dupe = 6, players = 5, stairs = 1,
+    exit = 4, cart = 4,
 }
 
 ----------------------------------------------------
@@ -1057,6 +1064,60 @@ local function RegisterByName(target)
     return true
 end
 
+-- The Stairwell: objetos propios del modo
+--   Emergency Exit : Workspace.CurrentRooms.[sala].Assets.ExitSignStairwell
+--   Shopping Cart  : Workspace.CurrentRooms.[sala].Assets.ShoppingCart  o  Workspace.Misc.ShoppingCart
+--   Depot          : Workspace.CurrentRooms.[sala].Assets.StairwellScrapper   (Interactables)
+--   Crusher        : Workspace.CurrentRooms.[sala].Assets.StairwellCrusherContainer#.StairwellCrusher.Crusher
+-- (# = cualquier numero; la sala tambien puede ser cualquiera)
+local STAIR_ASSETS = {
+    ExitSignStairwell = { "exit", "Emergency Exit" },
+    ShoppingCart = { "cart", "Shopping Cart" },
+    StairwellScrapper = { "interactables", "Depot" },
+}
+
+local function InStairRoot(inst, allowMisc)
+    if CurrentRooms and inst:IsDescendantOf(CurrentRooms) then return true end
+    if allowMisc then
+        local misc = Workspace:FindFirstChild("Misc")
+        if misc and inst:IsDescendantOf(misc) then return true end
+    end
+    return false
+end
+
+-- Sube desde inst (incluido) y devuelve el objeto de STAIR_ASSETS mas externo, con su categoria y etiqueta.
+-- Asi un prompt o una parte hija siempre resuelven al mismo objeto y no se duplican.
+local function StairOwner(inst)
+    local p, i, found, cat, label = inst, 0, nil, nil, nil
+    while p and p ~= Workspace and i < 10 do
+        local def = STAIR_ASSETS[p.Name]
+        if def and (p:IsA("Model") or p:IsA("BasePart")) and InStairRoot(p, p.Name == "ShoppingCart") then
+            found, cat, label = p, def[1], def[2]
+        end
+        p, i = p.Parent, i + 1
+    end
+    return found, cat, label
+end
+
+-- Crusher: se registra como entidad conocida (asi pasa el Entity Filter) con su ruta exacta
+local function RegisterCrusher(inst)
+    local function try()
+        if Tracked[inst] then return true end
+        if GetPart(inst) then
+            Register(inst, "entities", "Crusher", { Known = true, Key = "Crusher" })
+            return true
+        end
+    end
+    if try() then return end
+    task.spawn(function()
+        for _ = 1, 30 do
+            task.wait(0.2)
+            if not inst.Parent then return end
+            if try() then return end
+        end
+    end)
+end
+
 local GENERIC_PARTS = { Handle = true, Hitbox = true, Base = true, Main = true, Part = true, Model = true }
 local KNOWN_PROMPTS = {
     HidePrompt = true, ModulePrompt = true, HerbPrompt = true, ActivateEventPrompt = true,
@@ -1135,6 +1196,12 @@ local function CleanName(name)
 end
 
 local function ProcessContainerPrompt(prompt)
+    -- Objetos de Stairwell (Depot, carrito, salida): se registran como un solo objeto aunque el prompt este en una parte hija
+    local so, sc, sl = StairOwner(prompt)
+    if so then
+        if Active[sc] then RegisterWhenReady(so, sc, sl) end
+        return
+    end
     local t = ResolveTarget(prompt)
     if not t or t == Workspace then return end
     if Watch.IsBurrow(t) then return end
@@ -1215,6 +1282,21 @@ local function Process(inst)
     end
 
     if inst:IsA("Model") or inst:IsA("BasePart") then
+        -- The Stairwell: Crusher (entidad) y objetos propios (Exit, Shopping Cart, Depot)
+        if inst.Name == "Crusher" then
+            local pr = inst.Parent
+            if Active.entities and pr and pr.Name == "StairwellCrusher" and CurrentRooms and inst:IsDescendantOf(CurrentRooms) then
+                RegisterCrusher(inst)
+                return
+            end
+        else
+            local sd = STAIR_ASSETS[inst.Name]
+            if sd and Active[sd[1]] then
+                local owner = StairOwner(inst)
+                if owner then RegisterWhenReady(owner, sd[1], sd[2]) end
+                return
+            end
+        end
         if RegisterByName(inst) then return end
         if inst:IsA("Model") then
             local n = inst.Name
@@ -1809,7 +1891,12 @@ local CATEGORY_UI = {
     { id = "wardrobes", section = "Hiding & Objectives", title = "ESP Hiding Spots",
       desc = "Places you can hide in: closets, beds, lockers and tool sheds." },
     { id = "objectives", section = "Hiding & Objectives", title = "ESP Objectives",
-      desc = "Room puzzle pieces: levers, timer levers, library books, breaker poles and Sally's toy (also when they are inside a drawer)." },
+      desc = "Room puzzle pieces: levers, timer levers, library books, breaker poles, Sally's toy (also when they are inside a drawer) and the Stairwell fire alarm lever." },
+
+    { id = "exit", section = "Stairwell", title = "ESP Emergency Exit",
+      desc = "Marks the emergency exit sign of the Stairwell rooms. Only available in The Stairwell." },
+    { id = "cart", section = "Stairwell", title = "ESP Shopping Cart",
+      desc = "Marks the shopping carts of the Stairwell (inside rooms or loose in the map). Only available in The Stairwell." },
 
     { id = "entities", section = "Entities", title = "ESP Entities",
       desc = "Monsters that belong to the detected game mode only. Entities from other modes are never shown. Pick which ones in the Entity Filter below." },
@@ -1818,7 +1905,7 @@ local CATEGORY_UI = {
       desc = "Marks the other players in your run with their name and distance. Choose display name or username in the Display section." },
 
     { id = "interactables", section = "Extras", title = "ESP Interactables",
-      desc = "Any other object with an interaction prompt that does not fit another category. Can be noisy, so presets leave it off." },
+      desc = "Any other object with an interaction prompt that does not fit another category (in The Stairwell it also marks the Depots). Can be noisy, so presets leave it off." },
 }
 
 local UICreated, SectionCreated = {}, {}
@@ -2242,7 +2329,7 @@ local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.Keyboar
 -- Entidades que normalmente no vale la pena avisar (el usuario puede activarlas igual)
 local NOT_WORTH = {
     Timothy = true, Snare = true, Bob = true, ["El Goblino"] = true, Grampy = true,
-    Portrait = true, Monument = true, Currents = true, Jeff = true,
+    Portrait = true, Monument = true, Currents = true, Jeff = true, Crusher = true,
 }
 
 -- Consejos cortos (solo donde la mecanica es conocida)
