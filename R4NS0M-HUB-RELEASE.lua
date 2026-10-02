@@ -840,8 +840,78 @@ local PRIORITY = {
     entities = 6, dupe = 6, players = 5, stairs = 1,
 }
 
+----------------------------------------------------
+-- FIX Outdoors: madrigueras de Mandrake y oro falso.
+-- Mandrake NO se marca al detectarlo: se queda "en observacion" y solo se marca si SE MUEVE
+-- cerca de ti (la que te ataca). Las madrigueras (estaticas) nunca se marcan.
+-- Todo vive en la tabla Watch para no gastar variables locales.
+----------------------------------------------------
+local Watch = { M = {}, Loop = false, Gold = setmetatable({}, { __mode = "k" }) }
+
+local BURROW_WORDS = { "burrow", "hole", "den", "mound", "nest", "tunnel", "lair", "pit", "dirt", "hill", "spawn", "madriguera" }
+function Watch.IsBurrowName(name)
+    local n = name:lower()
+    for _, w in ipairs(BURROW_WORDS) do
+        if n:find(w, 1, true) then return true end
+    end
+    return false
+end
+
+-- Para prompts/items: cualquier cosa dentro de algo llamado burrow/mandrake NO es un item ni oro
+function Watch.IsBurrow(inst)
+    local p, i = inst, 0
+    while p and p ~= Workspace and i < 5 do
+        local n = p.Name:lower()
+        if n:find("burrow", 1, true) or n:find("madriguera", 1, true) or n:find("mandrake", 1, true) then
+            return true
+        end
+        p, i = p.Parent, i + 1
+    end
+    return false
+end
+
+function Watch.Run()
+    if Watch.Loop then return end
+    Watch.Loop = true
+    task.spawn(function()
+        while next(Watch.M) do
+            task.wait(0.2)
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            for inst, w in pairs(Watch.M) do
+                if not inst.Parent then
+                    Watch.M[inst] = nil
+                elseif hrp then
+                    local ok, pos = pcall(function()
+                        return inst:IsA("Model") and inst:GetPivot().Position or inst.Position
+                    end)
+                    if ok and pos then
+                        if not w.Start then
+                            w.Start = pos
+                        elseif (pos - w.Start).Magnitude > 3 and (pos - hrp.Position).Magnitude <= 50 then
+                            Watch.M[inst] = nil
+                            Watch.Promote(inst, w.Opts)
+                        end
+                    end
+                end
+            end
+        end
+        Watch.Loop = false
+    end)
+end
+
 local function Register(inst, cat, label, opts)
     if not Active[cat] then return end -- categoria que no existe en este modo
+
+    -- Mandrake: se queda "en observacion" hasta que se mueva cerca de ti
+    if cat == "entities" and label == "Mandrake" and not (opts and opts.Direct) then
+        if not Tracked[inst] and not Watch.M[inst] and not Watch.IsBurrowName(inst.Name) then
+            Watch.M[inst] = { Opts = opts }
+            Watch.Run()
+        end
+        return
+    end
+
     local existing = Tracked[inst]
     if existing then
         if (PRIORITY[cat] or 3) > (PRIORITY[existing.Cat] or 3) then
@@ -871,6 +941,43 @@ local function Register(inst, cat, label, opts)
         Dbg("REG:" .. cat, inst, "label=" .. tostring(label))
     end
 end
+
+function Watch.Promote(inst, opts)
+    local o = {}
+    for k, v in pairs(opts or {}) do o[k] = v end
+    o.Direct = true
+    Register(inst, "entities", "Mandrake", o)
+end
+
+-- Oro: solo si tiene un prompt activo y una parte visible, y no es decoracion/madriguera
+function Watch.RegisterGold(target)
+    if Tracked[target] or Watch.Gold[target] or Watch.IsBurrow(target) then return end
+    Watch.Gold[target] = true
+    task.spawn(function()
+        for _ = 1, 15 do
+            if not target.Parent then break end
+            local prompt = target:FindFirstChildWhichIsA("ProximityPrompt", true)
+            if prompt and GetPart(target) then
+                local visible = false
+                local list = target:IsA("BasePart") and { target } or target:GetDescendants()
+                for _, d in ipairs(list) do
+                    if d:IsA("BasePart") and d.Transparency < 0.95 then
+                        visible = true
+                        break
+                    end
+                end
+                if visible and prompt.Enabled and prompt.MaxActivationDistance > 0 then
+                    local value = target:GetAttribute("GoldValue")
+                    Register(target, "gold", value and ("Gold [" .. value .. "]") or "Gold", { Prompt = prompt })
+                end
+                break
+            end
+            task.wait(0.3)
+        end
+        Watch.Gold[target] = nil
+    end)
+end
+
 ----------------------------------------------------
 -- Deteccion
 ----------------------------------------------------
@@ -910,8 +1017,7 @@ local function RegisterByName(target)
     elseif STARDUST_NAMES[n] then
         Register(target, "stardust", STARDUST_NAMES[n])
     elseif GOLD_NAMES[n] then
-        local value = target:GetAttribute("GoldValue")
-        Register(target, "gold", value and ("Gold [" .. value .. "]") or "Gold")
+        Watch.RegisterGold(target)
     else
         return false
     end
@@ -998,6 +1104,7 @@ end
 local function ProcessContainerPrompt(prompt)
     local t = ResolveTarget(prompt)
     if not t or t == Workspace then return end
+    if Watch.IsBurrow(t) then return end
     if CurrentRooms and t.Parent == CurrentRooms and not OBJECTIVE_NAMES[t.Name] then return end
     -- Items/objetivos dentro de un cajon: se registran por su nombre aunque el cajon ya este marcado
     if RegisterByName(t) then return end
@@ -1034,6 +1141,7 @@ local function Process(inst)
                 or Active.stardust or Active.glitch or Active.lotus) then return end
             local t = ResolveTarget(inst)
             if not t then return end
+            if Watch.IsBurrow(t) or Watch.IsBurrow(inst) then return end
             if RegisterByName(t) then return end
             if Tracked[t] and not IsContainerModel(t) then return end
 
@@ -1048,6 +1156,7 @@ local function Process(inst)
             local cands = { t.Name, t:GetAttribute("DisplayName"), objText }
             if pn == "HerbPrompt" then cands[#cands + 1] = "Green Herb" end
             local display = ResolveItem(cands)
+            if not display and Mode.Name == "Outdoors" then return end -- en Outdoors no se marcan items desconocidos
             if Cfg.Debug then
                 local byName, byText = ResolveItem({ t.Name }), ResolveItem({ objText })
                 if byName and byText and byName ~= byText then
@@ -2091,14 +2200,15 @@ local Ex = {
     NotifyDuration = 5, NotifyCooldown = 4, NotifyTips = true, NotifySoundId = "", NotifyIconId = "",
     NotifyFilter = {},
     -- Movement
-    Speed = false, SpeedValue = 30, SpeedMethod = "Velocity", SpeedAuto = true,
+    Speed = false, SpeedValue = 30, SpeedMethod = "Velocity",
+    SpeedHack = false, SpeedHackValue = 30, ACBypass = true,
     Jump = false, JumpPower = 50, InfJump = false,
     Slide = false, SlideSpeed = 55,
     Fly = false, FlySpeed = 40,
     Noclip = false, Fullbright = false,
     -- Anticheat Manipulator
     ACM = false, ACMMode = "Phase Walk", PhaseSpeed = 2, PhaseMax = 48, VoidGuard = true,
-    FloatButtons = UserInputService.TouchEnabled, BtnACM = true, BtnFly = true, BtnSlide = true,
+    FloatButtons = UserInputService.TouchEnabled, BtnACM = true, BtnFly = true,
     -- Automation
     InstantPrompt = false,
     -- Keybinds (nombres de Enum.KeyCode)
@@ -2395,6 +2505,27 @@ Hooks.Speed = function(v)
     end
 end
 
+Hooks.SpeedHack = function(v)
+    local _, hum = GetParts()
+    if not hum then return end
+    if v then
+        Saved.HackWS = Saved.HackWS or hum.WalkSpeed
+    elseif Saved.HackWS then
+        hum.WalkSpeed = Saved.HackWS
+        Saved.HackWS = nil
+    end
+end
+
+-- Bypass: bloquea que el servidor/juego te expulse con :Kick() (si el executor soporta hookmetamethod)
+pcall(function()
+    if not (hookmetamethod and getnamecallmethod) then return end
+    local old
+    old = hookmetamethod(game, "__namecall", (newcclosure or function(f) return f end)(function(self, ...)
+        if Ex.ACBypass and self == LocalPlayer and getnamecallmethod() == "Kick" then return end
+        return old(self, ...)
+    end))
+end)
+
 -- Activa/restaura los atributos propios del juego ("CanJump", "CanSlide"...) para que el salto y el slide
 -- nativos de DOORS funcionen. Busca cualquier atributo booleano del personaje/jugador con ese nombre.
 function FX.GameAbility(kind, on)
@@ -2590,8 +2721,6 @@ function FX.Speed(hum, root, dt, now)
         base = hum.WalkSpeed
     end
     local target = Ex.SpeedValue
-    if Ex.SpeedAuto and St.SpeedCap > 0 then target = math.min(target, St.SpeedCap) end
-    if now < St.Penalty then target = base end -- tras un tiron, deja que el servidor te resincronice
     local md = hum.MoveDirection
     if md.Magnitude < 0.05 or target <= base then
         St.Cur = base
@@ -2608,27 +2737,6 @@ function FX.Speed(hum, root, dt, now)
     else
         local v = root.AssemblyLinearVelocity
         root.AssemblyLinearVelocity = Vector3.new(f.X * St.Cur, v.Y, f.Z * St.Cur)
-    end
-end
-
--- Auto-ajuste: si el servidor te devuelve, baja el limite y los efectos en vez de seguir chocando
-function FX.Snap(now)
-    St.LastSnap, St.Snaps, St.Penalty = now, St.Snaps + 1, now + 1.5
-    local kind = St.BoostKind
-    if kind == "speed" then
-        local ref = St.SpeedCap > 0 and St.SpeedCap or Ex.SpeedValue
-        if St.Cur > 0 then ref = math.min(ref, St.Cur) end
-        St.SpeedCap = math.max(18, ref * 0.85)
-    elseif kind == "glide" or kind == "slide" then
-        St.GlideScale = math.max(0.4, St.GlideScale * 0.8)
-    end
-    St.Glide = nil
-    FX.StopSlide()
-    if now - St.LastNote > 4 then
-        St.LastNote = now
-        local msg = kind == "speed" and string.format("Server pulled you back. Speed limit lowered to %d.", math.floor(St.SpeedCap))
-            or "Server pulled you back. Effect strength lowered."
-        NotifyUI("Anti-cheat", msg)
     end
 end
 
@@ -2735,23 +2843,48 @@ RunService.Heartbeat:Connect(function(dt)
         and root.Position.Y < St.LastSafe.Position.Y - 60 then
         root.CFrame = St.LastSafe + Vector3.new(0, 3, 0)
         root.AssemblyLinearVelocity = Vector3.zero
+        St.BypassLast = nil
     end
 
-    -- Deteccion de tirones del servidor (solo mientras un efecto esta moviendote)
+    -- ANTI CHEAT BYPASS (beta): bloquea teletransportes del servidor hacia atras
     do
-        local fl = Vector3.new(root.Position.X, 0, root.Position.Z)
-        if St.LastFlat and now - St.BoostT < 0.5 then
-            local top = math.max(St.Cur, Ex.FlySpeed, Ex.SlideSpeed, Ex.PhaseSpeed, 16)
-            if (fl - St.LastFlat).Magnitude > math.max(5, top * dt * 2.5 + 4) and now - St.LastSnap > 0.6 then
-                FX.Snap(now)
+        local pos = root.Position
+        local last = St.BypassLast
+        if Ex.ACBypass and last and not St.Glide and now >= (St.BypassPause or 0) then
+            local delta = pos - last
+            local flat = Vector3.new(delta.X, 0, delta.Z)
+            local intent = Slide.dir or hum.MoveDirection
+            intent = Vector3.new(intent.X, 0, intent.Z)
+            local top = math.max(St.Cur, Ex.FlySpeed, Ex.SlideSpeed, Ex.SpeedHackValue, hum.WalkSpeed, 16)
+            local limit = math.max(5, top * dt * 2.5 + 4)
+            -- salto grande + en sentido contrario a hacia donde caminas = rubber-band del servidor
+            if flat.Magnitude > limit and intent.Magnitude > 0.05 and flat.Unit:Dot(intent.Unit) < -0.2 then
+                St.BypassHits = (now - (St.BypassT or 0) < 2) and ((St.BypassHits or 0) + 1) or 1
+                St.BypassT = now
+                if St.BypassHits > 6 then
+                    St.BypassPause = now + 3 -- teletransporte forzado real (muerte, cambio de zona): no pelear
+                    St.BypassHits = 0
+                else
+                    root.CFrame = CFrame.new(last) * (root.CFrame - root.CFrame.Position)
+                    pos = last
+                    if now - St.LastNote > 4 then
+                        St.LastNote = now
+                        NotifyUI("Anti cheat bypass", "Blocked a server teleport.")
+                    end
+                end
             end
         end
-        St.LastFlat = fl
+        St.BypassLast = pos
     end
 
     -- Speed
     if Ex.Speed and not Ex.Fly and not Slide.dir and not St.Glide then
         FX.Speed(hum, root, dt, now)
+    end
+
+    -- Speed Hack: cambia el WalkSpeed de verdad (1-100); se reaplica cada frame
+    if Ex.SpeedHack and not Ex.Fly then
+        if hum.WalkSpeed ~= Ex.SpeedHackValue then hum.WalkSpeed = Ex.SpeedHackValue end
     end
 
     -- Jump (atributos del juego + valores del Humanoid)
@@ -2911,7 +3044,6 @@ local function MakeFloat(text, y, onTap, getOn, flag)
 end
 
 MakeFloat("ACM", -70, function() Flip("ACM", "Anticheat Manipulator") end, function() return Ex.ACM end, "BtnACM")
-MakeFloat("SLIDE", -16, DoSlide, nil, "BtnSlide")
 MakeFloat("FLY", 38, function() Flip("Fly", "Fly") end, function() return Ex.Fly end, "BtnFly")
 
 function FX.UpdateButtons()
@@ -3054,6 +3186,8 @@ AddSlider(PlayerTab, "SpeedValue", "Speed", "Target speed in studs per second. D
 AddDropdown(PlayerTab, "SpeedMethod", "Speed Method",
     "Velocity (recommended): smooth push that the server tolerates best. CFrame: small position steps. WalkSpeed: changes the value directly (easiest to detect).",
     { "Velocity", "CFrame", "WalkSpeed" }, Ex.SpeedMethod, function(v) Ex.SpeedMethod = v end)
+AddToggle(PlayerTab, "SpeedHack", "Speed Hack", "Changes your real walk speed (1-100). Works together with Anti cheat bypass.", Ex.SpeedHack, function(v) Apply("SpeedHack", v) end)
+AddSlider(PlayerTab, "SpeedHackValue", "Speed Hack Value", "Walk speed in studs per second.", 1, 100, Ex.SpeedHackValue, function(v) Ex.SpeedHackValue = v end)
 
 PlayerTab:Section({ Title = "Jump" })
 AddToggle(PlayerTab, "Jump", "Enable Jump", "Turns on the game's own jump and lets you set its power, also in places where the game disables it.", Ex.Jump, function(v) Apply("Jump", v) end)
@@ -3088,7 +3222,7 @@ AntiCheatTab:Section({ Title = "Anticheat Manipulator" })
 AntiCheatTab:Paragraph({
     Title = "What it does",
     Desc = "Phase Walk: walk normally. When a wall or door blocks you, it measures the obstacle straight ahead and pushes you forward only, in one short glide, to the first free spot, then restores collisions. "
-        .. "If nothing walkable is within reach it does not move you. If the server pulls you back, the strength is lowered automatically. There is no guarantee: the server may still flag you, so use it at your own risk."
+        .. "If nothing walkable is within reach it does not move you. There is no guarantee: the server may still flag you, so use it at your own risk."
 })
 AddToggle(AntiCheatTab, "ACM", "Anticheat Manipulator", "Main switch. PC: keybind (Keybinds tab). Mobile: the ACM floating button.", Ex.ACM, function(v) Apply("ACM", v) end)
 AddDropdown(AntiCheatTab, "ACMMode", "Mode",
@@ -3098,16 +3232,10 @@ AddSlider(AntiCheatTab, "PhaseSpeed", "Phase Speed", "Glide speed while crossing
 AddSlider(AntiCheatTab, "PhaseMax", "Max Wall Thickness", "Longest obstacle (in studs) it will cross in one glide.", 8, 48, Ex.PhaseMax, function(v) Ex.PhaseMax = v end)
 AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot.", Ex.VoidGuard, function(v) Ex.VoidGuard = v end)
 
-AntiCheatTab:Section({ Title = "Speed Guard" })
-AddToggle(AntiCheatTab, "SpeedAuto", "Auto-Tune Speed", "When the server pulls you back while boosting, the speed limit is lowered automatically so it stops happening.", Ex.SpeedAuto, function(v) Ex.SpeedAuto = v end)
-AntiCheatTab:Button({
-    Title = "Reset Learned Limits",
-    Desc = "Forgets the speed limit and glide strength learned from pull-backs.",
-    Callback = function()
-        St.SpeedCap, St.GlideScale, St.Snaps = 0, 1, 0
-        NotifyUI("Anti-cheat", "Limits reset.")
-    end
-})
+AntiCheatTab:Section({ Title = "Bypass" })
+AddToggle(AntiCheatTab, "ACBypass", "Anti cheat bypass (beta)",
+    "Blocks server teleports that pull you backwards and blocks kicks. On by default every time you run the script.",
+    Ex.ACBypass, function(v) Ex.ACBypass = v end)
 
 AntiCheatTab:Section({ Title = "Mobile Buttons" })
 AddToggle(AntiCheatTab, "FloatButtons", "Floating Buttons", "Small draggable buttons for ACM, SLIDE and FLY. On by default on touch devices.", Ex.FloatButtons, function(v)
@@ -3116,7 +3244,6 @@ AddToggle(AntiCheatTab, "FloatButtons", "Floating Buttons", "Small draggable but
 end)
 AddToggle(AntiCheatTab, "BtnACM", "ACM Button", "Show the ACM floating button.", Ex.BtnACM, function(v) Ex.BtnACM = v; FX.UpdateButtons() end)
 AddToggle(AntiCheatTab, "BtnFly", "FLY Button", "Show the FLY floating button.", Ex.BtnFly, function(v) Ex.BtnFly = v; FX.UpdateButtons() end)
-AddToggle(AntiCheatTab, "BtnSlide", "SLIDE Button", "Show the SLIDE floating button.", Ex.BtnSlide, function(v) Ex.BtnSlide = v; FX.UpdateButtons() end)
 
 ----------------------------------------------------
 -- KEYBINDS TAB
@@ -3177,8 +3304,8 @@ FX.UpdateButtons()
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedAuto", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
-    "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "BtnSlide", "InstantPrompt",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
+    "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
 }
 
