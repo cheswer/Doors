@@ -2204,7 +2204,8 @@ local Ex = {
     SpeedHack = false, SpeedHackValue = 30, ACBypass = true, ACBMode = "Smart",
     AntiScreech = false, AntiHaste = false, AntiVacuum = false, AntiEyes = false, AntiLookman = false,
     AntiSnare = false, AntiRansom = false, AntiRush = false, AntiAmbush = false, AntiCustom = false,
-    AntiGlitch = false, AntiDread = false, AntiSeek = false, AntiFigure = false, AntiCustomNames = "", AntiRange = 250, AntiHeight = 200,
+    AntiGlitch = false, AntiDread = false, AntiSeek = false, AntiFigure = false, AntiGod = false,
+    AntiMod_Halt = false, AntiMod_Bash = false, AntiMod_Scribbles = false, AntiMod_Giggle = false, AntiMod_Timothy = false, AntiMod_Jeff = false, AntiMod_Gloombat = false, AntiMod_Grumble = false, AntiMod_Firedamp = false, AntiMod_Bramble = false, AntiMod_Surge = false, AntiMod_Caw = false, AntiMod_Eyestalk = false, AntiMod_Groundskeeper = false, AntiMod_Grampy = false, AntiMod_Honcho = false, AntiMod_Drone = false, AntiMod_Teller = false, AntiMod_Alma = false, AntiCustomNames = "", AntiRange = 250, AntiHeight = 200,
     Jump = false, JumpPower = 50, InfJump = false,
     Slide = false, SlideSpeed = 55,
     Fly = false, FlySpeed = 40,
@@ -3214,10 +3215,10 @@ local ANTI = {
     Static = setmetatable({}, { __mode = "k" }), -- modulos con Static puesto por nosotros
     Home = nil, Last = 0,
 }
-local RS_ = game:GetService("ReplicatedStorage")
+ANTI.RS = game:GetService("ReplicatedStorage")
 
-local function AntiRemote(name)
-    local rf = RS_:FindFirstChild("RemotesFolder")
+function ANTI.Remote(name)
+    local rf = ANTI.RS:FindFirstChild("RemotesFolder")
     local r = rf and rf:FindFirstChild(name)
     if r and r:IsA("RemoteEvent") then return r end
 end
@@ -3230,75 +3231,107 @@ function ANTI.CustomMatch(n)
     return false
 end
 
--- Registra modelos que merecen vigilarse (solo hijos directos de Workspace o de una sala: barato)
+-- Registra modelos que merecen vigilarse (cualquier profundidad; EntityLabel esta cacheado por nombre)
 function ANTI.Consider(m)
-    local p = m.Parent
-    if not p then return end
-    local rooms = Workspace:FindFirstChild("CurrentRooms")
-    if not (p == Workspace or (rooms and p.Parent == rooms)) then return end
+    if not m.Parent then return end
     local ok, label = pcall(EntityLabel, m.Name, false)
     if not ok then label = nil end
-    local n = m.Name:lower()
     if label == "Eyes" or label == "Lookman" then ANTI.Look[m] = label end
-    if label or ANTI.CustomMatch(n) then ANTI.Cand[m] = true end
+    if label or (Ex.AntiCustom and ANTI.CustomMatch(m.Name:lower())) then ANTI.Cand[m] = true end
 end
 
--- Esta amenaza esta activada en el menu?
+ANTI.GodSkip = { Snare = true, Mandrake = true }
+ANTI.GodRange = { Figure = 40, Seek = 70, Eyes = 90, Lookman = 90, Dread = 60 }
+
+-- Devuelve (true, rango) si esta amenaza esta activada en el menu
 function ANTI.Wanted(m)
     local ok, label = pcall(EntityLabel, m.Name, false)
     if not ok then label = nil end
-    local n = m.Name:lower()
+    local fast = label == "Rush" or label == "Ambush" or label == "Blitz" or label == "Haste"
+        or label == "Glitched Rush" or label == "Glitched Ambush"
     if label and label:find("Glitch", 1, true) then
-        if Ex.AntiGlitch then return true end
-        if label == "Glitched Rush" then return Ex.AntiRush end
-        if label == "Glitched Ambush" then return Ex.AntiAmbush end
+        if Ex.AntiGlitch or Ex.AntiGod then return true, Ex.AntiRange end
+        if label == "Glitched Rush" and Ex.AntiRush then return true, Ex.AntiRange end
+        if label == "Glitched Ambush" and Ex.AntiAmbush then return true, Ex.AntiRange end
         return false
     end
-    if Ex.AntiRush and (label == "Rush" or label == "Blitz") then return true end
-    if Ex.AntiAmbush and label == "Ambush" then return true end
-    if Ex.AntiHaste and label == "Haste" then return true end
-    if Ex.AntiCustom and ANTI.CustomMatch(n) then return true end
+    if Ex.AntiRush and (label == "Rush" or label == "Blitz") then return true, Ex.AntiRange end
+    if Ex.AntiAmbush and label == "Ambush" then return true, Ex.AntiRange end
+    if Ex.AntiHaste and label == "Haste" then return true, Ex.AntiRange end
+    if Ex.AntiCustom and ANTI.CustomMatch(m.Name:lower()) then return true, Ex.AntiRange end
+    if Ex.AntiGod and label and not ANTI.GodSkip[label] then
+        return true, fast and Ex.AntiRange or (ANTI.GodRange[label] or 80)
+    end
     return false
 end
 
--- Evasion: mientras la entidad esta activa cerca, te mantiene muy arriba y luego te devuelve a donde estabas
-RunService.Heartbeat:Connect(function()
-    local _, hum, root = GetParts()
-    if not root then ANTI.Home = nil; return end
-    if hum and hum.Health <= 0 then ANTI.Home = nil; return end
+-- Evasion + caminata virtual: mientras hay una entidad activa cerca, tu personaje REAL (el que ve el servidor)
+-- se mantiene muy arriba, pero tu camara se queda abajo y puedes seguir caminando (se mueve una posicion
+-- virtual con colision contra paredes). Al terminar, te deja en la posicion virtual.
+ANTI.RayParams = RaycastParams.new()
+ANTI.RayParams.FilterType = Enum.RaycastFilterType.Exclude
+pcall(function() ANTI.RayParams.RespectCanCollide = true end)
+
+RunService.Heartbeat:Connect(function(dt)
+    local char, hum, root = GetParts()
+    if not root then ANTI.Home, ANTI.Virt = nil, nil; return end
     local now = os.clock()
-    local any = Ex.AntiRush or Ex.AntiAmbush or Ex.AntiHaste or Ex.AntiCustom or Ex.AntiGlitch
+    local any = Ex.AntiRush or Ex.AntiAmbush or Ex.AntiHaste or Ex.AntiCustom or Ex.AntiGlitch or Ex.AntiGod
     local near = false
     if any then
-        local base = ANTI.Home and ANTI.Home.Position or root.Position
+        local base = ANTI.Virt or root.Position
         for m in pairs(ANTI.Cand) do
             if not m.Parent then
                 ANTI.Cand[m] = nil
-            elseif ANTI.Wanted(m) then
-                local ok, p = pcall(function() return m:GetPivot().Position end)
-                if ok and (p - base).Magnitude <= Ex.AntiRange then near = true; break end
+            else
+                local want, range = ANTI.Wanted(m)
+                if want then
+                    local ok, p = pcall(function() return m:GetPivot().Position end)
+                    if ok and (p - base).Magnitude <= range then near = true; break end
+                end
             end
         end
     end
     if near then ANTI.Last = now end
     if any and (near or (ANTI.Home and now - ANTI.Last < 1)) then
-        if not ANTI.Home then ANTI.Home = root.CFrame end
+        if not ANTI.Home then ANTI.Home = root.CFrame; ANTI.Virt = root.Position end
+        -- caminata virtual
+        local dir = hum.MoveDirection
+        dir = Vector3.new(dir.X, 0, dir.Z)
+        if dir.Magnitude > 0.1 then
+            local stepLen = math.min(hum.WalkSpeed, 80) * math.min(dt, 0.1)
+            local step = dir.Unit * stepLen
+            ANTI.RayParams.FilterDescendantsInstances = { char, Workspace.CurrentCamera }
+            local hit = Workspace:Raycast(ANTI.Virt + Vector3.new(0, 1.5, 0), dir.Unit * (stepLen + 1.2), ANTI.RayParams)
+            if not hit then ANTI.Virt = ANTI.Virt + step end
+        end
         St.BSkip, St.BAcc = now + 0.6, nil
-        root.CFrame = ANTI.Home + Vector3.new(0, Ex.AntiHeight, 0)
+        root.CFrame = CFrame.new(ANTI.Virt + Vector3.new(0, Ex.AntiHeight, 0)) * ANTI.Home.Rotation
         root.AssemblyLinearVelocity = Vector3.zero
     elseif ANTI.Home then
         St.BSkip, St.BAcc = now + 0.6, nil
-        root.CFrame = ANTI.Home
+        root.CFrame = CFrame.new(ANTI.Virt) * ANTI.Home.Rotation
         root.AssemblyLinearVelocity = Vector3.zero
-        ANTI.Home = nil
+        ANTI.Home, ANTI.Virt = nil, nil
     end
 end)
 
--- Eyes / Lookman: el servidor decide si los miras con la rotacion de cabeza que le reportas.
--- Se reporta un valor imposible (-649) mientras esten presentes.
+-- La camara sigue mostrando el suelo (el juego la pone en tu cabeza real, que esta arriba)
+pcall(function() RunService:UnbindFromRenderStep("R4NSOGodCam") end)
+RunService:BindToRenderStep("R4NSOGodCam", Enum.RenderPriority.Last.Value, function()
+    if ANTI.Home then
+        local cam = Workspace.CurrentCamera
+        if cam then cam.CFrame = cam.CFrame - Vector3.new(0, Ex.AntiHeight, 0) end
+    end
+end)
+
+-- Eyes / Lookman: se reporta una rotacion de cabeza imposible (-649) mientras esten presentes.
+-- Ademas se bloquea su script cliente (ver "client scripts" mas abajo) y entra en God Mode.
 task.spawn(function()
+    local tick_ = 0
     while true do
         task.wait(0.05)
+        tick_ = tick_ + 1
         if Ex.AntiEyes or Ex.AntiLookman then
             local fire = false
             for m, kind in pairs(ANTI.Look) do
@@ -3309,8 +3342,11 @@ task.spawn(function()
                 end
             end
             if fire then
-                local r = AntiRemote("MotorReplication")
-                if r then pcall(function() r:FireServer(-649) end) end
+                local r = ANTI.Remote("MotorReplication")
+                if r then
+                    pcall(function() r:FireServer(-649) end)
+                    if tick_ % 2 == 0 then pcall(function() r:FireServer(-649, -649, -649, false) end) end
+                end
             end
         end
     end
@@ -3320,16 +3356,15 @@ end)
 function ANTI.Screech(m)
     if not Ex.AntiScreech then return end
     task.spawn(function()
-        local r = AntiRemote("Screech")
+        local r = ANTI.Remote("Screech")
         if r then pcall(function() r:FireServer(true) end) end
         task.wait(0.1)
         pcall(function() m:Destroy() end)
     end)
 end
 
--- Snare: se desactiva el contacto de sus partes
-function ANTI.Snare(inst)
-    if not Ex.AntiSnare then return end
+-- Se desactiva el contacto (CanTouch) de un modelo y sus partes (Snare, obstaculos de Seek...)
+function ANTI.NoTouch(inst)
     task.spawn(function()
         task.wait(0.3)
         local list = inst:GetDescendants()
@@ -3342,10 +3377,19 @@ function ANTI.Snare(inst)
         end
     end)
 end
+function ANTI.Snare(inst)
+    if Ex.AntiSnare then ANTI.NoTouch(inst) end
+end
 
 Workspace.DescendantAdded:Connect(function(inst)
     local nm = inst.Name
     if nm == "Snare" then ANTI.Snare(inst) end
+    if Ex.AntiSeek then
+        local low = nm:lower()
+        if low:find("seek_arm", 1, true) or low:find("seekarm", 1, true) or low:find("obstruct", 1, true) or low:find("chandelier", 1, true) then
+            ANTI.NoTouch(inst)
+        end
+    end
     if inst:IsA("Model") then
         ANTI.Consider(inst)
         ANTI.TrackAway(inst)
@@ -3358,7 +3402,7 @@ end)
 -- OJO: son modelos del servidor; esto cambia lo que ves en tu juego. Si el servidor decide el dano por
 -- la posicion real de la entidad, el efecto sobre el dano puede ser nulo.
 ANTI.Away = setmetatable({}, { __mode = "k" })
-local AWAY_CF = CFrame.new(0, 30000, 0)
+ANTI.AwayCF = CFrame.new(0, 30000, 0)
 
 function ANTI.TrackAway(m)
     if not (Ex.AntiSeek or Ex.AntiFigure or Ex.AntiDread) then return end
@@ -3369,16 +3413,23 @@ function ANTI.TrackAway(m)
     elseif n:find("dread", 1, true) then kind = "dread" end
     if kind and ((kind == "seek" and Ex.AntiSeek) or (kind == "figure" and Ex.AntiFigure) or (kind == "dread" and Ex.AntiDread)) then
         ANTI.Away[m] = kind
+        if kind ~= "dread" then ANTI.NoTouch(m) end
     end
 end
 
 function ANTI.ScanAway()
     for _, d in ipairs(Workspace:GetDescendants()) do
         if d:IsA("Model") then ANTI.TrackAway(d) end
+        if Ex.AntiSeek then
+            local low = d.Name:lower()
+            if low:find("seek_arm", 1, true) or low:find("seekarm", 1, true) or low:find("obstruct", 1, true) or low:find("chandelier", 1, true) then
+                ANTI.NoTouch(d)
+            end
+        end
     end
 end
 
-local function awayStep()
+function ANTI.AwayStep()
     for m, kind in pairs(ANTI.Away) do
         if not m.Parent then
             ANTI.Away[m] = nil
@@ -3386,12 +3437,12 @@ local function awayStep()
             ANTI.Away[m] = nil
             task.delay(0.15, function() pcall(function() m:Destroy() end) end)
         else
-            pcall(function() m:PivotTo(AWAY_CF) end)
+            pcall(function() m:PivotTo(ANTI.AwayCF) end)
         end
     end
 end
-RunService.Heartbeat:Connect(awayStep)
-RunService.RenderStepped:Connect(awayStep)
+RunService.Heartbeat:Connect(ANTI.AwayStep)
+RunService.RenderStepped:Connect(ANTI.AwayStep)
 
 -- Vacuum (puerta falsa de Backdoor): el servidor te manda al vacio con el remote Teleport.
 -- Se recuerda tu posicion de hace ~0.5s y si el teletransporte es lejano (>40 studs) se te devuelve ahi.
@@ -3438,13 +3489,90 @@ function ANTI.HookTeleport(r)
     end)
 end
 task.spawn(function()
-    local rf = RS_:WaitForChild("RemotesFolder", 30)
+    local rf = ANTI.RS:WaitForChild("RemotesFolder", 30)
     if not rf then return end
     local t = rf:FindFirstChild("Teleport")
     if t and t:IsA("RemoteEvent") then ANTI.HookTeleport(t) end
     rf.ChildAdded:Connect(function(c)
         if c.Name == "Teleport" and c:IsA("RemoteEvent") then ANTI.HookTeleport(c) end
     end)
+end)
+
+-- Bloqueo de scripts cliente de entidades. El juego ejecuta sus efectos (y los avisos de dano que reporta el
+-- cliente) con UseEnemyModule(nombreEntidad, ...) y con los modulos del RemoteListener. Aqui se filtran.
+ANTI.Mods = {
+    { id = "AntiEyes", tokens = { "=eyes" } },
+    { id = "AntiLookman", tokens = { "lookman" } },
+    { id = "AntiMod_Halt", title = "Anti Halt", tokens = { "halt", "shade" } },
+    { id = "AntiMod_Bash", title = "Anti Bash (A-60)", tokens = { "a60", "bash" } },
+    { id = "AntiMod_Scribbles", title = "Anti Scribbles (A-120)", tokens = { "a120", "scribbles" } },
+    { id = "AntiMod_Giggle", title = "Anti Giggle", tokens = { "giggle" } },
+    { id = "AntiMod_Timothy", title = "Anti Timothy", tokens = { "timothy" } },
+    { id = "AntiMod_Jeff", title = "Anti Jeff the Killer", tokens = { "jeff" } },
+    { id = "AntiMod_Gloombat", title = "Anti Gloombat", tokens = { "gloombat" } },
+    { id = "AntiMod_Grumble", title = "Anti Grumble", tokens = { "grumble" } },
+    { id = "AntiMod_Firedamp", title = "Anti Firedamp", tokens = { "firedamp" } },
+    { id = "AntiMod_Bramble", title = "Anti Bramble", tokens = { "bramble" } },
+    { id = "AntiMod_Surge", title = "Anti Surge", tokens = { "surge" } },
+    { id = "AntiMod_Caw", title = "Anti Caw", tokens = { "=caw" } },
+    { id = "AntiMod_Eyestalk", title = "Anti Eyestalk", tokens = { "eyestalk" } },
+    { id = "AntiMod_Groundskeeper", title = "Anti Groundskeeper", tokens = { "groundskeeper" } },
+    { id = "AntiMod_Grampy", title = "Anti Grampy", tokens = { "grampy" } },
+    { id = "AntiMod_Honcho", title = "Anti Honcho", tokens = { "honcho" } },
+    { id = "AntiMod_Drone", title = "Anti Drone", tokens = { "drone" } },
+    { id = "AntiMod_Teller", title = "Anti Teller", tokens = { "teller" } },
+    { id = "AntiMod_Alma", title = "Anti Alma", tokens = { "=alma" } }
+}
+ANTI.Mine, ANTI.Done = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
+
+function ANTI.IsBlocked(name)
+    local n = tostring(name):lower()
+    for _, m in ipairs(ANTI.Mods) do
+        if Ex[m.id] then
+            for _, t in ipairs(m.tokens) do
+                if t:sub(1, 1) == "=" then
+                    if n == t:sub(2) then return true end
+                elseif n:find(t, 1, true) then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+function ANTI.AnyBlock()
+    for _, m in ipairs(ANTI.Mods) do if Ex[m.id] then return true end end
+    return false
+end
+
+-- Se reemplaza la conexion del juego a UseEnemyModule por una que se salta las entidades bloqueadas
+function ANTI.WrapEnemy()
+    if not getconnections then return end
+    local r = ANTI.Remote("UseEnemyModule")
+    if not r then return end
+    local ok, conns = pcall(getconnections, r.OnClientEvent)
+    if not ok or type(conns) ~= "table" then return end
+    for _, c in ipairs(conns) do
+        local ok2, f = pcall(function() return c.Function end)
+        if ok2 and type(f) == "function" and not ANTI.Mine[f] and not ANTI.Done[f] then
+            ANTI.Done[f] = true
+            local orig = f
+            local wrapper = function(name, ...)
+                if ANTI.IsBlocked(name) then return end
+                return orig(name, ...)
+            end
+            ANTI.Mine[wrapper] = true
+            pcall(function() c:Disable() end)
+            r.OnClientEvent:Connect(wrapper)
+        end
+    end
+end
+task.spawn(function()
+    while true do
+        task.wait(2)
+        if ANTI.AnyBlock() then pcall(ANTI.WrapEnemy) end
+    end
 end)
 
 -- Ransom / A-90 / Vacuum: se desactiva el modulo cliente (el RemoteListener lo salta si tiene Static)
@@ -3466,8 +3594,9 @@ task.spawn(function()
                     local n = mod.Name:lower()
                     local isR = n:find("ransom", 1, true) or n == "a90" or n:find("a-90", 1, true)
                     local isV = n:find("vacuum", 1, true)
-                    if isR or isV then
-                        if (isR and Ex.AntiRansom) or (isV and Ex.AntiVacuum) then
+                    local isB = ANTI.IsBlocked(mod.Name)
+                    if isR or isV or isB or ANTI.Static[mod] ~= nil then
+                        if (isR and Ex.AntiRansom) or (isV and Ex.AntiVacuum) or isB then
                             if ANTI.Static[mod] == nil then ANTI.Static[mod] = mod:GetAttribute("Static") or false end
                             mod:SetAttribute("Static", true)
                         elseif ANTI.Static[mod] ~= nil then
@@ -3503,9 +3632,16 @@ function ANTI.ScanSnare()
     end
 end
 
+AntisTab:Section({ Title = "God Mode" })
+AntisTab:Paragraph({
+    Title = "Entity God Mode",
+    Desc = "While any known entity is close, your real character (the one the server sees) is held high above, while your camera stays on the ground and you keep walking with a virtual position (collides with walls). You cannot interact with objects while it is active. Ranges: Rush/Ambush/Blitz/Haste use Evade Range, Figure 40, Seek 70, Eyes/Lookman 90, Dread 60, others 80.",
+})
+AddToggle(AntisTab, "AntiGod", "God Mode (all entities)", "Evades every known entity automatically, so nothing reaches you while you keep walking.", Ex.AntiGod, function(v) Ex.AntiGod = v; ANTI.Scan() end)
+
 AntisTab:Section({ Title = "Remote / module antis" })
 AddToggle(AntisTab, "AntiScreech", "Anti Screech", "Answers the server as if you caught Screech and removes it. Also covers Glitched Screech.", Ex.AntiScreech, function(v) Ex.AntiScreech = v end)
-AddToggle(AntisTab, "AntiEyes", "Anti Eyes", "Reports an impossible head rotation to the server while Eyes is present, so it cannot tell you are looking at it.", Ex.AntiEyes, function(v) Ex.AntiEyes = v; ANTI.Scan() end)
+AddToggle(AntisTab, "AntiEyes", "Anti Eyes", "Reports an impossible head rotation to the server and blocks the Eyes client script while it is present. For a stronger guarantee also use God Mode.", Ex.AntiEyes, function(v) Ex.AntiEyes = v; ANTI.Scan() end)
 AddToggle(AntisTab, "AntiLookman", "Anti Lookman", "Same as Anti Eyes, for Lookman (Backdoor).", Ex.AntiLookman, function(v) Ex.AntiLookman = v; ANTI.Scan() end)
 AddToggle(AntisTab, "AntiRansom", "Anti Ransom", "Disables the Ransom / A-90 client module so its effect and check never run.", Ex.AntiRansom, function(v) Ex.AntiRansom = v end)
 AddToggle(AntisTab, "AntiSnare", "Anti Snare", "Turns off touch on Snare traps (existing and new ones).", Ex.AntiSnare, function(v)
@@ -3520,8 +3656,8 @@ end)
 AntisTab:Section({ Title = "Room & entity antis" })
 AddToggle(AntisTab, "AntiVacuum", "Anti Vacuum", "Backdoor fake door: if the server tries to send you to the void (a far teleport), you are put back where you were and kept from falling out of the map. Also disables a Vacuum client module if present. Note: blocks any far server teleport while on.", Ex.AntiVacuum, function(v) Ex.AntiVacuum = v end)
 AddToggle(AntisTab, "AntiDread", "Anti Dread", "Dread is removed from your game as soon as it appears, so it never shows in its room.", Ex.AntiDread, function(v) Ex.AntiDread = v; if v then ANTI.ScanAway() end end)
-AddToggle(AntisTab, "AntiSeek", "Anti Seek", "Sends Seek (and its chase pieces) far away in your game so it never shows up in chases.", Ex.AntiSeek, function(v) Ex.AntiSeek = v; if v then ANTI.ScanAway() end end)
-AddToggle(AntisTab, "AntiFigure", "Anti Figure", "Sends Figure far away in your game so you never see it.", Ex.AntiFigure, function(v) Ex.AntiFigure = v; if v then ANTI.ScanAway() end end)
+AddToggle(AntisTab, "AntiSeek", "Anti Seek", "Hides Seek and disables touch on its chase pieces and obstacles (arms, chandeliers). Use God Mode to also keep the server from reaching you.", Ex.AntiSeek, function(v) Ex.AntiSeek = v; if v then ANTI.ScanAway() end end)
+AddToggle(AntisTab, "AntiFigure", "Anti Figure", "Hides Figure and disables touch on its parts. Use God Mode to keep the server from reaching you.", Ex.AntiFigure, function(v) Ex.AntiFigure = v; if v then ANTI.ScanAway() end end)
 
 AntisTab:Section({ Title = "Evade antis" })
 AntisTab:Paragraph({
@@ -3536,6 +3672,17 @@ AddToggle(AntisTab, "AntiCustom", "Anti Custom Entity", "Evades any entity whose
 AddInput(AntisTab, "AntiCustomNames", "Custom Entity Names", "Part of the entity's model name. Several allowed, separated by commas.", "e.g. seek, figure", Ex.AntiCustomNames)
 AddSlider(AntisTab, "AntiRange", "Evade Range", "How close (studs) the entity must be to trigger the evade.", 50, 500, Ex.AntiRange, function(v) Ex.AntiRange = v end)
 AddSlider(AntisTab, "AntiHeight", "Evade Height", "How far above your position you are held while evading.", 100, 400, Ex.AntiHeight, function(v) Ex.AntiHeight = v end)
+
+AntisTab:Section({ Title = "More antis (client scripts)" })
+AntisTab:Paragraph({
+    Title = "What these do",
+    Desc = "Each toggle blocks that entity's client script (its effects and any damage the client reports to the server). If its damage is decided by the server, only the visuals disappear: pair it with God Mode.",
+})
+for _, m in ipairs(ANTI.Mods) do
+    if m.id:find("^AntiMod_") then
+        AddToggle(AntisTab, m.id, m.title, "Blocks the " .. m.title:gsub("^Anti ", "") .. " client script.", Ex[m.id], function(v) Ex[m.id] = v end)
+    end
+end
 
 ----------------------------------------------------
 -- ALERTS TAB: Entity Notifier
@@ -3778,7 +3925,7 @@ local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
     "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "ACBMode", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
-    "AntiRush", "AntiAmbush", "AntiCustom", "AntiGlitch", "AntiDread", "AntiSeek", "AntiFigure", "AntiCustomNames", "AntiRange", "AntiHeight", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
+    "AntiRush", "AntiAmbush", "AntiCustom", "AntiGlitch", "AntiDread", "AntiSeek", "AntiFigure", "AntiGod", "AntiMod_Halt", "AntiMod_Bash", "AntiMod_Scribbles", "AntiMod_Giggle", "AntiMod_Timothy", "AntiMod_Jeff", "AntiMod_Gloombat", "AntiMod_Grumble", "AntiMod_Firedamp", "AntiMod_Bramble", "AntiMod_Surge", "AntiMod_Caw", "AntiMod_Eyestalk", "AntiMod_Groundskeeper", "AntiMod_Grampy", "AntiMod_Honcho", "AntiMod_Drone", "AntiMod_Teller", "AntiMod_Alma", "AntiCustomNames", "AntiRange", "AntiHeight", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
 }
