@@ -577,6 +577,7 @@ local Tracked = {}
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Setters = {}
 local Mode = { Name = "Unknown", Raw = "" }
+local ModeParagraph -- se crea en la pestana Main
 
 -- Categorias de ESP que existen en cada modo
 local MODE_CATS = {
@@ -587,6 +588,8 @@ local MODE_CATS = {
     Archives  = { "doors", "stardust", "entities", "items", "drawers", "interactables", "glitch" },
     Stairwell = { "doors", "stardust", "entities", "items", "interactables", "glitch" },
     Rooms     = { "doors", "stardust", "entities", "items", "wardrobes", "lockers", "glitch" },
+    -- Lobby: no hay partida, solo jugadores
+    Lobby     = {},
     -- Modo no detectado: solo lo basico y seguro (sin Dupe ni extras)
     Unknown   = { "doors", "gold", "keys", "wardrobes", "chests", "objectives", "entities", "items", "drawers", "lockers" },
 }
@@ -638,7 +641,25 @@ local function SetActive(modeName)
     Active = new
 end
 
-local function ReadMode()
+-- Force Gamemode: "Auto" = detectar solo; cualquier otro valor fuerza ese modo
+local Force = { Name = "Auto" }
+
+-- Lobby de DOORS: es un place aparte del juego y ahi GameData.Floor vale "Hotel" por defecto,
+-- por eso antes se detectaba como Hotel. Main_Game destruye MainUI.LobbyFrame al entrar a una
+-- partida, asi que si LobbyFrame sigue ahi (fuera del place del juego) tambien es el lobby.
+local LOBBY_PLACE_ID = 6516141723
+local GAME_PLACE_ID = 6839171747
+local function IsLobby()
+    if game.PlaceId == LOBBY_PLACE_ID then return true end
+    if game.PlaceId ~= GAME_PLACE_ID then
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        local mu = pg and pg:FindFirstChild("MainUI")
+        if mu and mu:FindFirstChild("LobbyFrame") then return true end
+    end
+    return false
+end
+
+local function ReadModeRaw()
     local raw, strings = {}, {}
     local gd = ReplicatedStorage:FindFirstChild("GameData")
     if gd then
@@ -677,6 +698,14 @@ local function ReadMode()
     return "Unknown"
 end
 
+local function ReadMode()
+    local okR, name = pcall(ReadModeRaw) -- tambien actualiza Mode.Raw
+    if Force.Name ~= "Auto" then return Force.Name end
+    local okL, lobby = pcall(IsLobby)
+    if okL and lobby then return "Lobby" end
+    return okR and name or "Unknown"
+end
+
 local function WaitForMode(timeout)
     local t0 = os.clock()
     while true do
@@ -695,14 +724,18 @@ local function ApplyMode(name)
     if OnModeApplied then pcall(OnModeApplied) end
     if Cfg.AutoPreset and ApplyPreset then pcall(ApplyPreset, name) end
     if Rescan then Rescan() end
+    local forced = Force.Name ~= "Auto"
     pcall(function()
-        WindUI:Notify({ Title = "Game Mode", Content = "Detected: " .. name .. ". Only its ESP options are loaded.", Duration = 4 })
+        WindUI:Notify({ Title = "Game Mode", Content = (forced and "Forced: " or "Detected: ") .. name .. ". Only its ESP options are loaded.", Duration = 4 })
     end)
+    if ModeParagraph then
+        pcall(function() ModeParagraph:SetTitle((forced and "Forced: " or "Detected: ") .. name) end)
+    end
 end
 
 local function WatchMode()
     local name = ReadMode()
-    if name ~= "Unknown" and name ~= Mode.Name then ApplyMode(name) end
+    if name ~= Mode.Name and (name ~= "Unknown" or Force.Name == "Unknown") then ApplyMode(name) end
 end
 
 -- Espera al modo ANTES de escanear nada
@@ -1833,7 +1866,7 @@ end
 -- MAIN TAB: estado del modo
 ----------------------------------------------------
 MainTab:Section({ Title = "Game Mode" })
-MainTab:Paragraph({
+ModeParagraph = MainTab:Paragraph({
     Title = "Detected at load: " .. Mode.Name,
     Desc = "The script detects the game mode when it starts and only loads the ESP options and detectors that mode needs. "
         .. "If the mode changes while you play, it reconfigures itself and adds the new options at the bottom of the Visuals tab."
@@ -1843,10 +1876,41 @@ MainTab:Button({
     Desc = "Reads the game data again. Use it if the mode was not detected correctly on load.",
     Callback = function()
         local ok, name = pcall(ReadMode)
-        if ok and name ~= "Unknown" and name ~= Mode.Name then
+        if ok and name ~= Mode.Name and (name ~= "Unknown" or Force.Name == "Unknown") then
             ApplyMode(name)
         else
             WindUI:Notify({ Title = "Game Mode", Content = "Current mode: " .. Mode.Name .. " (no change).", Duration = 3 })
+        end
+    end
+})
+
+-- Force Gamemode (el lobby se detecta solo como "Lobby" en modo Auto)
+local FORCE_LABELS = {
+    ["Auto (detect)"] = "Auto",
+    ["Outdoors"] = "Outdoors",
+    ["Backdoors"] = "Backdoor",
+    ["Hotel"] = "Hotel",
+    ["Mines"] = "Mines",
+    ["Stairwells"] = "Stairwell",
+    ["Super Hard Mode (Fools)"] = "Fools",
+    ["Archives"] = "Archives",
+    ["Rooms"] = "Rooms",
+    ["Unknown"] = "Unknown",
+}
+MainTab:Dropdown({
+    Title = "Force Gamemode",
+    Desc = "Forces the script to use a specific mode instead of auto-detecting it. Choose Auto (detect) to go back to normal detection (the Lobby is detected automatically).",
+    Values = { "Auto (detect)", "Outdoors", "Backdoors", "Hotel", "Mines", "Stairwells", "Super Hard Mode (Fools)", "Archives", "Rooms", "Unknown" },
+    Value = "Auto (detect)",
+    Callback = function(label)
+        local mode = FORCE_LABELS[label]
+        if not mode then return end
+        Force.Name = mode
+        local ok, name = pcall(ReadMode)
+        if ok and name and (name ~= Mode.Name) then
+            ApplyMode(name)
+        else
+            WindUI:Notify({ Title = "Game Mode", Content = "Mode: " .. Mode.Name .. " (no change).", Duration = 3 })
         end
     end
 })
@@ -3353,8 +3417,11 @@ task.spawn(function()
 end)
 
 -- Screech: se responde al servidor como si lo hubieras atrapado y se elimina el modelo
+ANTI.ScreechSeen = setmetatable({}, { __mode = "k" })
 function ANTI.Screech(m)
     if not Ex.AntiScreech then return end
+    if ANTI.ScreechSeen[m] then return end -- una sola vez por modelo (antes se repetia)
+    ANTI.ScreechSeen[m] = true
     task.spawn(function()
         local r = ANTI.Remote("Screech")
         if r then pcall(function() r:FireServer(true) end) end
@@ -3362,6 +3429,18 @@ function ANTI.Screech(m)
         pcall(function() m:Destroy() end)
     end)
 end
+
+-- Screech siempre aparece como hijo directo de Workspace: se vigila solo ChildAdded
+-- (antes se comprobaba el nombre de CADA modelo nuevo del mapa, lo que lagueaba mucho)
+function ANTI.CheckScreechName(inst)
+    if not inst:IsA("Model") then return end
+    local nm = inst.Name
+    if nm == "Screech" or nm:find("SCJVEREECH", 1, true) or nm:lower():find("screech", 1, true) then
+        ANTI.Screech(inst)
+    end
+end
+Workspace.ChildAdded:Connect(ANTI.CheckScreechName)
+for _, c in ipairs(Workspace:GetChildren()) do ANTI.CheckScreechName(c) end
 
 -- Se desactiva el contacto (CanTouch) de un modelo y sus partes (Snare, obstaculos de Seek...)
 function ANTI.NoTouch(inst)
@@ -3393,8 +3472,6 @@ Workspace.DescendantAdded:Connect(function(inst)
     if inst:IsA("Model") then
         ANTI.Consider(inst)
         ANTI.TrackAway(inst)
-        local low = nm:lower()
-        if low:find("screech", 1, true) or nm:find("SCJVEREECH", 1, true) then ANTI.Screech(inst) end
     end
 end)
 
@@ -3594,9 +3671,10 @@ task.spawn(function()
                     local n = mod.Name:lower()
                     local isR = n:find("ransom", 1, true) or n == "a90" or n:find("a-90", 1, true)
                     local isV = n:find("vacuum", 1, true)
+                    local isS = n == "screech"
                     local isB = ANTI.IsBlocked(mod.Name)
-                    if isR or isV or isB or ANTI.Static[mod] ~= nil then
-                        if (isR and Ex.AntiRansom) or (isV and Ex.AntiVacuum) or isB then
+                    if isR or isV or isS or isB or ANTI.Static[mod] ~= nil then
+                        if (isR and Ex.AntiRansom) or (isV and Ex.AntiVacuum) or (isS and Ex.AntiScreech) or isB then
                             if ANTI.Static[mod] == nil then ANTI.Static[mod] = mod:GetAttribute("Static") or false end
                             mod:SetAttribute("Static", true)
                         elseif ANTI.Static[mod] ~= nil then
