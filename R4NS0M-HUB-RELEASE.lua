@@ -2387,7 +2387,7 @@ local Ex = {
     NotifyFilter = {},
     -- Movement
     Speed = false, SpeedValue = 30, SpeedMethod = "Velocity",
-    SpeedHack = false, SpeedHackValue = 30, ACBypass = true, ACRemoveRoot = false,
+    SpeedHack = false, SpeedHackValue = 30, ACBypass = true,
     AntiScreech = false, AntiHaste = false, AntiVacuum = false, AntiEyes = false, AntiLookman = false,
     AntiSnare = false, AntiRansom = false, AntiRush = false, AntiAmbush = false, AntiCustom = false,
     AntiGlitch = false, AntiDread = false, AntiSeek = false, AntiFigure = false, AntiGod = false,
@@ -2720,26 +2720,16 @@ Hooks.SpeedHack = function(v)
 end
 
 -- ============================================================================================
--- ANTI CHEAT BYPASS v2  (ya NO toca tu velocidad: no hay "Smart", ni escala segura, ni reduccion)
+-- ANTI CHEAT BYPASS  (Remove Root + cambio rapido en puertas)
 --
--- Lo que se ve en los scripts del juego sacados con Dex (cliente):
---   * Movement: updatespeed() calcula el WalkSpeed con los atributos del personaje SpeedBoost y
---     SpeedBoostExtra (tope 70) menos WaterSlowness / AnxietySlow / etc. Esos atributos los manda el
---     servidor, asi que desde aqui no se bajan ni se suben: solo se anula el TIRON de vuelta.
---   * RemoteListener: cuando el juego te mueve el mismo (esconderte = atributo Hiding + PivotTo,
---     escaleras = Climbing, animaciones de cliente = AnimatingClient) NO es un tiron del servidor, asi que
---     esos momentos se respetan (antes el bypass los cancelaba y podia romper esconderse/escaleras).
---   * Seated / carrito (cartMode) / asiento tambien los mueve el juego.
--- Lo que hace:
---   1) bloquea :Kick() (namecall + hookfunction)
---   2) mantiene la propiedad de red de tu personaje (SimulationRadius al maximo)
---   3) compara tu posicion con la que te corresponde por TU PROPIA velocidad medida; lo que se desvie de eso
---      es un tiron/teleport del servidor y se anula al instante (Stepped, Heartbeat, RenderStepped y cambio
---      de CFrame). La referencia avanza contigo, asi que no te congela ni te manda atras.
---   4) libera Anchored / PlatformStand si el servidor te deja clavado despues de un tiron
+--   * Tu HumanoidRootPart REAL se saca del personaje y se pone uno local identico (mismo nombre, tamano,
+--     CFrame y uniones). Lo que se cambia en el cliente no se replica, asi que el servidor no ve tu
+--     velocidad y las funciones de Speed / Speed Hack / Fly / Slide funcionan.
+--   * Para interactuar con una puerta el servidor SI necesita tu root real cerca de ella. Por eso, al
+--     acercarte a una puerta (o al empezar/terminar de usar su prompt) el root real vuelve a entrar al
+--     personaje al instante y, cuando la puerta ya se abrio, el root local lo reemplaza otra vez.
+--   * Tambien bloquea :Kick() sobre tu jugador.
 -- ============================================================================================
-local GAME_OWNED_ATTRS = { "Hiding", "Climbing", "AnimatingClient" }
-
 pcall(function()
     if not (hookmetamethod and getnamecallmethod) then return end
     local old
@@ -2761,177 +2751,192 @@ pcall(function()
     end))
 end)
 
--- El cliente conserva la fisica de su propio personaje (menos motivos para que el servidor lo corrija)
-task.spawn(function()
-    while true do
-        if Ex.ACBypass and sethiddenproperty then
-            pcall(sethiddenproperty, LocalPlayer, "SimulationRadius", 1e9)
-            pcall(sethiddenproperty, LocalPlayer, "MaximumSimulationRadius", 1e9)
-        end
-        task.wait(2)
-    end
-end)
+local RootS = { char = nil, real = nil, stand = nil, mode = nil, realSince = 0, realUntil = 0, cool = 0, holding = 0 }
+St.Root = RootS
 
--- true si ahora mismo es el JUEGO quien mueve tu personaje (no es un tiron del servidor)
-function FX.GameMoving(char, hum)
-    for _, a in ipairs(GAME_OWNED_ATTRS) do
-        if char:GetAttribute(a) then return true end
+local function collectJoints(char, part)
+    local list = {}
+    for _, d in ipairs(char:GetDescendants()) do
+        if d:IsA("JointInstance") then
+            if d.Part0 == part then list[#list + 1] = { d, "Part0" } end
+            if d.Part1 == part then list[#list + 1] = { d, "Part1" } end
+        end
     end
-    if hum and hum:GetState() == Enum.HumanoidStateType.Seated then return true end
+    return list
+end
+
+-- Mete `target` en el personaje en lugar de `other` (uniones, PrimaryPart, posicion y velocidad)
+local function swapRoot(target, other)
+    local char = RootS.char
+    if not (char and char.Parent and target and other) then return false end
+    return (pcall(function()
+        local cf, vel = other.CFrame, other.AssemblyLinearVelocity
+        local joints = collectJoints(char, other)
+        target.CFrame = cf
+        target.Parent = char
+        for _, j in ipairs(joints) do j[1][j[2]] = target end
+        char.PrimaryPart = target
+        other.Parent = nil
+        target.CFrame = cf
+        target.AssemblyLinearVelocity = vel
+    end))
+end
+
+function FX.UseReal()
+    if RootS.mode ~= "stand" then return end
+    if swapRoot(RootS.real, RootS.stand) then
+        RootS.mode, RootS.realSince = "real", os.clock()
+    end
+end
+
+function FX.UseStand()
+    if RootS.mode ~= "real" then return end
+    if swapRoot(RootS.stand, RootS.real) then RootS.mode = "stand" end
+end
+
+-- Activa el bypass en el personaje actual (queda con el root local puesto)
+function FX.DropRoot()
+    local char = LocalPlayer.Character
+    if not char or RootS.char == char then return false end
+    local real = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not (real and hum) or hum.Health <= 0 then return false end
+    local stand
+    pcall(function() stand = real:Clone() end)
+    if not stand then return false end
+    stand.Name = "HumanoidRootPart"
+    RootS.char, RootS.real, RootS.stand, RootS.mode = char, real, stand, "real"
+    RootS.realUntil, RootS.cool, RootS.holding = 0, 0, 0
+    if swapRoot(stand, real) then
+        RootS.mode = "stand"
+        return true
+    end
+    RootS.char, RootS.real, RootS.stand, RootS.mode = nil, nil, nil, nil
     return false
 end
 
-function FX.BypassCheck()
-    if not Ex.ACBypass then St.BAcc = nil; return end
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then St.BAcc = nil; return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local now = os.clock()
-    local cf = root.CFrame
-    local acc = St.BAcc
-    local gameMoving = FX.GameMoving(char, hum)
-
-    -- Anti-congelamiento: si tras un tiron anulado el servidor te deja anclado / en PlatformStand, se libera
-    if now - (St.BLastBlock or -99) < 3 and not gameMoving then
-        if root.Anchored or (hum and hum.PlatformStand) then
-            St.BFrozen = St.BFrozen or now
-            if now - St.BFrozen > 0.3 then
-                root.Anchored = false
-                if hum then hum.PlatformStand = false end
-            end
-        else
-            St.BFrozen = nil
-        end
-    else
-        St.BFrozen = nil
-    end
-
-    if gameMoving then St.BSkip = math.max(St.BSkip or 0, now + 0.6) end
-
-    if not acc or acc.root ~= root or now < (St.BSkip or 0) or (hum and hum.Health <= 0) then
-        St.BAcc = { cf = cf, t = now, root = root, vel = root.AssemblyLinearVelocity }
-        return
-    end
-
-    -- Posicion que te toca segun TU movimiento real. Lo que se desvie de eso = tiron del servidor.
-    local dt = math.min(math.max(now - acc.t, 1 / 240), 0.25)
-    local vel = acc.vel or Vector3.zero
-    local predicted = acc.cf.Position + vel * dt
-    local dev = cf.Position - predicted
-    local flatDev = Vector3.new(dev.X, 0, dev.Z).Magnitude
-    -- tolerancia: velocidad medida + la que el propio juego le pone a tu humanoide (nunca se modifica)
-    local ref = math.max(Vector3.new(vel.X, 0, vel.Z).Magnitude, hum and hum.WalkSpeed or 16, 16)
-    -- movimientos propios del hub (no son tirones): se permiten
-    if Ex.Speed then ref = math.max(ref, Ex.SpeedValue) end
-    if Ex.SpeedHack then ref = math.max(ref, Ex.SpeedHackValue) end
-    if Ex.Fly then ref = math.max(ref, Ex.FlySpeed) end
-    if Ex.Slide then ref = math.max(ref, Ex.SlideSpeed) end
-
-    if flatDev > 3 + 1.3 * ref * dt or math.abs(dev.Y) > 5 + 60 * dt then
-        -- se guarda donde te queria el servidor (por si quieres sincronizar a mano con "Sync To Server")
-        St.BSrvCF = cf
-        local newCF = CFrame.new(predicted) * acc.cf.Rotation
-        St.BAcc = { cf = newCF, t = now, root = root, vel = vel }
-        St.BLastBlock = now
-        root.CFrame = newCF
-        root.AssemblyLinearVelocity = vel
-
-        St.BN = (St.BN or 0) + 1
-        local log = St.BLog or {}
-        St.BLog = log
-        log[#log + 1] = string.format("#%d t=%.2f push=%.1f dev=%.1f dt=%.3f anch=%s plat=%s ws=%.1f ref=%.1f state=%s",
-            St.BN, now, dev.Magnitude, flatDev, dt, tostring(root.Anchored), tostring(hum and hum.PlatformStand),
-            hum and hum.WalkSpeed or -1, ref, hum and tostring(hum:GetState()) or "?")
-        if #log > 60 then table.remove(log, 1) end
-        if Cfg.Debug and now - (St.BDbg or 0) > 0.1 then
-            St.BDbg = now
-            print("[R4NS0M] AC bypass: " .. log[#log])
-        end
-    else
-        St.BAcc = { cf = cf, t = now, root = root, vel = root.AssemblyLinearVelocity }
-    end
+-- Desactiva el bypass: vuelve tu root real
+function FX.RestoreRoot()
+    if RootS.char and RootS.mode == "stand" then swapRoot(RootS.real, RootS.stand) end
+    if RootS.stand then pcall(function() RootS.stand:Destroy() end) end
+    RootS.char, RootS.real, RootS.stand, RootS.mode = nil, nil, nil, nil
 end
 
--- REMOVE ROOT (experimental): quita el HumanoidRootPart REAL de tu cliente y pone en su lugar uno local
--- (mismo tamano/CFrame/uniones) para que Movement, la camara, Fly y el resto del hub sigan encontrando
--- "HumanoidRootPart". Nota: lo que se borra/crea en el cliente no se replica; el servidor sigue teniendo su
--- propio root. Se rehace solo al reaparecer. Para volver a la normalidad: apaga la opcion y resetea el personaje.
-function FX.DropRoot()
-    local char = LocalPlayer.Character
-    if not char or St.RootDropped == char then return false end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not (root and hum) or hum.Health <= 0 then return false end
-    local ok = pcall(function()
-        local stand = root:Clone()
-        stand.Name = "HumanoidRootPart"
-        stand.CFrame = root.CFrame
-        local joints = {}
-        for _, d in ipairs(char:GetDescendants()) do
-            if d:IsA("JointInstance") then
-                if d.Part0 == root then joints[#joints + 1] = { d, "Part0" } end
-                if d.Part1 == root then joints[#joints + 1] = { d, "Part1" } end
-            end
+-- Prompts de puertas: Workspace.CurrentRooms.[sala].Door (cualquier ProximityPrompt dentro, incluido el de la cerradura)
+local DoorPromptCache = setmetatable({}, { __mode = "k" })
+local function doorPrompts(door, now)
+    local c = DoorPromptCache[door]
+    if not c or now - c.t > 1 then
+        local list = {}
+        for _, d in ipairs(door:GetDescendants()) do
+            if d:IsA("ProximityPrompt") then list[#list + 1] = d end
         end
-        local cf, vel = root.CFrame, root.AssemblyLinearVelocity
-        root.Name = "R4N_OldRoot"
-        stand.Parent = char
-        for _, j in ipairs(joints) do j[1][j[2]] = stand end
-        char.PrimaryPart = stand
-        root:Destroy()
-        stand.CFrame = cf
-        stand.AssemblyLinearVelocity = vel
-    end)
-    if ok then
-        St.RootDropped = char
-        St.BAcc, St.BSkip = nil, os.clock() + 1
+        c = { t = now, list = list }
+        DoorPromptCache[door] = c
     end
-    return ok
+    return c.list
 end
 
--- Sincroniza a mano con la posicion que el servidor queria darte (por si una puerta/prompt no responde)
-function FX.SyncToServer()
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not (root and St.BSrvCF) then return false end
-    root.CFrame = St.BSrvCF
-    St.BAcc, St.BSkip = nil, os.clock() + 0.8
-    return true
+local function promptPos(p)
+    local par = p.Parent
+    if par and par:IsA("Attachment") then return par.WorldPosition end
+    if par and par:IsA("BasePart") then return par.Position end
 end
 
-RunService.Stepped:Connect(function() FX.BypassCheck() end)
-RunService.RenderStepped:Connect(function() FX.BypassCheck() end)
-
-do
-    local conn
-    local attrConns = {}
-    local function hookRoot(root)
-        if conn then conn:Disconnect(); conn = nil end
-        if root then
-            conn = root:GetPropertyChangedSignal("CFrame"):Connect(function() FX.BypassCheck() end)
-        end
+function FX.IsDoorPrompt(prompt)
+    local rooms = Workspace:FindFirstChild("CurrentRooms")
+    if not rooms then return false end
+    local p, i = prompt.Parent, 0
+    while p and p ~= rooms and p ~= Workspace and i < 14 do
+        if p.Name == "Door" and p:IsA("Model") and p.Parent and p.Parent.Parent == rooms then return true end
+        p, i = p.Parent, i + 1
     end
-    local function onChar(char)
-        St.BSkip, St.BAcc, St.BSrvCF = os.clock() + 1.5, nil, nil
-        for _, c in ipairs(attrConns) do c:Disconnect() end
-        attrConns = {}
-        for _, a in ipairs(GAME_OWNED_ATTRS) do
-            attrConns[#attrConns + 1] = char:GetAttributeChangedSignal(a):Connect(function()
-                -- el juego empieza/termina de moverte (esconderse, escalera, animacion): margen de gracia
-                St.BSkip, St.BAcc = os.clock() + 1.2, nil
-            end)
-        end
-        task.spawn(function()
-            hookRoot(char:WaitForChild("HumanoidRootPart", 10))
-            if Ex.ACRemoveRoot then
-                char:WaitForChild("Humanoid", 10)
-                task.wait(1.5) -- que el juego termine de armar el personaje antes de cambiar el root
-                if char.Parent and Ex.ACRemoveRoot then
-                    FX.DropRoot()
-                    hookRoot(char:FindFirstChild("HumanoidRootPart"))
+    return false
+end
+
+-- true si hay un prompt de puerta (de salas no superadas) a alcance o casi
+function FX.DoorNear(pos, now)
+    local rooms = Workspace:FindFirstChild("CurrentRooms")
+    if not rooms then return false end
+    local cur = LocalPlayer:GetAttribute("CurrentRoom")
+    for _, room in ipairs(rooms:GetChildren()) do
+        local num = tonumber(room.Name)
+        if not (num and cur and num < cur) then
+            local door = room:FindFirstChild("Door")
+            if door and door:IsA("Model") then
+                for _, pr in ipairs(doorPrompts(door, now)) do
+                    if pr.Parent and pr.Enabled then
+                        local pp = promptPos(pr)
+                        if pp and (pp - pos).Magnitude <= pr.MaxActivationDistance + 12 then return true end
+                    end
                 end
             end
+        end
+    end
+    return false
+end
+
+local lastRootStep = 0
+function FX.RootStep()
+    if not Ex.ACBypass then return end
+    local char = LocalPlayer.Character
+    if not char or RootS.char ~= char then return end
+    local now = os.clock()
+    if now - lastRootStep < 0.04 then return end
+    lastRootStep = now
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+    local cur = (RootS.mode == "stand") and RootS.stand or RootS.real
+    if not (cur and cur.Parent) then return end
+
+    local want = RootS.holding > 0 or now < RootS.realUntil
+        or (now >= RootS.cool and FX.DoorNear(cur.Position, now))
+    if RootS.mode == "stand" then
+        if want then FX.UseReal() end
+    elseif RootS.mode == "real" then
+        local timedOut = now - RootS.realSince > 3 and RootS.holding <= 0
+        if timedOut or not want then
+            FX.UseStand()
+            if timedOut then RootS.cool = now + 1.5 end -- no reentrar en bucle si te quedas junto a una puerta
+        end
+    end
+end
+RunService.Heartbeat:Connect(function() FX.RootStep() end)
+
+do
+    local PPS = game:GetService("ProximityPromptService")
+    PPS.PromptButtonHoldBegan:Connect(function(pr)
+        if Ex.ACBypass and RootS.char and FX.IsDoorPrompt(pr) then
+            RootS.holding = RootS.holding + 1
+            RootS.cool = 0
+            FX.UseReal()
+        end
+    end)
+    PPS.PromptButtonHoldEnded:Connect(function(pr)
+        if RootS.holding > 0 and FX.IsDoorPrompt(pr) then
+            RootS.holding = RootS.holding - 1
+            RootS.realUntil = os.clock() + 0.7
+        end
+    end)
+    PPS.PromptTriggered:Connect(function(pr)
+        if Ex.ACBypass and RootS.char and FX.IsDoorPrompt(pr) then
+            RootS.cool = 0
+            FX.UseReal()
+            RootS.realUntil = os.clock() + 0.7 -- margen para que la puerta se abra; luego vuelve el root local
+        end
+    end)
+end
+
+do
+    local function onChar(char)
+        RootS.char, RootS.real, RootS.stand, RootS.mode = nil, nil, nil, nil
+        RootS.realUntil, RootS.cool, RootS.holding = 0, 0, 0
+        if not Ex.ACBypass then return end
+        task.spawn(function()
+            char:WaitForChild("HumanoidRootPart", 10)
+            char:WaitForChild("Humanoid", 10)
+            task.wait(1.5) -- que el juego termine de armar el personaje antes de cambiar el root
+            if char.Parent and Ex.ACBypass and LocalPlayer.Character == char then FX.DropRoot() end
         end)
     end
     if LocalPlayer.Character then onChar(LocalPlayer.Character) end
@@ -3223,7 +3228,6 @@ end)
 
 RunService.Heartbeat:Connect(function(dt)
     local now = os.clock()
-    FX.BypassCheck()
 
     -- Fullbright (el juego cambia la iluminacion por cuarto, asi que se reaplica)
     if Ex.Fullbright and now - St.LastLight > 0.2 then
@@ -3254,7 +3258,6 @@ RunService.Heartbeat:Connect(function(dt)
     if hum.FloorMaterial ~= Enum.Material.Air then St.LastSafe = root.CFrame end
     if Ex.VoidGuard and St.LastSafe and (Ex.Noclip or Ex.ACM or Ex.Fly)
         and root.Position.Y < St.LastSafe.Position.Y - 60 then
-        St.BSkip, St.BAcc = os.clock() + 0.3, nil
         root.CFrame = St.LastSafe + Vector3.new(0, 3, 0)
         root.AssemblyLinearVelocity = Vector3.zero
     end
@@ -3577,11 +3580,9 @@ RunService.Heartbeat:Connect(function(dt)
             local hit = Workspace:Raycast(ANTI.Virt + Vector3.new(0, 1.5, 0), dir.Unit * (stepLen + 1.2), ANTI.RayParams)
             if not hit then ANTI.Virt = ANTI.Virt + step end
         end
-        St.BSkip, St.BAcc = now + 0.6, nil
         root.CFrame = CFrame.new(ANTI.Virt + Vector3.new(0, Ex.AntiHeight, 0)) * ANTI.Home.Rotation
         root.AssemblyLinearVelocity = Vector3.zero
     elseif ANTI.Home then
-        St.BSkip, St.BAcc = now + 0.6, nil
         root.CFrame = CFrame.new(ANTI.Virt) * ANTI.Home.Rotation
         root.AssemblyLinearVelocity = Vector3.zero
         ANTI.Home, ANTI.Virt = nil, nil
@@ -3741,7 +3742,6 @@ RunService.Heartbeat:Connect(function()
     local hold = ANTI.Hold
     if hold then
         if now < hold.Until then
-            St.BSkip, St.BAcc = now + 0.6, nil
             root.CFrame = hold.CF
             root.AssemblyLinearVelocity = Vector3.zero
         else
@@ -4118,40 +4118,16 @@ AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your l
 
 AntiCheatTab:Section({ Title = "Bypass" })
 AddToggle(AntiCheatTab, "ACBypass", "Anti cheat bypass",
-    "Cancels server pull-backs/teleports and blocks kicks. It never changes your speed. It respects moves the game itself makes (hiding, ladders, seats). On by default every time you run the script.",
-    Ex.ACBypass, function(v) Ex.ACBypass = v end)
-AddToggle(AntiCheatTab, "ACRemoveRoot", "Remove Root (experimental)",
-    "Replaces your real HumanoidRootPart with a local one, so the server cannot pull you back and your Speed / Speed Hack / Fly keep working. Untested in the game: if doors or prompts stop responding, turn it off and reset your character.",
-    Ex.ACRemoveRoot, function(v)
-        Ex.ACRemoveRoot = v
+    "Swaps your HumanoidRootPart for a local copy so the server cannot pull you back and Speed / Speed Hack / Fly work. Near a door it puts your real root back for an instant so the door opens, then swaps again. Also blocks kicks. Turning it off gives you your real root back.",
+    Ex.ACBypass, function(v)
+        Ex.ACBypass = v
         if v then
-            if FX.DropRoot() then NotifyUI("Remove Root", "Root replaced.") end
+            if FX.DropRoot() then NotifyUI("Anti cheat bypass", "Active.") end
         else
-            NotifyUI("Remove Root", "Off. Reset your character to get your real root back.")
+            FX.RestoreRoot()
+            NotifyUI("Anti cheat bypass", "Off. Real root restored.")
         end
     end)
-AntiCheatTab:Button({
-    Title = "Sync To Server",
-    Desc = "If a door, item or prompt does not respond after a blocked pull, this puts you where the server last wanted you.",
-    Callback = function()
-        if FX.SyncToServer() then NotifyUI("Bypass", "Synced to the server position.")
-        else NotifyUI("Bypass", "Nothing to sync yet (no pull-back was blocked).") end
-    end
-})
-AntiCheatTab:Button({
-    Title = "Copy Bypass Log",
-    Desc = "Copies the last blocked teleports (distance, state, speed settings). Send it if the bypass still fails.",
-    Callback = function()
-        local text = "Blocked: " .. tostring(St.BN or 0) .. "\n" .. table.concat(St.BLog or {}, "\n")
-        if setclipboard then
-            setclipboard(text)
-            NotifyUI("Bypass", "Log copied.")
-        else
-            print(text)
-            NotifyUI("Bypass", "setclipboard not available; printed in console.")
-        end
-    end
-})
 
 AntiCheatTab:Section({ Title = "Mobile Buttons" })
 AddToggle(AntiCheatTab, "FloatButtons", "Floating Buttons", "Small draggable buttons for ACM, SLIDE and FLY. On by default on touch devices.", Ex.FloatButtons, function(v)
@@ -4220,7 +4196,7 @@ FX.UpdateButtons()
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "ACRemoveRoot", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
     "AntiRush", "AntiAmbush", "AntiCustom", "AntiGlitch", "AntiDread", "AntiSeek", "AntiFigure", "AntiGod", "AntiMod_Halt", "AntiMod_Bash", "AntiMod_Scribbles", "AntiMod_Giggle", "AntiMod_Timothy", "AntiMod_Jeff", "AntiMod_Gloombat", "AntiMod_Grumble", "AntiMod_Firedamp", "AntiMod_Bramble", "AntiMod_Surge", "AntiMod_Caw", "AntiMod_Eyestalk", "AntiMod_Groundskeeper", "AntiMod_Grampy", "AntiMod_Honcho", "AntiMod_Drone", "AntiMod_Teller", "AntiMod_Alma", "AntiCustomNames", "AntiRange", "AntiHeight", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
