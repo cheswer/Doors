@@ -229,7 +229,11 @@ ITEM_LOOKUP["trickortreat"] = "Trick or Treat Bag"
 -- Items con ESP propio (no entran al filtro de items normales)
 ITEM_LOOKUP["glitchfragment"] = "Glitch Fragment"
 ITEM_LOOKUP["lotuspetal"] = "Lotus Petal"
-local SPECIAL_CATS = { ["Glitch Fragment"] = "glitch", ["Lotus Petal"] = "lotus" }
+ITEM_LOOKUP["scanner"] = "Scanner Module"
+ITEM_LOOKUP["scannermodule"] = "Scanner Module"
+ITEM_LOOKUP["modulescanner"] = "Scanner Module"
+ITEM_LOOKUP["scannerpart"] = "Scanner Module"
+local SPECIAL_CATS = { ["Glitch Fragment"] = "glitch", ["Lotus Petal"] = "lotus", ["Scanner Module"] = "scanner" }
 ITEM_LOOKUP["batterypack"] = "Battery Pack"
 
 -- Alias de nombres internos reales (sacados del Explorer / Dex)
@@ -348,7 +352,8 @@ local ENTITY_DEFS = {
     { "Currents", "Archives", { "currents" } },
     -- The Stairwell
     { "Creak", "Stairwell", { "creak" } },
-    { "Noise", "Stairwell", { "noise" } },
+    { "Noise", "*", { "noisemodel", "noise" } },
+    { "Noise TV", "*", { "tvstand" } },
     { "Stem", "Stairwell", { "stem" } },
     { "Meld", "Stairwell", { "meld" } },
     { "Cobbler", "Stairwell", { "cobbler" } },
@@ -510,6 +515,7 @@ local Cfg = {
         interactables = { Enabled = false, Color = Color3.fromHex("#7fffd4") },
         glitch     = { Enabled = false, Color = Color3.fromHex("#8100a6") },
         lotus      = { Enabled = false, Color = Color3.fromHex("#ff6ff7") },
+        scanner    = { Enabled = false, Color = Color3.fromHex("#00ffa2") },
         stairs     = { Enabled = false, Color = Color3.fromHex("#ff5fa2") },
         exit       = { Enabled = false, Color = Color3.fromHex("#93ff85") },
         cart       = { Enabled = false, Color = Color3.fromHex("#6d77ff") },
@@ -606,6 +612,7 @@ do
         if not seen[list] then
             seen[list] = true
             list[#list + 1] = "players"
+            if list ~= MODE_CATS.Lobby then list[#list + 1] = "scanner" end
         end
     end
     -- ESP Stairs & Ladders: solo existe en The Mines
@@ -874,7 +881,7 @@ local ExtraSerialize, ExtraApply -- los asigna el bloque de extras
 -- Si un objeto ya esta registrado, solo se reemplaza por una categoria de mayor prioridad
 local PRIORITY = {
     interactables = 1, doors = 2, drawers = 2, lockers = 2,
-    items = 3, chests = 3, glitch = 3, lotus = 3, stardust = 3,
+    items = 3, chests = 3, glitch = 4, scanner = 4, lotus = 3, stardust = 3,
     keys = 4, gold = 4, objectives = 4, wardrobes = 4,
     entities = 6, dupe = 6, players = 5, stairs = 1,
     exit = 4, cart = 4,
@@ -1238,7 +1245,7 @@ local function Process(inst)
             end
         elseif pn == "ModulePrompt" or pn == "HerbPrompt" then
             if not (Active.items or Active.keys or Active.objectives or Active.gold
-                or Active.stardust or Active.glitch or Active.lotus) then return end
+                or Active.stardust or Active.glitch or Active.lotus or Active.scanner) then return end
             local t = ResolveTarget(inst)
             if not t then return end
             if Watch.IsBurrow(t) or Watch.IsBurrow(inst) then return end
@@ -1256,6 +1263,15 @@ local function Process(inst)
             local cands = { t.Name, t:GetAttribute("DisplayName"), objText }
             if pn == "HerbPrompt" then cands[#cands + 1] = "Green Herb" end
             local display = ResolveItem(cands)
+            if not display then
+                -- Items raros (aparecen solo con "Show Unlisted Items"): se reconocen por texto y van a su ESP propio
+                local blob = Norm(t.Name) .. "|" .. Norm(tostring(t:GetAttribute("DisplayName") or "")) .. "|" .. Norm(tostring(objText or ""))
+                if blob:find("glitch", 1, true) then
+                    display = "Glitch Fragment"
+                elseif blob:find("scanner", 1, true) or (blob:find("scan", 1, true) and blob:find("module", 1, true)) then
+                    display = "Scanner Module"
+                end
+            end
             if not display and Mode.Name == "Outdoors" then return end -- en Outdoors no se marcan items desconocidos
             if Cfg.Debug then
                 local byName, byText = ResolveItem({ t.Name }), ResolveItem({ objText })
@@ -1449,11 +1465,28 @@ local function ProcessStairs(d)
     end
 end
 
+-- Noise: Workspace.Camera.NoiseModel   |   TV de Noise: Workspace.CurrentRooms.[sala].Assets.TV_Stand
+local function ProcessNoise(d)
+    if not Active.entities or Tracked[d] then return end
+    if not (d:IsA("Model") or d:IsA("BasePart")) then return end
+    local nm = d.Name
+    if nm == "NoiseModel" then
+        local cam = Workspace:FindFirstChild("Camera")
+        if cam and d.Parent == cam then RegisterEntityWhenReady(d, "Noise", true) end
+    elseif nm == "TV_Stand" then
+        local p = d.Parent
+        if p and p.Name == "Assets" and CurrentRooms and d:IsDescendantOf(CurrentRooms) then
+            RegisterEntityWhenReady(d, "Noise TV", true)
+        end
+    end
+end
+
 local function OnDescendant(d)
     -- PERF: solo estas clases importan; el resto (Decals, Sounds, Attachments, Scripts...) se descarta ya
     if not (d:IsA("ProximityPrompt") or d:IsA("Model") or d:IsA("BasePart") or d:IsA("Humanoid") or d:IsA("AnimationController")) then return end
     Process(d)
     ProcessStairs(d)
+    ProcessNoise(d)
     if d:IsA("Model") then
         if IsDupeName(d.Name) then ProcessDupe(d) end
         -- Entidades glitched pueden aparecer anidadas: se detectan por su nombre oficial
@@ -1885,6 +1918,8 @@ local CATEGORY_UI = {
       desc = "Stardust pickups found in the Outdoors." },
     { id = "glitch", section = "Loot", title = "ESP Glitch Fragment",
       desc = "The rare Glitch Fragment item. Glitched Rush, Ambush and Screech are handled by ESP Entities instead." },
+    { id = "scanner", section = "Loot", title = "ESP Scanner Module",
+      desc = "The very rare module for the Scanner. It has its own ESP and never shows in ESP Items." },
     { id = "lotus", section = "Loot", title = "ESP Lotus Petals",
       desc = "Lotus petals scattered around the Outdoors." },
 
@@ -2329,7 +2364,7 @@ local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.Keyboar
 -- Entidades que normalmente no vale la pena avisar (el usuario puede activarlas igual)
 local NOT_WORTH = {
     Timothy = true, Snare = true, Bob = true, ["El Goblino"] = true, Grampy = true,
-    Portrait = true, Monument = true, Currents = true, Jeff = true, Crusher = true,
+    Portrait = true, Monument = true, Currents = true, Jeff = true, Crusher = true, ["Noise TV"] = true,
 }
 
 -- Consejos cortos (solo donde la mecanica es conocida)
@@ -2352,7 +2387,7 @@ local Ex = {
     NotifyFilter = {},
     -- Movement
     Speed = false, SpeedValue = 30, SpeedMethod = "Velocity",
-    SpeedHack = false, SpeedHackValue = 30, ACBypass = true,
+    SpeedHack = false, SpeedHackValue = 30, ACBypass = true, ACRemoveRoot = false,
     AntiScreech = false, AntiHaste = false, AntiVacuum = false, AntiEyes = false, AntiLookman = false,
     AntiSnare = false, AntiRansom = false, AntiRush = false, AntiAmbush = false, AntiCustom = false,
     AntiGlitch = false, AntiDread = false, AntiSeek = false, AntiFigure = false, AntiGod = false,
@@ -2818,6 +2853,43 @@ function FX.BypassCheck()
     end
 end
 
+-- REMOVE ROOT (experimental): quita el HumanoidRootPart REAL de tu cliente y pone en su lugar uno local
+-- (mismo tamano/CFrame/uniones) para que Movement, la camara, Fly y el resto del hub sigan encontrando
+-- "HumanoidRootPart". Nota: lo que se borra/crea en el cliente no se replica; el servidor sigue teniendo su
+-- propio root. Se rehace solo al reaparecer. Para volver a la normalidad: apaga la opcion y resetea el personaje.
+function FX.DropRoot()
+    local char = LocalPlayer.Character
+    if not char or St.RootDropped == char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not (root and hum) or hum.Health <= 0 then return false end
+    local ok = pcall(function()
+        local stand = root:Clone()
+        stand.Name = "HumanoidRootPart"
+        stand.CFrame = root.CFrame
+        local joints = {}
+        for _, d in ipairs(char:GetDescendants()) do
+            if d:IsA("JointInstance") then
+                if d.Part0 == root then joints[#joints + 1] = { d, "Part0" } end
+                if d.Part1 == root then joints[#joints + 1] = { d, "Part1" } end
+            end
+        end
+        local cf, vel = root.CFrame, root.AssemblyLinearVelocity
+        root.Name = "R4N_OldRoot"
+        stand.Parent = char
+        for _, j in ipairs(joints) do j[1][j[2]] = stand end
+        char.PrimaryPart = stand
+        root:Destroy()
+        stand.CFrame = cf
+        stand.AssemblyLinearVelocity = vel
+    end)
+    if ok then
+        St.RootDropped = char
+        St.BAcc, St.BSkip = nil, os.clock() + 1
+    end
+    return ok
+end
+
 -- Sincroniza a mano con la posicion que el servidor queria darte (por si una puerta/prompt no responde)
 function FX.SyncToServer()
     local char = LocalPlayer.Character
@@ -2852,6 +2924,14 @@ do
         end
         task.spawn(function()
             hookRoot(char:WaitForChild("HumanoidRootPart", 10))
+            if Ex.ACRemoveRoot then
+                char:WaitForChild("Humanoid", 10)
+                task.wait(1.5) -- que el juego termine de armar el personaje antes de cambiar el root
+                if char.Parent and Ex.ACRemoveRoot then
+                    FX.DropRoot()
+                    hookRoot(char:FindFirstChild("HumanoidRootPart"))
+                end
+            end
         end)
     end
     if LocalPlayer.Character then onChar(LocalPlayer.Character) end
@@ -4040,6 +4120,16 @@ AntiCheatTab:Section({ Title = "Bypass" })
 AddToggle(AntiCheatTab, "ACBypass", "Anti cheat bypass",
     "Cancels server pull-backs/teleports and blocks kicks. It never changes your speed. It respects moves the game itself makes (hiding, ladders, seats). On by default every time you run the script.",
     Ex.ACBypass, function(v) Ex.ACBypass = v end)
+AddToggle(AntiCheatTab, "ACRemoveRoot", "Remove Root (experimental)",
+    "Replaces your real HumanoidRootPart with a local one, so the server cannot pull you back and your Speed / Speed Hack / Fly keep working. Untested in the game: if doors or prompts stop responding, turn it off and reset your character.",
+    Ex.ACRemoveRoot, function(v)
+        Ex.ACRemoveRoot = v
+        if v then
+            if FX.DropRoot() then NotifyUI("Remove Root", "Root replaced.") end
+        else
+            NotifyUI("Remove Root", "Off. Reset your character to get your real root back.")
+        end
+    end)
 AntiCheatTab:Button({
     Title = "Sync To Server",
     Desc = "If a door, item or prompt does not respond after a blocked pull, this puts you where the server last wanted you.",
@@ -4130,7 +4220,7 @@ FX.UpdateButtons()
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "ACRemoveRoot", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
     "AntiRush", "AntiAmbush", "AntiCustom", "AntiGlitch", "AntiDread", "AntiSeek", "AntiFigure", "AntiGod", "AntiMod_Halt", "AntiMod_Bash", "AntiMod_Scribbles", "AntiMod_Giggle", "AntiMod_Timothy", "AntiMod_Jeff", "AntiMod_Gloombat", "AntiMod_Grumble", "AntiMod_Firedamp", "AntiMod_Bramble", "AntiMod_Surge", "AntiMod_Caw", "AntiMod_Eyestalk", "AntiMod_Groundskeeper", "AntiMod_Grampy", "AntiMod_Honcho", "AntiMod_Drone", "AntiMod_Teller", "AntiMod_Alma", "AntiCustomNames", "AntiRange", "AntiHeight", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
