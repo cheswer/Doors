@@ -346,7 +346,7 @@ local ENTITY_DEFS = {
     { "Teller", "Archives", { "teller" } },
     { "Alma", "Archives", { "alma" } },
     { "Portrait", "Archives", { "portrait" } },
-    { "Bash", "Archives", { "a60", "bash" } },
+    { "Bash", "Archives", { "a60", "bash", "bashmoving", "bashrig", "bashmodel", "bashentity" } },
     { "Scribbles", "Archives", { "a120", "scribbles" } },
     { "Discoloration", "Archives", { "discoloration" } },
     { "Currents", "Archives", { "currents" } },
@@ -354,7 +354,7 @@ local ENTITY_DEFS = {
     { "Creak", "Stairwell", { "creak" } },
     { "Noise", "*", { "noisemodel", "noise" } },
     { "Noise TV", "*", { "tvstand" } },
-    { "Stem", "Stairwell", { "stem" } },
+    { "Stem", "Stairwell", { "stem", "stemmoving", "stemrig", "stemmodel", "stementity" } },
     { "Meld", "Stairwell", { "meld" } },
     { "Cobbler", "Stairwell", { "cobbler" } },
     { "Hijack", "Stairwell", { "hijack" } },
@@ -418,12 +418,16 @@ local function EntityLabel(name, strict, allowSkip)
         if n:find("rush", 1, true) then return "Glitched Rush" end
         return nil -- el "Glitch" generico (efectos del Glitch Fragment) aparecia sin parar: ya no se marca
     end
+    local nb = n -- nombre sin sufijo (BashMoving -> bash)
+    for _, suf in ipairs({ "moving", "model", "entity", "rig" }) do
+        if #nb > #suf and nb:sub(-#suf) == suf then nb = nb:sub(1, #nb - #suf) break end
+    end
     for _, t in ipairs(ENTITY_TOKENS) do
         local tok = t[1]
         if strict then
             if n == tok and (allowSkip or not STRICT_SKIP[tok]) then return t[2] end
         elseif #tok <= 4 then
-            if n == tok then return t[2] end
+            if n == tok or nb == tok then return t[2] end
         elseif n:sub(1, #tok) == tok then
             return t[2]
         end
@@ -1466,13 +1470,59 @@ local function ProcessStairs(d)
 end
 
 -- Noise: Workspace.Camera.NoiseModel   |   TV de Noise: Workspace.CurrentRooms.[sala].Assets.TV_Stand
+-- FIX: Hijack tambien puede venir como NoiseModel. Se mira el nombre, atributos y descendientes
+-- buscando "hijack" y se espera un momento a que el modelo cargue sus hijos antes de etiquetarlo.
+local function HasWord(v, w)
+    return type(v) == "string" and v:lower():find(w, 1, true) ~= nil
+end
+local function NoiseIsHijack(d)
+    if HasWord(d.Name, "hijack") then return true end
+    for k, v in pairs(d:GetAttributes()) do
+        if HasWord(k, "hijack") or HasWord(v, "hijack") then return true end
+    end
+    local n = 0
+    for _, x in ipairs(d:GetDescendants()) do
+        if HasWord(x.Name, "hijack") then return true end
+        for k, v in pairs(x:GetAttributes()) do
+            if HasWord(k, "hijack") or HasWord(v, "hijack") then return true end
+        end
+        n = n + 1
+        if n > 300 then break end
+    end
+    return false
+end
+local function DescribeChildren(d)
+    local out = {}
+    for _, c in ipairs(d:GetChildren()) do out[#out + 1] = c.ClassName .. ":" .. c.Name end
+    for k, v in pairs(d:GetAttributes()) do out[#out + 1] = "@" .. k .. "=" .. tostring(v) end
+    return table.concat(out, ", ")
+end
+
 local function ProcessNoise(d)
     if not Active.entities or Tracked[d] then return end
     if not (d:IsA("Model") or d:IsA("BasePart")) then return end
     local nm = d.Name
     if nm == "NoiseModel" then
         local cam = Workspace:FindFirstChild("Camera")
-        if cam and d.Parent == cam then RegisterEntityWhenReady(d, "Noise", true) end
+        if not (cam and d.Parent == cam) then return end
+        Dbg("NOISEMODEL", d, DescribeChildren(d)) -- con Debug activado imprime lo que tiene dentro
+        task.spawn(function()
+            local t0 = os.clock()
+            local label = "Noise"
+            while d.Parent and os.clock() - t0 < 1.2 do
+                if NoiseIsHijack(d) then label = "Hijack" break end
+                task.wait(0.1)
+            end
+            if not d.Parent then return end
+            for _ = 1, 20 do
+                if not d.Parent then return end
+                if GetPart(d) then
+                    Register(d, "entities", label, { Known = true, Key = label })
+                    return
+                end
+                task.wait(0.1)
+            end
+        end)
     elseif nm == "TV_Stand" then
         local p = d.Parent
         if p and p.Name == "Assets" and CurrentRooms and d:IsDescendantOf(CurrentRooms) then
@@ -1481,12 +1531,31 @@ local function ProcessNoise(d)
     end
 end
 
+-- FIX Bash/Stem/Hijack: modelos de entidad que viven en Workspace.Camera o dentro de tu personaje
+-- (no en Workspace directo). Antes solo se veian "agarrados" porque ahi si se escaneaban.
+local function ProcessLoose(d)
+    if not Active.entities or Tracked[d] or not d:IsA("Model") then return end
+    if d.Name == "NoiseModel" then return end
+    local p = d.Parent
+    local cam = Workspace:FindFirstChild("Camera")
+    local char = LocalPlayer.Character
+    if not ((cam and p == cam) or (char and p == char)) then return end
+    if IsExcludedEntity(d.Name) then return end
+    local label = EntityLabel(d.Name, false)
+    if not label or label == "Mandrake" then return end
+    local set = ENTITY_MODES[label]
+    if Mode.Name ~= "Unknown" and set and not set["*"] and not set[EntityModeKey()] then return end
+    Dbg("LOOSE", d, "label=" .. label)
+    RegisterEntityWhenReady(d, label, true)
+end
+
 local function OnDescendant(d)
     -- PERF: solo estas clases importan; el resto (Decals, Sounds, Attachments, Scripts...) se descarta ya
     if not (d:IsA("ProximityPrompt") or d:IsA("Model") or d:IsA("BasePart") or d:IsA("Humanoid") or d:IsA("AnimationController")) then return end
     Process(d)
     ProcessStairs(d)
     ProcessNoise(d)
+    ProcessLoose(d)
     if d:IsA("Model") then
         if IsDupeName(d.Name) then ProcessDupe(d) end
         -- Entidades glitched pueden aparecer anidadas: se detectan por su nombre oficial
@@ -2387,7 +2456,7 @@ local Ex = {
     NotifyFilter = {},
     -- Movement
     Speed = false, SpeedValue = 30, SpeedMethod = "Velocity",
-    SpeedHack = false, SpeedHackValue = 30, ACBypass = true, RootAuto = true, TrailPct = 100, Leash = 30, CatchUpPct = 150,
+    SpeedHack = false, SpeedHackValue = 30, ACBypass = true, LadderBypass = false, RootAuto = true, TrailPct = 100, Leash = 30, CatchUpPct = 150,
     AntiScreech = false, AntiHaste = false, AntiVacuum = false, AntiEyes = false, AntiLookman = false,
     AntiSnare = false, AntiRansom = false, AntiRush = false, AntiAmbush = false, AntiCustom = false,
     AntiGlitch = false, AntiDread = false, AntiSeek = false, AntiFigure = false, AntiGod = false,
@@ -4194,7 +4263,85 @@ AddSlider(AntiCheatTab, "PhaseSpeed", "Phase Speed", "Glide speed while crossing
 AddSlider(AntiCheatTab, "PhaseMax", "Max Wall Thickness", "Longest obstacle (in studs) it will cross in one glide.", 8, 48, Ex.PhaseMax, function(v) Ex.PhaseMax = v end)
 AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot.", Ex.VoidGuard, function(v) Ex.VoidGuard = v end)
 
+-- Ladder Anticheat Bypass (tecnica de Abysall, adaptada)
+-- El servidor no revisa velocidad/noclip mientras cree que estas en una escalera. Al subir una escalera el
+-- juego pone el atributo Climbing del personaje; 0.25s despues lo apagamos SOLO en el cliente, asi te mueves
+-- normal pero el servidor nunca recibe el "baje de la escalera" y sigue sin vigilarte.
+-- Se vuelve a activar solo con: un Cutscene (menos SewerSeek), UseEnemyModule Void/Glitch, o el cuarto de Halt
+-- ("client teleporting" en el log). Al apagar el toggle se avisa al servidor con ClimbLadder.
+do -- bloque propio: no gasta una variable local del chunk (limite de 200)
+local LB = { On = false, Armed = false, Conns = {} }
+ANTI.LB = LB
+
+function LB.Clear()
+    for k, c in pairs(LB.Conns) do pcall(c.Disconnect, c); LB.Conns[k] = nil end
+end
+
+function LB.Reenable(why)
+    if not LB.Armed then return end
+    LB.Armed = false
+    NotifyUI("Ladder bypass", "Anticheat is back on (" .. why .. "). Use a ladder again to disable it.")
+end
+
+function LB.Bind(char)
+    LB.Clear()
+    if not char then return end
+    LB.Armed = false
+    LB.Conns.Climb = char:GetAttributeChangedSignal("Climbing"):Connect(function()
+        if char:GetAttribute("Climbing") == true and LB.On and not LB.Armed then
+            task.wait(0.25)
+            if not LB.On or not char.Parent then return end
+            char:SetAttribute("Climbing", false)
+            LB.Armed = true
+            NotifyUI("Ladder bypass", "Anticheat disabled. It comes back after a cutscene, Halt room, Void or Glitch.")
+        end
+    end)
+    task.spawn(function()
+        local rf = ANTI.RS:WaitForChild("RemotesFolder", 30)
+        if not rf or LB.Conns.Climb == nil then return end
+        local cut = rf:WaitForChild("Cutscene", 10)
+        if cut and cut:IsA("RemoteEvent") then
+            LB.Conns.Cut = cut.OnClientEvent:Connect(function(name)
+                if LB.Armed and not tostring(name):find("SewerSeek", 1, true) then LB.Reenable("cutscene") end
+            end)
+        end
+        local um = rf:WaitForChild("UseEnemyModule", 10)
+        if um and um:IsA("RemoteEvent") then
+            LB.Conns.Mod = um.OnClientEvent:Connect(function(name)
+                if name == "Void" or name == "Glitch" then LB.Reenable(tostring(name)) end
+            end)
+        end
+    end)
+    LB.Conns.Log = game:GetService("LogService").MessageOut:Connect(function(msg)
+        if msg == "client teleporting" then LB.Reenable("Halt room") end
+    end)
+end
+
+function LB.Set(v)
+    LB.On = v and true or false
+    if v then
+        LB.Bind(LocalPlayer.Character)
+        NotifyUI("Ladder bypass", "Armed. Interact with any ladder once to disable the anticheat.")
+    else
+        if LB.Armed then
+            local r = ANTI.Remote("ClimbLadder")
+            if r then pcall(function() r:FireServer() end) end
+        end
+        LB.Armed = false
+        LB.Clear()
+    end
+end
+LocalPlayer.CharacterAdded:Connect(function(c)
+    LB.Armed = false
+    if LB.On then LB.Bind(c) end
+end)
+if Ex.LadderBypass then task.defer(function() LB.Set(true) end) end
+end
+
 AntiCheatTab:Section({ Title = "Bypass" })
+AddToggle(AntiCheatTab, "LadderBypass", "Ladder anticheat bypass (Abysall method)",
+    "Lets Speed / Fly / Noclip work without the server pulling you back. Turn it on, then interact with any ladder once. The game thinks you are still climbing, so it stops checking speed and walls. It turns itself off after a cutscene, a Halt room, Void or Glitch: use a ladder again. Can be combined with the root-swap bypass or used alone.",
+    Ex.LadderBypass, function(v) Ex.LadderBypass = v; ANTI.LB.Set(v) end)
 AddToggle(AntiCheatTab, "ACBypass", "Anti cheat bypass",
     "Lets Speed / Speed Hack / Fly / Slide / Phase / Noclip work without the server pulling you back. You move with a local root while the real root (the one the server sees) follows it at a controlled speed. It never jumps. Doors, items and drawers keep working. Also blocks kicks.",
     Ex.ACBypass, function(v)
@@ -4310,7 +4457,7 @@ FX.UpdateButtons()
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "RootAuto", "TrailPct", "Leash", "CatchUpPct", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "LadderBypass", "RootAuto", "TrailPct", "Leash", "CatchUpPct", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
     "AntiRush", "AntiAmbush", "AntiCustom", "AntiGlitch", "AntiDread", "AntiSeek", "AntiFigure", "AntiGod", "AntiMod_Halt", "AntiMod_Bash", "AntiMod_Scribbles", "AntiMod_Giggle", "AntiMod_Timothy", "AntiMod_Jeff", "AntiMod_Gloombat", "AntiMod_Grumble", "AntiMod_Firedamp", "AntiMod_Bramble", "AntiMod_Surge", "AntiMod_Caw", "AntiMod_Eyestalk", "AntiMod_Groundskeeper", "AntiMod_Grampy", "AntiMod_Honcho", "AntiMod_Drone", "AntiMod_Teller", "AntiMod_Alma", "AntiCustomNames", "AntiRange", "AntiHeight", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
