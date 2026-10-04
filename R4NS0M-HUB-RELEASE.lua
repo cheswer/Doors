@@ -2387,7 +2387,7 @@ local Ex = {
     NotifyFilter = {},
     -- Movement
     Speed = false, SpeedValue = 30, SpeedMethod = "Velocity",
-    SpeedHack = false, SpeedHackValue = 30, ACBypass = true, TrailPct = 100, SnapGap = 30, NearRate = 20,
+    SpeedHack = false, SpeedHackValue = 30, ACBypass = true, RootAuto = true, TrailPct = 100, Leash = 30, CatchUpPct = 150,
     AntiScreech = false, AntiHaste = false, AntiVacuum = false, AntiEyes = false, AntiLookman = false,
     AntiSnare = false, AntiRansom = false, AntiRush = false, AntiAmbush = false, AntiCustom = false,
     AntiGlitch = false, AntiDread = false, AntiSeek = false, AntiFigure = false, AntiGod = false,
@@ -2720,16 +2720,21 @@ Hooks.SpeedHack = function(v)
 end
 
 -- ============================================================================================
--- ANTI CHEAT BYPASS  (root local + root real "fantasma" que te sigue a velocidad legitima)
+-- ANTI CHEAT BYPASS  (root local + root real "fantasma" que el servidor ve)
 --
---   * Tu personaje pasa a usar un HumanoidRootPart LOCAL identico (mismo nombre, tamano, CFrame y uniones).
---     Tu movimiento rapido (Speed / Speed Hack / Fly / Slide) lo hace ese root, que el servidor no ve.
---   * El HumanoidRootPart REAL no se borra ni se saca del personaje: queda suelto (renombrado en tu cliente
---     como R4N_ServerRoot) y se mueve solo, cada frame, hacia tu root local a la velocidad NORMAL de tu
---     personaje. Para el servidor sigues caminando a velocidad legitima, asi que no hay tirones, y su
---     posicion de ti siempre es coherente: puede validar puertas, items y cajones.
---   * Cerca de un prompt (puertas incluidas) el root real alcanza a tu root local mas rapido
---     ("Catch-up near prompts"), para llegar a tiempo al rango de interaccion.
+--   * SOLO se activa mientras uses Speed / Speed Hack / Fly / Slide / ACM / Noclip ("Only swap while a movement
+--     feature is on"). Sin eso tu personaje es 100% el original: cero tirones. Al apagarlo todo, el root real
+--     te alcanza solo y se restaura SIN salto.
+--   * Mientras esta activo, tu personaje usa un HumanoidRootPart LOCAL identico (mismo nombre, tamano, CFrame y
+--     uniones). Tu movimiento rapido lo hace ese root. El juego lo ve como tu root (compatible con todo).
+--   * El HumanoidRootPart REAL queda suelto (R4N_ServerRoot) y se mueve hacia tu root local SIEMPRE con una
+--     velocidad limitada: normal, o un poco mas rapida solo cuando estas interactuando con algo (puerta,
+--     cajon, item, armario...). NUNCA da saltos: el servidor jamas ve un teletransporte tuyo.
+--   * Correa ("Max Lead"): tu root local no puede alejarse mas de N studs del real. Asi la diferencia siempre
+--     es pequena y el servidor no tiene motivo para devolverte lejos.
+--   * Si el servidor mueve tu root real (cierra un armario, teletransporte del juego, castigo del anticheat),
+--     lo acepta: tu personaje se queda ahi en vez de pelear contra el servidor, y por 10s el bypass se
+--     vuelve mas prudente.
 --   * Tambien bloquea :Kick() sobre tu jugador.
 -- ============================================================================================
 pcall(function()
@@ -2753,7 +2758,8 @@ pcall(function()
     end))
 end)
 
-local RootS = { char = nil, real = nil, stand = nil, collide = true, near = 0, nearChk = 0, shown = {} }
+local RootS = { char = nil, real = nil, stand = nil, collide = true, near = 0, nearChk = 0, shown = {},
+    hold = 0, calm = 0, fixes = 0, lastFix = 0, lastFixDist = 0, lastSet = nil, lastSP = nil, spawnAt = os.clock(), tryAt = 0, offSince = nil }
 St.Root = RootS
 
 local function collectJoints(char, part)
@@ -2804,6 +2810,8 @@ function FX.DropRoot()
         RootS.char, RootS.real, RootS.stand = nil, nil, nil
         return false
     end
+    RootS.lastSet, RootS.lastSP = real.Position, stand.Position
+    RootS.near, RootS.hold, RootS.calm, RootS.offSince = 0, 0, 0, nil
     return true
 end
 
@@ -2859,7 +2867,7 @@ function FX.DoorNear(pos, now)
                 for _, pr in ipairs(doorPrompts(door, now)) do
                     if pr.Parent and pr.Enabled then
                         local pp = promptPos(pr)
-                        if pp and (pp - pos).Magnitude <= pr.MaxActivationDistance + 25 then return true end
+                        if pp and (pp - pos).Magnitude <= pr.MaxActivationDistance + 18 then return true end
                     end
                 end
             end
@@ -2868,22 +2876,49 @@ function FX.DoorNear(pos, now)
     return false
 end
 
+-- Hay alguna funcion de movimiento encendida? (solo entonces hace falta separar el root)
+function FX.MovementActive()
+    return Ex.Speed or Ex.SpeedHack or Ex.Fly or Ex.Slide or Ex.ACM or Ex.Noclip
+end
+
 -- Cada frame: el root real (el que ve el servidor) se acerca a tu root local.
---   * corriendo lejos de todo: sigue a velocidad legitima (el servidor no ve tu velocidad real)
---   * cerca de una puerta/prompt (y 1.5s despues): se acerca casi instantaneo (Near Sync Rate)
---   * te detienes, o el retraso supera "Max Lag": salta de golpe a tu posicion
+--   * SIEMPRE con velocidad limitada (nunca salta): normal = tu velocidad legitima x "Server Follow Speed";
+--     interactuando (prompt visible / puerta cerca / pulsando E) = x "Interaction Catch-up".
+--   * Correa: el root local no puede estar a mas de "Max Lead" studs del real.
+--   * Si el servidor mueve tu root real, se acepta esa posicion (no se pelea con el).
+--   * Un movimiento brusco del propio juego (>250 studs/s) si lo sigue el root real, como haria el juego.
+-- (constantes dentro de RootS: el script esta cerca del limite de variables locales)
+RootS.CORR = 6    -- el servidor movio el root real mas que esto = correccion
+RootS.FAR = 100   -- diferencia absurda: el juego te movio de golpe
+
 function FX.RootStep(dt)
-    if not Ex.ACBypass then return end
     local char = LocalPlayer.Character
-    if not char or RootS.char ~= char then return end
+    if not char then return end
+    local now = os.clock()
+    dt = math.min(math.max(dt or 0.016, 1 / 240), 0.1)
+
+    local want = Ex.ACBypass and (not Ex.RootAuto or FX.MovementActive())
+
+    -- Aun no hay root local: se crea solo cuando hace falta
+    if RootS.char ~= char then
+        if want and now - RootS.spawnAt > 1.5 and now >= RootS.tryAt then
+            RootS.tryAt = now + 1
+            FX.DropRoot()
+        end
+        if RootS.char ~= char then return end
+    end
+
+    if not Ex.ACBypass then
+        FX.RestoreRoot()
+        return
+    end
+
     local g, s = RootS.real, RootS.stand
     if not (g and s and g.Parent and s.Parent) then return end
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return end
-    local now = os.clock()
-    dt = math.min(math.max(dt or 0.016, 1 / 240), 0.1)
 
-    -- cerca de algo con lo que interactuar (cada 0.1s)
+    -- ?esta usando algo con lo que interactuar? (cada 0.1s)
     if now - RootS.nearChk > 0.1 then
         RootS.nearChk = now
         local near = false
@@ -2891,33 +2926,79 @@ function FX.RootStep(dt)
             if pr.Parent and pr.Enabled then near = true else RootS.shown[pr] = nil end
         end
         if not near then near = FX.DoorNear(s.Position, now) end
-        if near then RootS.near = now + 1.5 end
+        if near then RootS.near = now + 1 end
     end
 
-    local sp = s.Position
-    local gp = g.Position
+    local gp, sp = g.Position, s.Position
+
+    -- 1) El servidor movio tu root real: se acepta (si lo peleas, te devuelve una y otra vez)
+    local last = RootS.lastSet
+    if last then
+        local moved = (gp - last).Magnitude
+        if moved > RootS.CORR then
+            RootS.fixes = RootS.fixes + 1
+            RootS.lastFix, RootS.lastFixDist = now, moved
+            RootS.hold = now + 0.8   -- sin aceleraciones justo despues
+            RootS.calm = now + 10    -- 10s mas prudente (correa corta, sin catch-up rapido)
+            s.CFrame = CFrame.new(gp) * s.CFrame.Rotation
+            s.AssemblyLinearVelocity = Vector3.zero
+            sp = gp
+            if Cfg.Debug then
+                print(string.format("[R4NS0M] Bypass: server moved the real root %.1f studs. Accepted.", moved))
+            end
+        end
+    end
+
     local d = sp - gp
     local dist = d.Magnitude
-
-    -- ?te estas moviendo? (por desplazamiento real, no por velocidad, que otras funciones ponen a 0)
-    local lastSP = RootS.lastSP or sp
-    RootS.lastSP = sp
-    local moving = (sp - lastSP).Magnitude / dt > 2
-    if moving then RootS.stillSince = nil else RootS.stillSince = RootS.stillSince or now end
+    local jumpSpeed = (sp - (RootS.lastSP or sp)).Magnitude / dt
+    local calm = now < RootS.calm
+    local leash = calm and math.min(Ex.Leash or 30, 10) or (Ex.Leash or 30)
 
     local np
-    if dist > (Ex.SnapGap or 30)
-        or (RootS.stillSince and now - RootS.stillSince > 0.12 and dist > 0.5) then
-        np = sp -- salto directo: el servidor te ve ya en tu sitio
-    elseif now < RootS.near then
-        np = gp + d * (1 - math.exp(-(Ex.NearRate or 20) * dt)) -- casi instantaneo, sin pasarse
+    local teleported = false
+    if dist > RootS.FAR or (dist > leash and jumpSpeed > 250) then
+        np, teleported = sp, true -- el propio juego te movio de golpe: el root real lo sigue
     else
-        local step = FX.LegitSpeed(hum) * dt
-        np = (dist <= step) and sp or (gp + d.Unit * step)
+        local legit = FX.LegitSpeed(hum)
+        local speed = legit
+        if now < RootS.near and now >= RootS.hold then
+            local mult = (Ex.CatchUpPct or 150) / 100
+            if calm then mult = math.min(mult, 1.1) end
+            speed = legit * mult
+        end
+        local step = speed * dt
+        if dist <= step or dist < 1e-3 then
+            np = sp
+        else
+            np = gp + d.Unit * step
+        end
     end
+
+    -- 2) Correa: el root local no se aleja mas de "Max Lead" del real
+    if not teleported then
+        local lead = sp - np
+        local lm = lead.Magnitude
+        if lm > leash and lm > 1e-3 then
+            sp = np + lead.Unit * leash
+            s.CFrame = CFrame.new(sp) * s.CFrame.Rotation
+        end
+    end
+
     g.CFrame = CFrame.new(np) * s.CFrame.Rotation
     g.AssemblyLinearVelocity = Vector3.zero
     g.AssemblyAngularVelocity = Vector3.zero
+    RootS.lastSet, RootS.lastSP = np, s.Position
+
+    -- 3) Ya no usas nada de movimiento: cuando el real te alcanza, se restaura sin saltos
+    if want then
+        RootS.offSince = nil
+    else
+        RootS.offSince = RootS.offSince or now
+        if (s.Position - np).Magnitude < 1.5 or now - RootS.offSince > 6 then
+            FX.RestoreRoot()
+        end
+    end
 end
 RunService.Heartbeat:Connect(function(dt) FX.RootStep(dt) end)
 
@@ -2932,14 +3013,9 @@ end
 do
     local function onChar(char)
         RootS.char, RootS.real, RootS.stand = nil, nil, nil
-        RootS.near, RootS.nearChk, RootS.lastSP, RootS.stillSince = 0, 0, nil, nil
-        if not Ex.ACBypass then return end
-        task.spawn(function()
-            char:WaitForChild("HumanoidRootPart", 10)
-            char:WaitForChild("Humanoid", 10)
-            task.wait(1.5) -- que el juego termine de armar el personaje antes de cambiar el root
-            if char.Parent and Ex.ACBypass and LocalPlayer.Character == char then FX.DropRoot() end
-        end)
+        RootS.near, RootS.nearChk, RootS.lastSP, RootS.lastSet, RootS.offSince = 0, 0, nil, nil, nil
+        RootS.hold, RootS.calm = 0, 0
+        RootS.spawnAt = os.clock() -- el juego termina de armar el personaje; RootStep espera 1.5s antes de tocarlo
     end
     if LocalPlayer.Character then onChar(LocalPlayer.Character) end
     LocalPlayer.CharacterAdded:Connect(onChar)
@@ -4120,25 +4196,52 @@ AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your l
 
 AntiCheatTab:Section({ Title = "Bypass" })
 AddToggle(AntiCheatTab, "ACBypass", "Anti cheat bypass",
-    "You move with a local root (Speed / Speed Hack / Fly work), while your real root, the one the server sees, follows it at your normal walking speed. No pull-backs, and doors, items and drawers keep working. Also blocks kicks. Turning it off gives you your real root back.",
+    "Lets Speed / Speed Hack / Fly / Slide / Phase / Noclip work without the server pulling you back. You move with a local root while the real root (the one the server sees) follows it at a controlled speed. It never jumps. Doors, items and drawers keep working. Also blocks kicks.",
     Ex.ACBypass, function(v)
         Ex.ACBypass = v
         if v then
-            if FX.DropRoot() then NotifyUI("Anti cheat bypass", "Active.") end
+            if Ex.RootAuto then
+                NotifyUI("Anti cheat bypass", "Armed. It takes over when you turn on Speed, Fly, Slide, Phase or Noclip.")
+            elseif FX.DropRoot() then
+                NotifyUI("Anti cheat bypass", "Active.")
+            end
         else
             FX.RestoreRoot()
             NotifyUI("Anti cheat bypass", "Off. Real root restored.")
         end
     end)
+AddToggle(AntiCheatTab, "RootAuto", "Only swap while a movement feature is on",
+    "Recommended. Your original character is untouched until you turn on Speed, Speed Hack, Fly, Slide, Phase or Noclip, and it comes back by itself (with no jump) when you turn them off. Off = the swap stays on all the time.",
+    Ex.RootAuto, function(v) Ex.RootAuto = v end)
 AddSlider(AntiCheatTab, "TrailPct", "Server Follow Speed (%)",
-    "Away from doors and prompts, how fast the server-side root follows you, as a percentage of your normal walking speed. Lower = safer from pull-backs.",
+    "How fast the server-side root follows you, as a percentage of your normal walking speed. Lower = safer from pull-backs.",
     50, 150, Ex.TrailPct, function(v) Ex.TrailPct = v end)
-AddSlider(AntiCheatTab, "NearRate", "Near Sync Rate",
-    "Close to a door or prompt (and for 1.5s after), the server-side root closes the gap this fast. Higher = nearly instant, so you do not get sent back to the previous room. 40 is almost a direct jump.",
-    5, 40, Ex.NearRate, function(v) Ex.NearRate = v end)
-AddSlider(AntiCheatTab, "SnapGap", "Max Lag (studs)",
-    "If the server-side root falls this far behind you, it jumps straight to your position. It also jumps when you stop moving. Lower = fewer long delays, but bigger sudden jumps.",
-    10, 80, Ex.SnapGap, function(v) Ex.SnapGap = v end)
+AddSlider(AntiCheatTab, "CatchUpPct", "Interaction Catch-up (%)",
+    "Only while you are interacting (a prompt is showing, a door is close, or you press E): the server-side root follows you this fast, as a percentage of your normal speed. It is a speed limit, never a teleport. Higher = interacts sooner but is riskier. 100 = never faster than walking.",
+    100, 300, Ex.CatchUpPct, function(v) Ex.CatchUpPct = v end)
+AddSlider(AntiCheatTab, "Leash", "Max Lead (studs)",
+    "Your local root can never get farther than this from the server-side root. Lower = fewer and smaller pull-backs but your boosted speed is capped sooner. Higher = more speed, bigger risk when the server corrects you.",
+    8, 80, Ex.Leash, function(v) Ex.Leash = v end)
+AntiCheatTab:Button({
+    Title = "Bypass Status",
+    Desc = "Shows whether the swap is active, how far ahead of the server you are, and how many times the server moved your root.",
+    Callback = function()
+        local R = St.Root
+        local lead = "-"
+        if R.real and R.stand and R.real.Parent and R.stand.Parent then
+            lead = string.format("%.1f studs", (R.stand.Position - R.real.Position).Magnitude)
+        end
+        local ago = R.lastFix > 0 and string.format("%ds ago, %.0f studs", math.floor(os.clock() - R.lastFix), R.lastFixDist) or "never"
+        pcall(function()
+            WindUI:Notify({
+                Title = "Bypass Status",
+                Content = string.format("Swapped: %s\nLead: %s\nServer pull-backs: %d (last: %s)",
+                    R.stand and "yes" or "no", lead, R.fixes, ago),
+                Duration = 6,
+            })
+        end)
+    end
+})
 
 AntiCheatTab:Section({ Title = "Mobile Buttons" })
 AddToggle(AntiCheatTab, "FloatButtons", "Floating Buttons", "Small draggable buttons for ACM, SLIDE and FLY. On by default on touch devices.", Ex.FloatButtons, function(v)
@@ -4207,7 +4310,7 @@ FX.UpdateButtons()
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "TrailPct", "SnapGap", "NearRate", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "RootAuto", "TrailPct", "Leash", "CatchUpPct", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
     "AntiRush", "AntiAmbush", "AntiCustom", "AntiGlitch", "AntiDread", "AntiSeek", "AntiFigure", "AntiGod", "AntiMod_Halt", "AntiMod_Bash", "AntiMod_Scribbles", "AntiMod_Giggle", "AntiMod_Timothy", "AntiMod_Jeff", "AntiMod_Gloombat", "AntiMod_Grumble", "AntiMod_Firedamp", "AntiMod_Bramble", "AntiMod_Surge", "AntiMod_Caw", "AntiMod_Eyestalk", "AntiMod_Groundskeeper", "AntiMod_Grampy", "AntiMod_Honcho", "AntiMod_Drone", "AntiMod_Teller", "AntiMod_Alma", "AntiCustomNames", "AntiRange", "AntiHeight", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
