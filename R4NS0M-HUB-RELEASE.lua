@@ -4263,7 +4263,7 @@ AddSlider(AntiCheatTab, "PhaseSpeed", "Phase Speed", "Glide speed while crossing
 AddSlider(AntiCheatTab, "PhaseMax", "Max Wall Thickness", "Longest obstacle (in studs) it will cross in one glide.", 8, 48, Ex.PhaseMax, function(v) Ex.PhaseMax = v end)
 AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot.", Ex.VoidGuard, function(v) Ex.VoidGuard = v end)
 
--- Ladder Anticheat Bypass (tecnica de Abysall, adaptada)
+-- Ladder Anticheat Bypass
 -- El servidor no revisa velocidad/noclip mientras cree que estas en una escalera. Al subir una escalera el
 -- juego pone el atributo Climbing del personaje; 0.25s despues lo apagamos SOLO en el cliente, asi te mueves
 -- normal pero el servidor nunca recibe el "baje de la escalera" y sigue sin vigilarte.
@@ -4339,7 +4339,7 @@ if Ex.LadderBypass then task.defer(function() LB.Set(true) end) end
 end
 
 AntiCheatTab:Section({ Title = "Bypass" })
-AddToggle(AntiCheatTab, "LadderBypass", "Ladder anticheat bypass (Abysall method)",
+AddToggle(AntiCheatTab, "LadderBypass", "Ladder anticheat bypass",
     "Lets Speed / Fly / Noclip work without the server pulling you back. Turn it on, then interact with any ladder once. The game thinks you are still climbing, so it stops checking speed and walls. It turns itself off after a cutscene, a Halt room, Void or Glitch: use a ladder again. Can be combined with the root-swap bypass or used alone.",
     Ex.LadderBypass, function(v) Ex.LadderBypass = v; ANTI.LB.Set(v) end)
 AddToggle(AntiCheatTab, "ACBypass", "Anti cheat bypass",
