@@ -2456,7 +2456,11 @@ local Ex = {
     NotifyFilter = {},
     -- Movement
     Speed = false, SpeedValue = 30, SpeedMethod = "Velocity",
-    SpeedHack = false, SpeedHackValue = 30, ACBypass = true, LadderBypass = false, RootAuto = true, TrailPct = 100, Leash = 30, CatchUpPct = 150,
+    SpeedHack = false, SpeedHackValue = 30, DisableAnticheat = false, VelocityManipulationToggle = false, VelocityManipulationMode = "Velocity", PositionSpoof = false, CrouchSpoof = false, AutoHeartbeatMinigame = false,
+    BypassGiggle = false, BypassDupe = false, BypassEyes = false, BypassLookman = false, BypassGloombatEggs = false, BypassSeekObstructions = false, BypassVacuum = false, BypassKillbricks = false, BypassSeekingWall = false, BypassSnare = false, BypassBanana = false, BypassJeff = false,
+    RemoveScreech = false, RemoveHalt = false, RemoveA90 = false, RemoveDread = false, RemoveSurge = false, NoScreechDamage = false, NoHaltDamage = false, NoA90Damage = false, NoSurgeDamage = false,
+    RemoveSeekTrigger = false, RemoveFigure = false, AutoRevive = false, FigureGodmode = false, RemoveBasementGate = false, RemovePaintingsDoor = false, RemoveSkeletonDoor = false,
+    Key_VelManip = "V", Key_PosSpoof = "H",
     AntiScreech = false, AntiHaste = false, AntiVacuum = false, AntiEyes = false, AntiLookman = false,
     AntiSnare = false, AntiRansom = false, AntiRush = false, AntiAmbush = false, AntiCustom = false,
     AntiGlitch = false, AntiDread = false, AntiSeek = false, AntiFigure = false, AntiGod = false,
@@ -2786,308 +2790,6 @@ Hooks.SpeedHack = function(v)
         hum.WalkSpeed = Saved.HackWS
         Saved.HackWS = nil
     end
-end
-
--- ============================================================================================
--- ANTI CHEAT BYPASS  (root local + root real "fantasma" que el servidor ve)
---
---   * SOLO se activa mientras uses Speed / Speed Hack / Fly / Slide / ACM / Noclip ("Only swap while a movement
---     feature is on"). Sin eso tu personaje es 100% el original: cero tirones. Al apagarlo todo, el root real
---     te alcanza solo y se restaura SIN salto.
---   * Mientras esta activo, tu personaje usa un HumanoidRootPart LOCAL identico (mismo nombre, tamano, CFrame y
---     uniones). Tu movimiento rapido lo hace ese root. El juego lo ve como tu root (compatible con todo).
---   * El HumanoidRootPart REAL queda suelto (R4N_ServerRoot) y se mueve hacia tu root local SIEMPRE con una
---     velocidad limitada: normal, o un poco mas rapida solo cuando estas interactuando con algo (puerta,
---     cajon, item, armario...). NUNCA da saltos: el servidor jamas ve un teletransporte tuyo.
---   * Correa ("Max Lead"): tu root local no puede alejarse mas de N studs del real. Asi la diferencia siempre
---     es pequena y el servidor no tiene motivo para devolverte lejos.
---   * Si el servidor mueve tu root real (cierra un armario, teletransporte del juego, castigo del anticheat),
---     lo acepta: tu personaje se queda ahi en vez de pelear contra el servidor, y por 10s el bypass se
---     vuelve mas prudente.
---   * Tambien bloquea :Kick() sobre tu jugador.
--- ============================================================================================
-pcall(function()
-    if not (hookmetamethod and getnamecallmethod) then return end
-    local old
-    old = hookmetamethod(game, "__namecall", (newcclosure or function(f) return f end)(function(self, ...)
-        if Ex.ACBypass and self == LocalPlayer then
-            local m = getnamecallmethod()
-            if m == "Kick" or m == "kick" then return end
-        end
-        return old(self, ...)
-    end))
-end)
-
-pcall(function()
-    if not hookfunction then return end
-    local oldKick
-    oldKick = hookfunction(LocalPlayer.Kick, (newcclosure or function(f) return f end)(function(self, ...)
-        if Ex.ACBypass and self == LocalPlayer then return end
-        return oldKick(self, ...)
-    end))
-end)
-
-local RootS = { char = nil, real = nil, stand = nil, collide = true, near = 0, nearChk = 0, shown = {},
-    hold = 0, calm = 0, fixes = 0, lastFix = 0, lastFixDist = 0, lastSet = nil, lastSP = nil, spawnAt = os.clock(), tryAt = 0, offSince = nil }
-St.Root = RootS
-
-local function collectJoints(char, part)
-    local list = {}
-    for _, d in ipairs(char:GetDescendants()) do
-        if d:IsA("JointInstance") then
-            if d.Part0 == part then list[#list + 1] = { d, "Part0" } end
-            if d.Part1 == part then list[#list + 1] = { d, "Part1" } end
-        end
-    end
-    return list
-end
-
--- Velocidad normal de tu personaje (la que el juego le da), sin lo que sube el hub
-function FX.LegitSpeed(hum)
-    local ws = hum and hum.WalkSpeed or 16
-    if Ex.SpeedHack and Saved.HackWS then ws = Saved.HackWS
-    elseif Ex.Speed and Saved.WS then ws = Saved.WS end
-    return math.max(ws, 8) * (Ex.TrailPct or 100) / 100
-end
-
--- Activa el bypass en el personaje actual
-function FX.DropRoot()
-    local char = LocalPlayer.Character
-    if not char or RootS.char == char then return false end
-    local real = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not (real and hum) or hum.Health <= 0 then return false end
-    local stand
-    pcall(function() stand = real:Clone() end)
-    if not stand then return false end
-    stand.Name = "HumanoidRootPart"
-    RootS.char, RootS.real, RootS.stand, RootS.collide = char, real, stand, real.CanCollide
-    local ok = pcall(function()
-        local cf, vel = real.CFrame, real.AssemblyLinearVelocity
-        local joints = collectJoints(char, real)
-        real.Name = "R4N_ServerRoot"
-        real.CanCollide = false
-        stand.CFrame = cf
-        stand.Parent = char
-        for _, j in ipairs(joints) do j[1][j[2]] = stand end
-        char.PrimaryPart = stand
-        stand.CFrame = cf
-        stand.AssemblyLinearVelocity = vel
-        real.AssemblyLinearVelocity = Vector3.zero
-    end)
-    if not ok then
-        RootS.char, RootS.real, RootS.stand = nil, nil, nil
-        return false
-    end
-    RootS.lastSet, RootS.lastSP = real.Position, stand.Position
-    RootS.near, RootS.hold, RootS.calm, RootS.offSince = 0, 0, 0, nil
-    return true
-end
-
--- Desactiva el bypass: tu root real vuelve a ser el del personaje
-function FX.RestoreRoot()
-    local char, real, stand = RootS.char, RootS.real, RootS.stand
-    if char and char.Parent and real and real.Parent and stand and stand.Parent then
-        pcall(function()
-            local joints = collectJoints(char, stand)
-            real.CFrame = stand.CFrame
-            real.AssemblyLinearVelocity = stand.AssemblyLinearVelocity
-            real.Name = "HumanoidRootPart"
-            real.CanCollide = RootS.collide
-            for _, j in ipairs(joints) do j[1][j[2]] = real end
-            char.PrimaryPart = real
-        end)
-    end
-    if stand then pcall(function() stand:Destroy() end) end
-    RootS.char, RootS.real, RootS.stand = nil, nil, nil
-end
-
--- Prompts de puertas: Workspace.CurrentRooms.[sala].Door (cualquier ProximityPrompt dentro, incluido el de la cerradura)
-local DoorPromptCache = setmetatable({}, { __mode = "k" })
-local function doorPrompts(door, now)
-    local c = DoorPromptCache[door]
-    if not c or now - c.t > 1 then
-        local list = {}
-        for _, d in ipairs(door:GetDescendants()) do
-            if d:IsA("ProximityPrompt") then list[#list + 1] = d end
-        end
-        c = { t = now, list = list }
-        DoorPromptCache[door] = c
-    end
-    return c.list
-end
-
-local function promptPos(p)
-    local par = p.Parent
-    if par and par:IsA("Attachment") then return par.WorldPosition end
-    if par and par:IsA("BasePart") then return par.Position end
-end
-
--- true si hay un prompt de puerta (de salas no superadas) a alcance o casi
-function FX.DoorNear(pos, now)
-    local rooms = Workspace:FindFirstChild("CurrentRooms")
-    if not rooms then return false end
-    local cur = LocalPlayer:GetAttribute("CurrentRoom")
-    for _, room in ipairs(rooms:GetChildren()) do
-        local num = tonumber(room.Name)
-        if not (num and cur and num < cur) then
-            local door = room:FindFirstChild("Door")
-            if door and door:IsA("Model") then
-                for _, pr in ipairs(doorPrompts(door, now)) do
-                    if pr.Parent and pr.Enabled then
-                        local pp = promptPos(pr)
-                        if pp and (pp - pos).Magnitude <= pr.MaxActivationDistance + 18 then return true end
-                    end
-                end
-            end
-        end
-    end
-    return false
-end
-
--- Hay alguna funcion de movimiento encendida? (solo entonces hace falta separar el root)
-function FX.MovementActive()
-    return Ex.Speed or Ex.SpeedHack or Ex.Fly or Ex.Slide or Ex.ACM or Ex.Noclip
-end
-
--- Cada frame: el root real (el que ve el servidor) se acerca a tu root local.
---   * SIEMPRE con velocidad limitada (nunca salta): normal = tu velocidad legitima x "Server Follow Speed";
---     interactuando (prompt visible / puerta cerca / pulsando E) = x "Interaction Catch-up".
---   * Correa: el root local no puede estar a mas de "Max Lead" studs del real.
---   * Si el servidor mueve tu root real, se acepta esa posicion (no se pelea con el).
---   * Un movimiento brusco del propio juego (>250 studs/s) si lo sigue el root real, como haria el juego.
--- (constantes dentro de RootS: el script esta cerca del limite de variables locales)
-RootS.CORR = 6    -- el servidor movio el root real mas que esto = correccion
-RootS.FAR = 100   -- diferencia absurda: el juego te movio de golpe
-
-function FX.RootStep(dt)
-    local char = LocalPlayer.Character
-    if not char then return end
-    local now = os.clock()
-    dt = math.min(math.max(dt or 0.016, 1 / 240), 0.1)
-
-    local want = Ex.ACBypass and (not Ex.RootAuto or FX.MovementActive())
-
-    -- Aun no hay root local: se crea solo cuando hace falta
-    if RootS.char ~= char then
-        if want and now - RootS.spawnAt > 1.5 and now >= RootS.tryAt then
-            RootS.tryAt = now + 1
-            FX.DropRoot()
-        end
-        if RootS.char ~= char then return end
-    end
-
-    if not Ex.ACBypass then
-        FX.RestoreRoot()
-        return
-    end
-
-    local g, s = RootS.real, RootS.stand
-    if not (g and s and g.Parent and s.Parent) then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return end
-
-    -- ?esta usando algo con lo que interactuar? (cada 0.1s)
-    if now - RootS.nearChk > 0.1 then
-        RootS.nearChk = now
-        local near = false
-        for pr in pairs(RootS.shown) do
-            if pr.Parent and pr.Enabled then near = true else RootS.shown[pr] = nil end
-        end
-        if not near then near = FX.DoorNear(s.Position, now) end
-        if near then RootS.near = now + 1 end
-    end
-
-    local gp, sp = g.Position, s.Position
-
-    -- 1) El servidor movio tu root real: se acepta (si lo peleas, te devuelve una y otra vez)
-    local last = RootS.lastSet
-    if last then
-        local moved = (gp - last).Magnitude
-        if moved > RootS.CORR then
-            RootS.fixes = RootS.fixes + 1
-            RootS.lastFix, RootS.lastFixDist = now, moved
-            RootS.hold = now + 0.8   -- sin aceleraciones justo despues
-            RootS.calm = now + 10    -- 10s mas prudente (correa corta, sin catch-up rapido)
-            s.CFrame = CFrame.new(gp) * s.CFrame.Rotation
-            s.AssemblyLinearVelocity = Vector3.zero
-            sp = gp
-            if Cfg.Debug then
-                print(string.format("[R4NS0M] Bypass: server moved the real root %.1f studs. Accepted.", moved))
-            end
-        end
-    end
-
-    local d = sp - gp
-    local dist = d.Magnitude
-    local jumpSpeed = (sp - (RootS.lastSP or sp)).Magnitude / dt
-    local calm = now < RootS.calm
-    local leash = calm and math.min(Ex.Leash or 30, 10) or (Ex.Leash or 30)
-
-    local np
-    local teleported = false
-    if dist > RootS.FAR or (dist > leash and jumpSpeed > 250) then
-        np, teleported = sp, true -- el propio juego te movio de golpe: el root real lo sigue
-    else
-        local legit = FX.LegitSpeed(hum)
-        local speed = legit
-        if now < RootS.near and now >= RootS.hold then
-            local mult = (Ex.CatchUpPct or 150) / 100
-            if calm then mult = math.min(mult, 1.1) end
-            speed = legit * mult
-        end
-        local step = speed * dt
-        if dist <= step or dist < 1e-3 then
-            np = sp
-        else
-            np = gp + d.Unit * step
-        end
-    end
-
-    -- 2) Correa: el root local no se aleja mas de "Max Lead" del real
-    if not teleported then
-        local lead = sp - np
-        local lm = lead.Magnitude
-        if lm > leash and lm > 1e-3 then
-            sp = np + lead.Unit * leash
-            s.CFrame = CFrame.new(sp) * s.CFrame.Rotation
-        end
-    end
-
-    g.CFrame = CFrame.new(np) * s.CFrame.Rotation
-    g.AssemblyLinearVelocity = Vector3.zero
-    g.AssemblyAngularVelocity = Vector3.zero
-    RootS.lastSet, RootS.lastSP = np, s.Position
-
-    -- 3) Ya no usas nada de movimiento: cuando el real te alcanza, se restaura sin saltos
-    if want then
-        RootS.offSince = nil
-    else
-        RootS.offSince = RootS.offSince or now
-        if (s.Position - np).Magnitude < 1.5 or now - RootS.offSince > 6 then
-            FX.RestoreRoot()
-        end
-    end
-end
-RunService.Heartbeat:Connect(function(dt) FX.RootStep(dt) end)
-
-do
-    local PPS = game:GetService("ProximityPromptService")
-    PPS.PromptShown:Connect(function(pr) RootS.shown[pr] = true end)
-    PPS.PromptHidden:Connect(function(pr) RootS.shown[pr] = nil end)
-    PPS.PromptButtonHoldBegan:Connect(function() RootS.near = os.clock() + 1 end)
-    PPS.PromptTriggered:Connect(function() RootS.near = os.clock() + 1 end)
-end
-
-do
-    local function onChar(char)
-        RootS.char, RootS.real, RootS.stand = nil, nil, nil
-        RootS.near, RootS.nearChk, RootS.lastSP, RootS.lastSet, RootS.offSince = 0, 0, nil, nil, nil
-        RootS.hold, RootS.calm = 0, 0
-        RootS.spawnAt = os.clock() -- el juego termina de armar el personaje; RootStep espera 1.5s antes de tocarlo
-    end
-    if LocalPlayer.Character then onChar(LocalPlayer.Character) end
-    LocalPlayer.CharacterAdded:Connect(onChar)
 end
 
 -- Activa/restaura los atributos propios del juego ("CanJump", "CanSlide"...) para que el salto y el slide
@@ -3526,7 +3228,16 @@ UserInputService.InputBegan:Connect(function(input, processed)
     elseif k == Ex.Key_Noclip then Flip("Noclip", "Noclip")
     elseif k == Ex.Key_Fly then Flip("Fly", "Fly")
     elseif k == Ex.Key_Speed then Flip("Speed", "Speed")
-    elseif k == Ex.Key_Slide then DoSlide() end
+    elseif k == Ex.Key_Slide then DoSlide()
+    elseif k == Ex.Key_VelManip then SetFeature("VelocityManipulationToggle", true)
+    elseif k == Ex.Key_PosSpoof then Flip("PositionSpoof", "Position Spoof") end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+    if input.KeyCode.Name == Ex.Key_VelManip and Ex.VelocityManipulationToggle then
+        SetFeature("VelocityManipulationToggle", false)
+    end
 end)
 
 ----------------------------------------------------
@@ -4217,7 +3928,7 @@ AddSlider(PlayerTab, "SpeedValue", "Speed", "Target speed in studs per second. D
 AddDropdown(PlayerTab, "SpeedMethod", "Speed Method",
     "Velocity (recommended): smooth push that the server tolerates best. CFrame: small position steps. WalkSpeed: changes the value directly (easiest to detect).",
     { "Velocity", "CFrame", "WalkSpeed" }, Ex.SpeedMethod, function(v) Ex.SpeedMethod = v end)
-AddToggle(PlayerTab, "SpeedHack", "Speed Hack", "Changes your real walk speed (1-100). Works together with Anti cheat bypass.", Ex.SpeedHack, function(v) Apply("SpeedHack", v) end)
+AddToggle(PlayerTab, "SpeedHack", "Speed Hack", "Changes your real walk speed (1-100). Works together with the Anticheat Bypass.", Ex.SpeedHack, function(v) Apply("SpeedHack", v) end)
 AddSlider(PlayerTab, "SpeedHackValue", "Speed Hack Value", "Walk speed in studs per second.", 1, 100, Ex.SpeedHackValue, function(v) Ex.SpeedHackValue = v end)
 
 PlayerTab:Section({ Title = "Jump" })
@@ -4263,132 +3974,966 @@ AddSlider(AntiCheatTab, "PhaseSpeed", "Phase Speed", "Glide speed while crossing
 AddSlider(AntiCheatTab, "PhaseMax", "Max Wall Thickness", "Longest obstacle (in studs) it will cross in one glide.", 8, 48, Ex.PhaseMax, function(v) Ex.PhaseMax = v end)
 AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot.", Ex.VoidGuard, function(v) Ex.VoidGuard = v end)
 
--- Ladder Anticheat Bypass
--- El servidor no revisa velocidad/noclip mientras cree que estas en una escalera. Al subir una escalera el
--- juego pone el atributo Climbing del personaje; 0.25s despues lo apagamos SOLO en el cliente, asi te mueves
--- normal pero el servidor nunca recibe el "baje de la escalera" y sigue sin vigilarte.
--- Se vuelve a activar solo con: un Cutscene (menos SewerSeek), UseEnemyModule Void/Glitch, o el cuarto de Halt
--- ("client teleporting" en el log). Al apagar el toggle se avisa al servidor con ClimbLadder.
-do -- bloque propio: no gasta una variable local del chunk (limite de 200)
-local LB = { On = false, Armed = false, Conns = {} }
-ANTI.LB = LB
+-- ============================================================================================
+-- ANTI CHEAT BYPASS
+-- Ladder method (Climbing), Velocity Manipulation, Position Spoof, Crouch Spoof, __namecall hook,
+-- collision clone, plus the Bypass / Remove / No Damage / Floor bypass toggles.
+-- Todo vive dentro de una funcion propia para no gastar variables locales del script.
+-- ============================================================================================
+;(function()
+local Env = {
+	hookmetamethod = hookmetamethod, newcclosure = newcclosure, getnamecallmethod = getnamecallmethod,
+	firetouchinterest = firetouchinterest, isnetworkowner = isnetworkowner, cloneref = cloneref,
+}
 
-function LB.Clear()
-    for k, c in pairs(LB.Conns) do pcall(c.Disconnect, c); LB.Conns[k] = nil end
+local function CloneReference(Object)
+	if Env.cloneref then
+		return Env.cloneref(Object)
+	end
+	return Object
 end
 
-function LB.Reenable(why)
-    if not LB.Armed then return end
-    LB.Armed = false
-    NotifyUI("Ladder bypass", "Anticheat is back on (" .. why .. "). Use a ladder again to disable it.")
-end
-
-function LB.Bind(char)
-    LB.Clear()
-    if not char then return end
-    LB.Armed = false
-    LB.Conns.Climb = char:GetAttributeChangedSignal("Climbing"):Connect(function()
-        if char:GetAttribute("Climbing") == true and LB.On and not LB.Armed then
-            task.wait(0.25)
-            if not LB.On or not char.Parent then return end
-            char:SetAttribute("Climbing", false)
-            LB.Armed = true
-            NotifyUI("Ladder bypass", "Anticheat disabled. It comes back after a cutscene, Halt room, Void or Glitch.")
-        end
-    end)
-    task.spawn(function()
-        local rf = ANTI.RS:WaitForChild("RemotesFolder", 30)
-        if not rf or LB.Conns.Climb == nil then return end
-        local cut = rf:WaitForChild("Cutscene", 10)
-        if cut and cut:IsA("RemoteEvent") then
-            LB.Conns.Cut = cut.OnClientEvent:Connect(function(name)
-                if LB.Armed and not tostring(name):find("SewerSeek", 1, true) then LB.Reenable("cutscene") end
-            end)
-        end
-        local um = rf:WaitForChild("UseEnemyModule", 10)
-        if um and um:IsA("RemoteEvent") then
-            LB.Conns.Mod = um.OnClientEvent:Connect(function(name)
-                if name == "Void" or name == "Glitch" then LB.Reenable(tostring(name)) end
-            end)
-        end
-    end)
-    LB.Conns.Log = game:GetService("LogService").MessageOut:Connect(function(msg)
-        if msg == "client teleporting" then LB.Reenable("Halt room") end
-    end)
-end
-
-function LB.Set(v)
-    LB.On = v and true or false
-    if v then
-        LB.Bind(LocalPlayer.Character)
-        NotifyUI("Ladder bypass", "Armed. Interact with any ladder once to disable the anticheat.")
-    else
-        if LB.Armed then
-            local r = ANTI.Remote("ClimbLadder")
-            if r then pcall(function() r:FireServer() end) end
-        end
-        LB.Armed = false
-        LB.Clear()
-    end
-end
-LocalPlayer.CharacterAdded:Connect(function(c)
-    LB.Armed = false
-    if LB.On then LB.Bind(c) end
-end)
-if Ex.LadderBypass then task.defer(function() LB.Set(true) end) end
-end
-
-AntiCheatTab:Section({ Title = "Bypass" })
-AddToggle(AntiCheatTab, "LadderBypass", "Ladder anticheat bypass",
-    "Lets Speed / Fly / Noclip work without the server pulling you back. Turn it on, then interact with any ladder once. The game thinks you are still climbing, so it stops checking speed and walls. It turns itself off after a cutscene, a Halt room, Void or Glitch: use a ladder again. Can be combined with the root-swap bypass or used alone.",
-    Ex.LadderBypass, function(v) Ex.LadderBypass = v; ANTI.LB.Set(v) end)
-AddToggle(AntiCheatTab, "ACBypass", "Anti cheat bypass",
-    "Lets Speed / Speed Hack / Fly / Slide / Phase / Noclip work without the server pulling you back. You move with a local root while the real root (the one the server sees) follows it at a controlled speed. It never jumps. Doors, items and drawers keep working. Also blocks kicks.",
-    Ex.ACBypass, function(v)
-        Ex.ACBypass = v
-        if v then
-            if Ex.RootAuto then
-                NotifyUI("Anti cheat bypass", "Armed. It takes over when you turn on Speed, Fly, Slide, Phase or Noclip.")
-            elseif FX.DropRoot() then
-                NotifyUI("Anti cheat bypass", "Active.")
-            end
-        else
-            FX.RestoreRoot()
-            NotifyUI("Anti cheat bypass", "Off. Real root restored.")
-        end
-    end)
-AddToggle(AntiCheatTab, "RootAuto", "Only swap while a movement feature is on",
-    "Recommended. Your original character is untouched until you turn on Speed, Speed Hack, Fly, Slide, Phase or Noclip, and it comes back by itself (with no jump) when you turn them off. Off = the swap stays on all the time.",
-    Ex.RootAuto, function(v) Ex.RootAuto = v end)
-AddSlider(AntiCheatTab, "TrailPct", "Server Follow Speed (%)",
-    "How fast the server-side root follows you, as a percentage of your normal walking speed. Lower = safer from pull-backs.",
-    50, 150, Ex.TrailPct, function(v) Ex.TrailPct = v end)
-AddSlider(AntiCheatTab, "CatchUpPct", "Interaction Catch-up (%)",
-    "Only while you are interacting (a prompt is showing, a door is close, or you press E): the server-side root follows you this fast, as a percentage of your normal speed. It is a speed limit, never a teleport. Higher = interacts sooner but is riskier. 100 = never faster than walking.",
-    100, 300, Ex.CatchUpPct, function(v) Ex.CatchUpPct = v end)
-AddSlider(AntiCheatTab, "Leash", "Max Lead (studs)",
-    "Your local root can never get farther than this from the server-side root. Lower = fewer and smaller pull-backs but your boosted speed is capped sooner. Higher = more speed, bigger risk when the server corrects you.",
-    8, 80, Ex.Leash, function(v) Ex.Leash = v end)
-AntiCheatTab:Button({
-    Title = "Bypass Status",
-    Desc = "Shows whether the swap is active, how far ahead of the server you are, and how many times the server moved your root.",
-    Callback = function()
-        local R = St.Root
-        local lead = "-"
-        if R.real and R.stand and R.real.Parent and R.stand.Parent then
-            lead = string.format("%.1f studs", (R.stand.Position - R.real.Position).Magnitude)
-        end
-        local ago = R.lastFix > 0 and string.format("%ds ago, %.0f studs", math.floor(os.clock() - R.lastFix), R.lastFixDist) or "never"
-        pcall(function()
-            WindUI:Notify({
-                Title = "Bypass Status",
-                Content = string.format("Swapped: %s\nLead: %s\nServer pull-backs: %d (last: %s)",
-                    R.stand and "yes" or "no", lead, R.fixes, ago),
-                Duration = 6,
-            })
-        end)
-    end
+local Services = setmetatable({}, {
+	__index = function(Self, Name)
+		return CloneReference(game:GetService(Name))
+	end
 })
+
+local Globals = {}
+local Connections = {}
+local Functions = {}
+local Objects = { Entities = {}, SeekObstructions = {}, SeekBridges = {}, Obstructions = {} }
+
+-- Toggles / Options leen directamente el estado del hub (Ex)
+local ValueAliases = { NoclipToggle = "Noclip" }
+local function MakeProxy()
+	return setmetatable({}, {
+		__index = function(_, Key)
+			local Real = ValueAliases[Key] or Key
+			return setmetatable({}, {
+				__index = function(_, Field)
+					if Field == "Value" then return Ex[Real] end
+				end
+			})
+		end
+	})
+end
+local Toggles = MakeProxy()
+local Options = MakeProxy()
+
+Functions.CheckCompatability = function(Array)
+	for _, Name in Array do
+		if not Env[Name] then
+			return false
+		end
+	end
+	return true
+end
+
+Functions.Notify = function(Data)
+	NotifyUI(Data.Title or "", Data.Body or "")
+end
+
+local LocalPlayer = Services.Players.LocalPlayer
+local Character, Humanoid, RootPart, Camera
+local Collision, CollisionClone, CollisionPart, CollisionPartClone
+local RemotesFolder = Services.ReplicatedStorage:FindFirstChild("RemotesFolder")
+local CurrentRooms = Services.Workspace:FindFirstChild("CurrentRooms")
+local Floor = "Hotel"
+local Ready = false
+local FakeEvents = {}
+local Modules = {}
+
+Globals.AnticheatDisabled = false
+Globals.SpoofOffset = 0
+Globals.LastCrouchFire = tick()
+
+local EntityDistances = {
+	["RushMoving"]    = 85,
+	["AmbushMoving"]  = 150,
+	["A60"]           = 125,
+	["A120"]          = 85,
+	["GlitchRush"]    = 90,
+	["GlitchAmbush"]  = 175,
+	["BackdoorRush"]  = 85,
+	["CustomEntity"]  = 85,
+}
+
+Functions.IsCrouching = function()
+	if Floor == "Fools" or Floor == "OldHotel" then
+		return Character:GetAttribute("Crouching")
+	end
+	return CollisionPart.CollisionGroup == "PlayerCrouching"
+end
+
+Functions.GetNearestEntity = function(CheckDisabled, List, UseRaycasting)
+	local Nearest = { Distance = math.huge, Object = nil }
+
+	for _, Entity in Services.Workspace:GetChildren() do
+		if Entity and EntityDistances[Entity.Name] and Entity.PrimaryPart then
+			local Distance = LocalPlayer:DistanceFromCharacter(Entity.PrimaryPart.Position)
+			if Distance < EntityDistances[Entity.Name] and Distance < Nearest.Distance then
+				if not CheckDisabled or Entity:GetAttribute("Inactive") ~= true then
+					Nearest.Distance = Distance
+					Nearest.Object = Entity
+				end
+			end
+		end
+	end
+	return Nearest.Object
+end
+
+Functions.GetNearestFigure = function()
+	local Nearest = { Distance = math.huge, Object = nil }
+	local FigureNames = { FigureRig = true, FigureRagdoll = true, Figure = true }
+
+	for _, Object in Objects.Entities do
+		if Object:IsA("Model") and Object.PrimaryPart and FigureNames[Object.Name] then
+			local Distance = LocalPlayer:DistanceFromCharacter(Object.PrimaryPart.Position)
+			if Distance < Nearest.Distance and Distance < 25 then
+				Nearest.Distance = Distance
+				Nearest.Object = Object
+			end
+		end
+	end
+	return Nearest.Object
+end
+
+-- ============================================================================================
+-- __namecall hook (Crouch, Heartbeat minigame, MotorReplication)
+-- ============================================================================================
+local MainHook
+if Functions.CheckCompatability({"hookmetamethod", "newcclosure", "getnamecallmethod"}) then
+	MainHook = Env.hookmetamethod(game, "__namecall", Env.newcclosure(function(Self, ...)
+		local Args = { ... }
+		local ArgCount = select("#", ...)
+		local Method = Env.getnamecallmethod()
+
+		if Self.Name == "Crouch" and Method == "FireServer" then
+			if Toggles.CrouchSpoof.Value or Toggles.PositionSpoof.Value then
+				Args[1] = true
+			end
+			Args[2] = true
+		end
+
+		if Self.Name == "ClutchHeartbeat" and Method == "FireServer" and Toggles.AutoHeartbeatMinigame.Value or Self.Name == "HideMonster" and Method == "FireServer" and Toggles.AutoHeartbeatMinigame.Value then
+			return
+		end
+
+		if Self.Name == "MotorReplication" and Method == "FireServer" then
+			local DoBypass = (Toggles.BypassEyes.Value and Globals.IsEyes) or (Toggles.BypassLookman.Value and Globals.IsLookman)
+			if DoBypass then
+				if Floor == "Fools" or Floor == "OldHotel" then
+					Args[1] = 0 Args[2] = (Globals.SpoofOffset == 200 and 65 or -65) Args[3] = 0 Args[4] = false
+					ArgCount = math.max(ArgCount, 4)
+				else
+					Args[1] = -650
+					ArgCount = math.max(ArgCount, 1)
+				end
+			end
+		end
+
+		return MainHook(Self, table.unpack(Args, 1, ArgCount))
+	end))
+end
+
+-- ============================================================================================
+-- Hooks de los toggles (se llaman desde Apply cuando cambia el valor)
+-- ============================================================================================
+Hooks.DisableAnticheat = function(Value)
+	if Globals.AnticheatDisabled == true and not Value then
+		if RemotesFolder and RemotesFolder:FindFirstChild("ClimbLadder") then
+			RemotesFolder.ClimbLadder:FireServer()
+		end
+		Globals.AnticheatDisabled = false
+	end
+end
+
+Hooks.PositionSpoof = function(Value)
+	if not (RootPart and Humanoid and RemotesFolder) then return end
+	if Floor ~= "Fools" and Floor ~= "OldHotel" then
+		if Value then
+			RootPart.CFrame = RootPart.CFrame * CFrame.new(0, -2.346, 0)
+			Humanoid.HipHeight = 0.05
+			RemotesFolder.Crouch:FireServer(true, true)
+		else
+			RootPart.CFrame = RootPart.CFrame * CFrame.new(0, 2.346, 0)
+			Humanoid.HipHeight = 2.396
+		end
+	end
+end
+
+Hooks.CrouchSpoof = function(Value)
+	if RemotesFolder and RemotesFolder:FindFirstChild("Crouch") then
+		RemotesFolder.Crouch:FireServer(Value and true or Functions.IsCrouching(), true)
+	end
+end
+
+Hooks.BypassGiggle = function(Value)
+	for _, Object in Objects.Entities do
+		if Object.Name == "GiggleCeiling" then
+			Object:WaitForChild("Hitbox").CanTouch = not Value
+		end
+	end
+end
+Hooks.BypassDupe = function(Value)
+	for _, Object in Objects.Entities do
+		if Object.Name == "DoorFake" or Object.Name == "FakeDoor" then
+			Object:WaitForChild("Hidden").CanTouch = not Value
+			if Object:FindFirstChild("Lock") then
+				Object.Lock.UnlockPrompt.Enabled = not Value
+			end
+		end
+	end
+end
+Hooks.BypassEyes = function(Value)
+	if Value and Globals.IsEyes and RemotesFolder then
+		if Floor == "Fools" or Floor == "OldHotel" then
+			RemotesFolder.MotorReplication:FireServer(0, (Globals.SpoofOffset == 200 and 65 or -65), 0, false)
+		else
+			RemotesFolder.MotorReplication:FireServer(-650)
+		end
+	end
+end
+Hooks.BypassLookman = function(Value)
+	if Value and Globals.IsLookman and RemotesFolder then
+		if Floor == "Fools" or Floor == "OldHotel" then
+			RemotesFolder.MotorReplication:FireServer(0, (Globals.SpoofOffset == 200 and 65 or -65), 0, false)
+		else
+			RemotesFolder.MotorReplication:FireServer(-650)
+		end
+	end
+end
+Hooks.BypassGloombatEggs = function(Value)
+	for _, Object in Objects.Entities do
+		for _, Part in Object:GetDescendants() do
+			if Part:IsA("BasePart") then
+				Part.CanTouch = not Value
+			end
+		end
+	end
+end
+Hooks.BypassSeekObstructions = function(Value)
+	for _, Object in Objects.SeekObstructions do
+		Object.CanTouch = not Value
+		if Object.Name == "SeekFloodline" then
+			Object.CanCollide = Value
+		end
+	end
+	for _, Object in Objects.SeekBridges do
+		Object.CanCollide = Value
+		Object.Transparency = Value and 0 or 1
+	end
+end
+Hooks.BypassVacuum = function(Value)
+	for _, Object in Objects.Entities do
+		if Object.Name == "SideroomSpace" then
+			Object:WaitForChild("Collision").CanCollide = Value
+			Object:WaitForChild("Collision").CanTouch = not Value
+		end
+	end
+end
+Hooks.BypassKillbricks = function(Value)
+	for _, Object in Objects.Obstructions do
+		if Object.Name == "Lava" then Object.CanTouch = not Value end
+	end
+end
+Hooks.BypassSeekingWall = function(Value)
+	for _, Object in Objects.Obstructions do
+		if Object.Name == "ScaryWall" then
+			for _, Part in Object:GetDescendants() do
+				if Part:IsA("BasePart") then
+					Part.CanTouch = not Value
+					Part.CanCollide = not Value
+				end
+			end
+		end
+	end
+end
+Hooks.BypassSnare = function(Value)
+	for _, Object in Objects.Entities do
+		if Object.Name == "Snare" then
+			for _, Part in Object:GetDescendants() do
+				if Part:IsA("BasePart") then Part.CanTouch = not Value end
+			end
+		end
+	end
+end
+Hooks.BypassBanana = function(Value)
+	for _, Object in Objects.Entities do
+		if Object.Name == "BananaPeel" then Object.CanTouch = not Value end
+	end
+end
+Hooks.BypassJeff = function(Value)
+	for _, Object in Objects.Entities do
+		if Object.Name == "JeffTheKiller" then
+			for _, Part in Object:GetDescendants() do
+				if Part:IsA("BasePart") then
+					Part.CanCollide = not Value
+					Part.CanTouch = not Value
+				end
+			end
+			Object:WaitForChild("Humanoid").Health = 0
+		end
+	end
+end
+
+-- Remove / No Damage
+Hooks.NoScreechDamage = function(Value)
+	if not (FakeEvents.Screech and FakeEvents.Screech_Real and RemotesFolder) then return end
+	if Value then
+		FakeEvents.Screech.Parent = RemotesFolder
+		FakeEvents.Screech_Real.Parent = nil
+	else
+		FakeEvents.Screech_Real.Parent = RemotesFolder
+		FakeEvents.Screech.Parent = nil
+	end
+end
+Hooks.NoHaltDamage = function(Value)
+	if not (FakeEvents.Shade and FakeEvents.Shade_Real and RemotesFolder) then return end
+	if Value then
+		FakeEvents.Shade.Parent = RemotesFolder
+		FakeEvents.Shade_Real.Parent = nil
+	else
+		FakeEvents.Shade_Real.Parent = RemotesFolder
+		FakeEvents.Shade.Parent = nil
+	end
+end
+Hooks.NoA90Damage = function(Value)
+	if RemotesFolder and RemotesFolder:FindFirstChild("A90") and FakeEvents.A90 and FakeEvents.A90_Real then
+		if Value then
+			FakeEvents.A90.Parent = RemotesFolder
+			FakeEvents.A90_Real.Parent = nil
+		else
+			FakeEvents.A90_Real.Parent = RemotesFolder
+			FakeEvents.A90.Parent = nil
+		end
+	end
+end
+Hooks.NoSurgeDamage = function(Value)
+	if RemotesFolder and RemotesFolder:FindFirstChild("SurgeRemote") and FakeEvents.Surge and FakeEvents.Surge_Real then
+		if Value then
+			FakeEvents.Surge.Parent = RemotesFolder
+			FakeEvents.Surge_Real.Parent = nil
+		else
+			FakeEvents.Surge_Real.Parent = RemotesFolder
+			FakeEvents.Surge.Parent = nil
+		end
+	end
+end
+
+Hooks.RemoveScreech = function(Value)
+	if Modules.Screech then
+		Modules.Screech.Name = Value and "Screech_Disabled" or "Screech"
+	end
+	if Modules.GlitchScreech then
+		Modules.GlitchScreech.Name = Value and "GlitchScreech_Disabled" or "GlitchScreech"
+	end
+end
+Hooks.RemoveHalt = function(Value)
+	if Modules.Shade then
+		Modules.Shade.Name = Value and "Shade_Disabled" or "Shade"
+	end
+end
+Hooks.RemoveA90 = function(Value)
+	if Modules.A90 then
+		Modules.A90.Name = Value and "A90_Disabled" or "A90"
+	end
+end
+Hooks.RemoveDread = function(Value)
+	if Modules.Dread then
+		Modules.Dread.Name = Value and "Dread_Disabled" or "Dread"
+	end
+end
+Hooks.RemoveSurge = function(Value)
+	if Globals.SurgeFrame then
+		Globals.SurgeFrame.Name = (Value and "SurgeVignette_Disabled" or "SurgeVignette")
+	end
+end
+
+-- Floor bypass
+local ObstructionNames = { ThingToOpen = "RemoveBasementGate", MovingDoor = "RemovePaintingsDoor", Wax_Door = "RemoveSkeletonDoor" }
+for ObjName, ToggleName in ObstructionNames do
+	Hooks[ToggleName] = function(Value)
+		for _, Object in Objects.Obstructions do
+			if Object.Name == ObjName then
+				Object:PivotTo(Value and CFrame.new(-10000, -10000, -10000) or Object:GetAttribute("OriginalPosition"))
+			end
+		end
+	end
+end
+
+-- ============================================================================================
+-- Objetos del mapa (Lava, Snare, Giggle, Dupe, Seek, Jeff, Figure, puertas...)
+-- ============================================================================================
+Functions.HandleObject = function(Object)
+	local Name = Object.Name
+
+	if Name == "Lava" then
+		if Toggles.BypassKillbricks.Value then Object.CanTouch = false end
+		table.insert(Objects.Obstructions, Object)
+	elseif Name == "ScaryWall" then
+		for _, Part in Object:GetDescendants() do
+			if Part:IsA("BasePart") then
+				Part.CanTouch = not Toggles.BypassSeekingWall.Value
+				Part.CanCollide = not Toggles.BypassSeekingWall.Value
+
+				local Connection1 = Part:GetPropertyChangedSignal("CanTouch"):Connect(function()
+					if Part.CanTouch == Toggles.BypassSeekingWall.Value then
+						Part.CanTouch = not Toggles.BypassSeekingWall.Value
+					end
+				end)
+				local Connection2 = Part:GetPropertyChangedSignal("CanCollide"):Connect(function()
+					if Part.CanCollide == Toggles.BypassSeekingWall.Value then
+						Part.CanCollide = not Toggles.BypassSeekingWall.Value
+					end
+				end)
+
+				table.insert(Connections, Connection1)
+				table.insert(Connections, Connection2)
+			end
+		end
+		table.insert(Objects.Obstructions, Object)
+	elseif Name == "GiggleCeiling" then
+		if Toggles.BypassGiggle.Value then Object:WaitForChild("Hitbox").CanTouch = false end
+		table.insert(Objects.Entities, Object)
+	elseif Name == "GloomPile" then
+		if Toggles.BypassGloombatEggs.Value then
+			for _, Part in Object:GetDescendants() do
+				if Part:IsA("BasePart") then Part.CanTouch = false
+				end
+			end
+		end
+		local Connection = Object.DescendantAdded:Connect(function(Part)
+			if Part:IsA("BasePart") then Part.CanTouch = false end
+		end)
+
+		table.insert(Connections, Connection)
+		table.insert(Objects.Entities, Object)
+	elseif Name == "TriggerEventCollision" and Functions.CheckCompatability({"firetouchinterest"}) then
+		if (Floor == "Fools" or Floor == "OldHotel") and Toggles.RemoveSeekTrigger.Value then
+			task.spawn(function()
+				while Object:IsDescendantOf(game) do
+					for _, Part in Object:GetChildren() do
+						if Part:IsA("BasePart") then
+							Env.firetouchinterest(RootPart, Part, 0)
+							task.wait()
+							Env.firetouchinterest(RootPart, Part, 1)
+						end
+					end
+					task.wait()
+				end
+			end)
+		end
+	elseif Name == "DoorFake" or Name == "FakeDoor" then
+		if Object.Parent and Object:FindFirstChild("Hidden") then
+			if Toggles.BypassDupe.Value then
+				Object:WaitForChild("Hidden").CanTouch = false
+				local Lock = Object:FindFirstChild("Lock")
+				if Lock and Lock:FindFirstChild("UnlockPrompt") then Lock.UnlockPrompt.Enabled = false end
+			end
+			table.insert(Objects.Entities, Object)
+		end
+	elseif Name == "SideroomSpace" then
+		if Toggles.BypassVacuum.Value then
+			Object:WaitForChild("Collision").CanCollide = true
+			Object:WaitForChild("Collision").CanTouch = false
+		end
+		table.insert(Objects.Entities, Object)
+	elseif Name == "Snare" then
+		for _, Part in Object:GetDescendants() do
+			if Part:IsA("BasePart") then Part.CanTouch = not Toggles.BypassSnare.Value end
+		end
+		local Connection = Object.DescendantAdded:Connect(function(Part)
+			if Part:IsA("BasePart") then Part.CanTouch = not Toggles.BypassSnare.Value end
+		end)
+		table.insert(Connections, Connection)
+		table.insert(Objects.Entities, Object)
+	elseif Name == "Seek_Arm" or Name == "ChandelierObstruction" then
+		for _, Part in Object:GetDescendants() do
+			if Part:IsA("BasePart") then
+				Part.CanTouch = not Toggles.BypassSeekObstructions.Value
+				table.insert(Objects.SeekObstructions, Part)
+			end
+		end
+	elseif Name == "SeekFloodline" then
+		Object.CanCollide = Toggles.BypassSeekObstructions.Value
+		local FloodConn = Object:GetPropertyChangedSignal("CanCollide"):Connect(function()
+			if Object.CanCollide ~= Toggles.BypassSeekObstructions.Value then
+				Object.CanCollide = Toggles.BypassSeekObstructions.Value
+			end
+		end)
+		Object.Destroying:Once(function() FloodConn:Disconnect() end)
+		table.insert(Objects.SeekObstructions, Object)
+	elseif Name == "Bridge" then
+		for _, Child in Object:GetChildren() do
+			if Child.Name == "PlayerBarrier" and Child.Size.Y == 2.75 and (Child.Rotation.X == 0 or Child.Rotation.X == 180) then
+				local NewBridge = Child:Clone()
+				NewBridge.CFrame = NewBridge.CFrame * CFrame.new(0, 0, -5)
+				NewBridge.Name = tostring(math.random(100000, 999999))
+				NewBridge.Size = Vector3.new(NewBridge.Size.X, NewBridge.Size.Y, 11)
+				NewBridge.Parent = Object
+				NewBridge.CanCollide = Toggles.BypassSeekObstructions.Value
+				NewBridge.Color = Color3.fromRGB(0, 255, 255)
+				NewBridge.Transparency = Toggles.BypassSeekObstructions.Value and 0 or 1
+				NewBridge.Material = Enum.Material.ForceField
+				table.insert(Objects.SeekBridges, NewBridge)
+			end
+			task.wait()
+		end
+	elseif Object:GetAttribute("RawName") and Object:GetAttribute("RawName"):find("Halt") or Object:GetAttribute("Shade") == true then
+		local HaltLogConn
+		HaltLogConn = Services.LogService.MessageOut:Connect(function(Message)
+			if Message == "client teleporting" then
+				if Globals.AnticheatDisabled then
+					Globals.AnticheatDisabled = false
+					Functions.Notify({ Title = "The anticheat has been re-enabled.", Body = "Interact with a ladder to disable it again." })
+				end
+				HaltLogConn:Disconnect()
+			end
+		end)
+	elseif Name == "BananaPeel" then
+		if Toggles.BypassBanana.Value then Object.CanTouch = false end
+		table.insert(Objects.Entities, Object)
+	elseif Name == "JeffTheKiller" then
+		if Toggles.BypassJeff.Value then
+			for _, Part in Object:GetDescendants() do
+				if Part:IsA("BasePart") then Part.CanCollide = false Part.CanTouch = false end
+			end
+			Object:WaitForChild("Humanoid").Health = 0
+		end
+	elseif Name == "Figure" or Name == "FigureRig" or Name == "FigureRagdoll" then
+		for _, Part in Object:GetDescendants() do
+			if Part:IsA("BasePart") then
+				Part.CanTouch = false
+			end
+		end
+		table.insert(Objects.Entities, Object)
+		if Toggles.RemoveFigure.Value and Functions.CheckCompatability({"isnetworkowner"}) then
+			if Floor == "Mines" then
+				for _, Part in Object:GetDescendants() do
+					if Part:IsA("BasePart") then
+						task.spawn(function()
+							if Env.isnetworkowner(Part) then
+								Part.Position = Vector3.new(-49999, -49999, -49999)
+							end
+						end)
+					end
+				end
+			elseif Floor == "OldHotel" or Floor == "Fools" then
+				CurrentRooms.ChildAdded:Wait()
+				for _, Part in Object:GetDescendants() do
+					if Part:IsA("BasePart") then
+						Part.CanCollide = false
+						task.spawn(function()
+							while Env.isnetworkowner(Part) do
+								Part.Position = Vector3.new(math.random(-29999,29999), math.random(-29999,29999), math.random(-29999,29999))
+								task.wait()
+							end
+						end)
+					end
+				end
+			end
+		end
+	elseif (Name == "ThingToOpen" or Name == "MovingDoor") and (Floor == "Fools" or Floor == "OldHotel")
+		or Name == "Wax_Door" and Floor == "Fools"
+	then
+		Object:SetAttribute("OriginalPosition", Object:GetPivot())
+		local ToggleMap = { ThingToOpen = "RemoveBasementGate", MovingDoor = "RemovePaintingsDoor", Wax_Door = "RemoveSkeletonDoor" }
+		if ToggleMap[Name] and Toggles[ToggleMap[Name]].Value then
+			Object:PivotTo(CFrame.new(-10000, -10000, -10000))
+		end
+		table.insert(Objects.Obstructions, Object)
+	end
+end
+
+Globals.ObjectQueue = {}
+local AllowedInstances = {
+	Lava = true, JeffTheKiller = true, Snare = true, FakeDoor = true, DoorFake = true, SideroomSpace = true,
+	FigureRig = true, FigureRagdoll = true, Figure = true, Seek_Arm = true, ChandelierObstruction = true, ScaryWall = true,
+	TriggerEventCollision = true, GiggleCeiling = true, GloomPile = true, SeekFloodline = true, Bridge = true,
+	BananaPeel = true, Wax_Door = true, ThingToOpen = true, MovingDoor = true,
+}
+Functions.QueueObject = function(Object)
+	if not AllowedInstances[Object.Name] and not (Object:GetAttribute("RawName") and Object:GetAttribute("RawName"):find("Halt")) and Object:GetAttribute("Shade") ~= true then
+		return
+	end
+	table.insert(Globals.ObjectQueue, Object)
+end
+
+-- ============================================================================================
+-- Personaje: collision clone, ladder disabler, spoofs, velocity manipulation
+-- ============================================================================================
+local CharacterOldConnectionKeys = {
+	"MainHandler", "SHMFixer", "AnticheatDisabler", "AnticheatEnableDetector1", "AnticheatEnableDetector2", "AutoReviveHandler",
+}
+
+Functions.HandleCharacter = function(NewCharacter)
+	for _, Key in CharacterOldConnectionKeys do
+		if Connections[Key] then
+			Connections[Key]:Disconnect()
+			Connections[Key] = nil
+		end
+	end
+
+	local NewHumanoid = NewCharacter:WaitForChild("Humanoid", 15)
+	local NewCollision = NewCharacter:WaitForChild("Collision", 15)
+	if not NewHumanoid or not NewCollision or not NewCharacter:FindFirstChild("HumanoidRootPart") then return end
+
+	Character = NewCharacter
+	Humanoid = NewHumanoid
+	RootPart = NewCharacter:FindFirstChild("HumanoidRootPart")
+	Camera   = Services.Workspace.CurrentCamera
+
+	Collision = NewCollision
+	CollisionPart  = NewCharacter:FindFirstChild("CollisionPart") or NewCharacter:FindFirstChild("Collision")
+	CollisionClone = Collision:Clone()
+	CollisionClone.Parent = NewCharacter
+	CollisionClone.Name = "CollisionClone"
+	CollisionClone.Massless = true
+
+	CollisionPartClone = CollisionPart:Clone()
+	CollisionPartClone.Parent = NewCharacter
+	CollisionPartClone.Name = "CollisionPartClone"
+	CollisionPartClone.CanCollide = false
+	CollisionPartClone.Massless = true
+
+	if CollisionPartClone:FindFirstChild("CollisionCrouch") then
+		CollisionPartClone.CollisionCrouch:Destroy()
+	end
+
+	Connections.AutoReviveHandler = LocalPlayer:GetAttributeChangedSignal("Alive"):Connect(function()
+		if LocalPlayer:GetAttribute("Alive") == false and Toggles.AutoRevive.Value then
+			if Floor == "Fools" or Floor == "OldHotel" then
+				while LocalPlayer:GetAttribute("Alive") ~= true do
+					RemotesFolder.Revive:FireServer()
+					task.wait(0.5)
+				end
+			end
+		end
+	end)
+
+	Connections.SHMFixer = RootPart:GetPropertyChangedSignal("Anchored"):Connect(function()
+		task.wait()
+		if Floor == "Fools" and RootPart.Anchored and Character:GetAttribute("Hiding") ~= true then
+			RootPart.Anchored = false
+		end
+	end)
+
+	Globals.AnticheatDisabled = false
+
+	Connections.AnticheatDisabler = Character:GetAttributeChangedSignal("Climbing"):Connect(function()
+		if Character:GetAttribute("Climbing") == true and Toggles.DisableAnticheat.Value and not Globals.AnticheatDisabled then
+			task.wait(0.25)
+			Character:SetAttribute("Climbing", false)
+			Functions.Notify({ Title = "Successfully disabled the anticheat.", Body = "It will be re-enabled after a cutscene or halt room." })
+			Globals.AnticheatDisabled = true
+		end
+	end)
+
+	local CutsceneRemote = RemotesFolder and RemotesFolder:WaitForChild("Cutscene", 10)
+	if CutsceneRemote then
+		Connections.AnticheatEnableDetector1 = CutsceneRemote.OnClientEvent:Connect(function(CutsceneName)
+			if Globals.AnticheatDisabled and not CutsceneName:find("SewerSeek") then
+				Globals.AnticheatDisabled = false
+				Functions.Notify({ Title = "The anticheat has been re-enabled.", Body = "Interact with a ladder to disable it again." })
+			end
+		end)
+	end
+
+	local EnemyRemote = RemotesFolder and RemotesFolder:WaitForChild("UseEnemyModule", 10)
+	if EnemyRemote then
+		Connections.AnticheatEnableDetector2 = EnemyRemote.OnClientEvent:Connect(function(ModuleName)
+			if ModuleName == "Void" or ModuleName == "Glitch" then
+				if Globals.AnticheatDisabled then
+					Globals.AnticheatDisabled = false
+					Functions.Notify({ Title = "The anticheat has been re-enabled.", Body = "Interact with a ladder to disable it again." })
+				end
+				local LatestRoom = Services.ReplicatedStorage:FindFirstChild("GameData") and Services.ReplicatedStorage.GameData:FindFirstChild("LatestRoom")
+				if LatestRoom then LocalPlayer:SetAttribute("CurrentRoom", LatestRoom.Value) end
+			end
+		end)
+	end
+
+	Globals.ManipulateBody = Instance.new("BodyVelocity")
+	Globals.ManipulateBody.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+
+	Globals.LastCrouchFire = tick()
+	Globals.OriginalC1 = Character.LowerTorso.Root.C1
+
+	local MainUI = LocalPlayer.PlayerGui:FindFirstChild("MainUI")
+	local MainFrame = MainUI and MainUI:FindFirstChild("MainFrame")
+	if MainFrame and MainFrame:FindFirstChild("SurgeVignette") then
+		Globals.SurgeFrame = MainFrame.SurgeVignette
+		if Toggles.RemoveSurge.Value then
+			Globals.SurgeFrame.Name = "SurgeVignette_Disabled"
+		end
+	end
+
+	local UIModules = MainUI and MainUI:FindFirstChild("Initiator") and MainUI.Initiator:FindFirstChild("Main_Game")
+	UIModules = UIModules and UIModules:FindFirstChild("RemoteListener") and UIModules.RemoteListener:FindFirstChild("Modules")
+	if UIModules then
+		Modules.A90     = UIModules:FindFirstChild("A90")
+		Modules.Screech = UIModules:FindFirstChild("Screech")
+		Modules.Dread   = UIModules:FindFirstChild("Dread")
+		if Toggles.RemoveScreech.Value and Modules.Screech then Modules.Screech.Name = "Screech_Disabled" end
+		if Toggles.RemoveA90.Value and Modules.A90 then Modules.A90.Name = "A90_Disabled" end
+		if Toggles.RemoveDread.Value and Modules.Dread then Modules.Dread.Name = "Dread_Disabled" end
+	end
+
+	Connections.MainHandler = Services.RunService.RenderStepped:Connect(function()
+		if not (Character and Character.Parent and RootPart and RootPart.Parent and Collision and CollisionClone and CollisionPart) then return end
+
+		if Services.Workspace:FindFirstChild("Camera") then
+			Camera = Services.Workspace:FindFirstChild("Camera")
+		end
+
+		Globals.IsEyes    = Services.Workspace:FindFirstChild("Eyes") ~= nil or Services.Workspace:FindFirstChild("Lookman") ~= nil
+		Globals.IsLookman = Services.Workspace:FindFirstChild("BackdoorLookman") ~= nil
+
+		Character:SetAttribute("Sliding", Globals.Sliding)
+		if Character:GetAttribute("Crouching") ~= Functions.IsCrouching() then
+			Character:SetAttribute("Crouching", Functions.IsCrouching())
+		end
+
+		if (Toggles.CrouchSpoof.Value or Toggles.PositionSpoof.Value) and RemotesFolder:FindFirstChild("Crouch") then
+			RemotesFolder.Crouch:FireServer(true, true)
+		end
+
+		if Floor ~= "Fools" and Floor ~= "OldHotel" and not Camera:FindFirstChild("MinecartRig") then
+			RootPart.CanCollide = false
+		end
+
+		for _, Part in Character:GetChildren() do
+			if Part:IsA("BasePart") then Part.CanCollide = false end
+		end
+
+		if Floor == "OldHotel" or Floor == "Fools" then
+			local SpoofOffset = Toggles.PositionSpoof.Value and Functions.GetNearestEntity() and 200 or Toggles.FigureGodmode.Value and Functions.GetNearestFigure() and 200 or 0
+			Globals.SpoofOffset = SpoofOffset
+			Collision.Position = RootPart.Position + Vector3.new(0, SpoofOffset, 0)
+			Collision.CanCollide = false
+			if Floor == "Fools" then
+				Collision.CollisionCrouch.CanCollide = false
+				CollisionClone.CollisionCrouch.CanCollide = false
+			end
+			RootPart.CanCollide = not (Toggles.NoclipToggle.Value or Toggles.VelocityManipulationToggle.Value)
+		else
+			Collision.CanCollide = false
+			if Collision:FindFirstChild("CollisionCrouch") then Collision.CollisionCrouch.CanCollide = false end
+
+			if CollisionClone:FindFirstChild("CollisionCrouch") then
+				local IsCrouch = Functions.IsCrouching()
+				CollisionClone.CanCollide = not (Toggles.NoclipToggle.Value or Toggles.VelocityManipulationToggle.Value or IsCrouch)
+				CollisionClone.CollisionCrouch.CanCollide = not (Toggles.NoclipToggle.Value or Toggles.VelocityManipulationToggle.Value or not IsCrouch)
+			else
+				RootPart.CanCollide = not (Toggles.NoclipToggle.Value or Toggles.VelocityManipulationToggle.Value)
+			end
+
+			if Character:FindFirstChild("LowerTorso") and Character.LowerTorso:FindFirstChild("Root") then
+				Character.LowerTorso.Root.C1 = Globals.OriginalC1 * CFrame.new(0, Toggles.PositionSpoof.Value and -2.346 or 0, 0)
+			end
+
+			local SpoofY = Toggles.PositionSpoof.Value and 2.328 or 0.18
+			Collision.Position     = RootPart.Position + Vector3.new(0, SpoofY, 0)
+			CollisionPart.Position = RootPart.Position + Vector3.new(0, SpoofY, 0)
+
+			if Collision:FindFirstChild("CollisionCrouch") and CollisionClone:FindFirstChild("CollisionCrouch") then
+				local CrouchY = Toggles.PositionSpoof.Value and 1.328 or -0.982
+				Collision.CollisionCrouch.Position = RootPart.Position + Vector3.new(0, CrouchY, 0)
+				CollisionClone.CollisionCrouch.CollisionGroup = Collision.CollisionCrouch.CollisionGroup
+			end
+			if CollisionClone:FindFirstChild("CollisionCrouch") then
+				CollisionClone.CollisionCrouch.Position = RootPart.Position + Vector3.new(0, Toggles.PositionSpoof.Value and 0.75 or -0.982, 0)
+			end
+		end
+
+		CollisionClone.CollisionGroup = Collision.CollisionGroup
+		CollisionClone.Position = RootPart.Position + Vector3.new(0, Toggles.PositionSpoof.Value and 1.75 or 0.18, 0)
+
+		if Toggles.VelocityManipulationToggle.Value and Options.VelocityManipulationMode.Value == "Velocity" then
+			Globals.ManipulateBody.Parent = RootPart
+			Globals.ManipulateBody.Velocity = RootPart.CFrame.LookVector * 2.25
+		else
+			Globals.ManipulateBody.Parent = nil
+		end
+
+		if Toggles.VelocityManipulationToggle.Value and Options.VelocityManipulationMode.Value == "Pivot" and Floor ~= "Fools" and Floor ~= "OldHotel" then
+			Character:PivotTo(Camera:GetPivot() * CFrame.new(0, 0, 2560))
+		end
+
+		local DoEyesBypass = (Toggles.BypassEyes.Value and Globals.IsEyes) or (Toggles.BypassLookman.Value and Globals.IsLookman)
+		if DoEyesBypass then
+			if Floor == "Fools" or Floor == "OldHotel" then
+				RemotesFolder.MotorReplication:FireServer(0, (Globals.SpoofOffset == 200 and 65 or -65), 0, false)
+			else
+				RemotesFolder.MotorReplication:FireServer(-650)
+			end
+		end
+
+		if RemotesFolder:FindFirstChild("Crouch") and tick() - Globals.LastCrouchFire > 0.1 then
+			local IsCrouch = Functions.IsCrouching()
+			if Toggles.CrouchSpoof.Value or Toggles.PositionSpoof.Value then IsCrouch = true end
+			RemotesFolder.Crouch:FireServer(IsCrouch, true)
+			Globals.LastCrouchFire = tick()
+		end
+	end)
+end
+
+-- ============================================================================================
+-- Inicio: espera al juego, prepara remotes falsos y engancha el personaje
+-- ============================================================================================
+task.spawn(function()
+	local GameData = Services.ReplicatedStorage:WaitForChild("GameData", 20)
+	local FloorValue = GameData and GameData:WaitForChild("Floor", 10)
+	if not (GameData and FloorValue) then return end
+	Floor = FloorValue.Value
+
+	if not RemotesFolder then
+		if Services.ReplicatedStorage:FindFirstChild("EntityInfo") then
+			RemotesFolder = Services.ReplicatedStorage:FindFirstChild("EntityInfo")
+		elseif Services.ReplicatedStorage:FindFirstChild("Bricks") then
+			RemotesFolder = Services.ReplicatedStorage:FindFirstChild("Bricks")
+		end
+	end
+	if not RemotesFolder then return end
+	if Floor == "Hotel" and RemotesFolder.Name == "Bricks" then
+		Floor = "OldHotel"
+	end
+	CurrentRooms = CurrentRooms or Services.Workspace:WaitForChild("CurrentRooms", 20)
+
+	FakeEvents.Screech = Instance.new("RemoteEvent")
+	FakeEvents.Shade   = Instance.new("RemoteEvent")
+	FakeEvents.A90     = Instance.new("RemoteEvent")
+	FakeEvents.Surge   = Instance.new("RemoteEvent")
+	FakeEvents.Screech.Name = "Screech"
+	FakeEvents.Shade.Name   = "ShadeResult"
+	FakeEvents.A90.Name     = "A90"
+	FakeEvents.Surge.Name   = "SurgeRemote"
+	FakeEvents.Screech_Real = RemotesFolder:FindFirstChild("Screech")
+	FakeEvents.Shade_Real   = RemotesFolder:FindFirstChild("ShadeResult")
+	FakeEvents.A90_Real     = RemotesFolder:FindFirstChild("A90")
+	FakeEvents.Surge_Real   = RemotesFolder:FindFirstChild("SurgeRemote")
+
+	if RemotesFolder:FindFirstChild("FootstepRemoteThatWeNeed") then
+		local RealRemote = RemotesFolder:FindFirstChild("FootstepRemoteThatWeNeed")
+		RealRemote:Destroy()
+
+		local FakeRemote = Instance.new("RemoteEvent", RemotesFolder)
+		FakeRemote.Name = "FootstepRemoteThatWeNeed"
+	end
+
+	local ClientModules = Services.ReplicatedStorage:FindFirstChild("ModulesClient") or Services.ReplicatedStorage:FindFirstChild("ClientModules")
+	if ClientModules and ClientModules:FindFirstChild("EntityModules") then
+		Modules.Glitch = ClientModules.EntityModules:FindFirstChild("Glitch")
+		Modules.Shade  = ClientModules.EntityModules:FindFirstChild("Shade")
+		Modules.Void   = ClientModules.EntityModules:FindFirstChild("Void")
+		if Toggles.RemoveHalt.Value and Modules.Shade then Modules.Shade.Name = "Shade_Disabled" end
+	end
+
+	local FloorReplicated = Services.ReplicatedStorage:FindFirstChild("FloorReplicated")
+	if FloorReplicated then
+		Connections.FloorReplicatedHandler = FloorReplicated.DescendantAdded:Connect(function(Object)
+			if Object.Name == "GlitchScreech" then
+				Modules.GlitchScreech = Object
+				if Toggles.RemoveScreech.Value then Object.Name = "GlitchScreech_Disabled" end
+			end
+		end)
+	end
+
+	Connections.QueueConnection = Services.RunService.RenderStepped:Connect(function()
+		local Object = table.remove(Globals.ObjectQueue, 1)
+		if Object and Object.Parent then
+			pcall(Functions.HandleObject, Object)
+		end
+	end)
+	for _, Object in Services.Workspace:GetDescendants() do
+		Functions.QueueObject(Object)
+	end
+	Connections.InstanceHandler = Services.Workspace.DescendantAdded:Connect(function(Object)
+		Functions.QueueObject(Object)
+	end)
+
+	Ready = true
+
+	if LocalPlayer.Character then
+		task.spawn(function() Functions.HandleCharacter(LocalPlayer.Character) end)
+	end
+	LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
+		if Connections.MainHandler then
+			Connections.MainHandler:Disconnect()
+			Connections.MainHandler = nil
+		end
+		task.wait(0.5)
+		Functions.HandleCharacter(NewCharacter)
+	end)
+end)
+
+-- ============================================================================================
+-- Interfaz: pestaña Anticheat y Antis
+-- ============================================================================================
+AntiCheatTab:Section({ Title = "Bypass" })
+AddToggle(AntiCheatTab, "DisableAnticheat", "Anticheat Bypass",
+	"Completely disables the anticheat, after interacting with a ladder. It comes back after a cutscene, a Halt room, Void or Glitch: use a ladder again.",
+	Ex.DisableAnticheat, function(v) Apply("DisableAnticheat", v) end)
+AddToggle(AntiCheatTab, "VelocityManipulationToggle", "Velocity Manipulation",
+	"Moves your character forward slowly, mitigating the game's anti-noclip.",
+	Ex.VelocityManipulationToggle, function(v) Apply("VelocityManipulationToggle", v) end)
+AddDropdown(AntiCheatTab, "VelocityManipulationMode", "Manipulation Method",
+	"Velocity: a tiny forward push. Pivot: moves the character relative to the camera.",
+	{ "Velocity", "Pivot" }, Ex.VelocityManipulationMode, function(v) Ex.VelocityManipulationMode = v end)
+AddToggle(AntiCheatTab, "PositionSpoof", "Position Spoof",
+	"Makes your character appear underground on the server, protecting you from rush-like entities.",
+	Ex.PositionSpoof, function(v) Apply("PositionSpoof", v) end)
+AddToggle(AntiCheatTab, "CrouchSpoof", "Crouch Spoof",
+	"Makes the game think you are always crouching.",
+	Ex.CrouchSpoof, function(v) Apply("CrouchSpoof", v) end)
+AddToggle(AntiCheatTab, "AutoHeartbeatMinigame", "Auto Heartbeat Minigame",
+	"Prevents the 'Figure' minigame from ever failing.",
+	Ex.AutoHeartbeatMinigame, function(v) Ex.AutoHeartbeatMinigame = v end)
+
+AntisTab:Section({ Title = "Bypass" })
+for _, B in ipairs({
+	{ "BypassGiggle", "Bypass Giggle", "Prevents 'Giggle' from attacking you." },
+	{ "BypassDupe", "Bypass Dupe", "Prevents you from open 'Dupe' fake doors." },
+	{ "BypassEyes", "Bypass Eyes", "Prevents 'Eyes' from hurting you." },
+	{ "BypassLookman", "Bypass Lookman", "Prevents 'Lookman' from hurting you." },
+	{ "BypassGloombatEggs", "Bypass Gloombat Eggs", "Prevents taking damage from stepping on 'Gloombat' eggs." },
+	{ "BypassSeekObstructions", "Bypass Seek Obstructions", "Prevents obstacles in the 'Seek' chase from harming you." },
+	{ "BypassVacuum", "Bypass Vacuum", "Prevents you from falling into 'Vacuum' fake doors." },
+	{ "BypassKillbricks", "Bypass Killbricks", "Prevents 'Lava' from hurting you." },
+	{ "BypassSeekingWall", "Bypass Seeking Wall", "Prevents 'ScaryWall' from hurting you." },
+	{ "BypassSnare", "Bypass Snare", "Prevents 'Snare' from trapping you." },
+	{ "BypassBanana", "Bypass Banana", "Prevents 'Banana Peel' from slipping you up (sometimes doesn't work)." },
+	{ "BypassJeff", "Bypass Jeff", "Prevents 'Jeff the Killer' from stabbing you (sometimes doesn't work)." },
+}) do
+	AddToggle(AntisTab, B[1], B[2], B[3], Ex[B[1]], function(v) Apply(B[1], v) end)
+end
+
+AntisTab:Section({ Title = "Remove" })
+for _, B in ipairs({
+	{ "RemoveScreech", "Remove Screech", "Prevents 'Screech' from spawning." },
+	{ "RemoveHalt", "Remove Halt", "Prevents 'Halt' from spawning." },
+	{ "RemoveA90", "Remove A-90", "Prevents 'A-90' from spawning." },
+	{ "RemoveDread", "Remove Dread", "Prevents 'Dread' from spawning." },
+	{ "RemoveSurge", "Remove Surge", "Prevents 'Surge' from spawning." },
+	{ "NoScreechDamage", "No Screech Damage", "Prevents 'Screech' from hurting you." },
+	{ "NoHaltDamage", "No Halt Damage", "Prevents 'Halt' from hurting you." },
+	{ "NoA90Damage", "No A-90 Damage", "Prevents 'A-90' from hurting you." },
+	{ "NoSurgeDamage", "No Surge Damage", "Prevents 'Surge' from hurting you." },
+}) do
+	AddToggle(AntisTab, B[1], B[2], B[3], Ex[B[1]], function(v) Apply(B[1], v) end)
+end
+
+AntisTab:Section({ Title = "Floor bypass" })
+AddToggle(AntisTab, "RemoveSeekTrigger", "Delete Seek Trigger", "Disables the 'Seek' chase trigger (Old Hotel / Fools).", Ex.RemoveSeekTrigger, function(v) Ex.RemoveSeekTrigger = v end)
+AddToggle(AntisTab, "RemoveFigure", "Delete Figure", "Completely removes the entity 'Figure' (doesn't always work).", Ex.RemoveFigure, function(v) Ex.RemoveFigure = v end)
+AddToggle(AntisTab, "AutoRevive", "Infinite Revives", "Automatically revives after dying, with unlimited respawns (Old Hotel / Fools).", Ex.AutoRevive, function(v) Ex.AutoRevive = v end)
+AddToggle(AntisTab, "FigureGodmode", "Figure Godmode", "Prevents 'Figure' from hurting you (Old Hotel / Fools).", Ex.FigureGodmode, function(v) Ex.FigureGodmode = v end)
+AddToggle(AntisTab, "RemoveBasementGate", "Remove Basement Gate", "Removes the gate from basement rooms.", Ex.RemoveBasementGate, function(v) Apply("RemoveBasementGate", v) end)
+AddToggle(AntisTab, "RemovePaintingsDoor", "Remove Paintings Door", "Removes the fireplace doors from painting rooms.", Ex.RemovePaintingsDoor, function(v) Apply("RemovePaintingsDoor", v) end)
+AddToggle(AntisTab, "RemoveSkeletonDoor", "Remove Skeleton Door", "Removes the skeleton door from the infirmary.", Ex.RemoveSkeletonDoor, function(v) Apply("RemoveSkeletonDoor", v) end)
+end)()
 
 AntiCheatTab:Section({ Title = "Mobile Buttons" })
 AddToggle(AntiCheatTab, "FloatButtons", "Floating Buttons", "Small draggable buttons for ACM, SLIDE and FLY. On by default on touch devices.", Ex.FloatButtons, function(v)
@@ -4409,6 +4954,8 @@ AddKeybind(KeybindsTab, "Key_Noclip", "Noclip", "Turns Noclip on or off.", Ex.Ke
 AddKeybind(KeybindsTab, "Key_Fly", "Fly", "Turns Fly on or off.", Ex.Key_Fly)
 AddKeybind(KeybindsTab, "Key_Speed", "Speed Boost", "Turns Speed Boost on or off.", Ex.Key_Speed)
 AddKeybind(KeybindsTab, "Key_Slide", "Slide", "Does a slide (Slide must be enabled in the Player tab).", Ex.Key_Slide)
+AddKeybind(KeybindsTab, "Key_VelManip", "Velocity Manipulation", "Hold to keep Velocity Manipulation on (PC).", Ex.Key_VelManip)
+AddKeybind(KeybindsTab, "Key_PosSpoof", "Position Spoof", "Turns Position Spoof on or off.", Ex.Key_PosSpoof)
 
 -- Diagnostico de movimiento (para Jump / Slide nativos)
 MiscTab:Section({ Title = "Movement Diagnostics" })
@@ -4457,7 +5004,7 @@ FX.UpdateButtons()
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "LadderBypass", "RootAuto", "TrailPct", "Leash", "CatchUpPct", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationToggle", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_VelManip", "Key_PosSpoof", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
     "AntiRush", "AntiAmbush", "AntiCustom", "AntiGlitch", "AntiDread", "AntiSeek", "AntiFigure", "AntiGod", "AntiMod_Halt", "AntiMod_Bash", "AntiMod_Scribbles", "AntiMod_Giggle", "AntiMod_Timothy", "AntiMod_Jeff", "AntiMod_Gloombat", "AntiMod_Grumble", "AntiMod_Firedamp", "AntiMod_Bramble", "AntiMod_Surge", "AntiMod_Caw", "AntiMod_Eyestalk", "AntiMod_Groundskeeper", "AntiMod_Grampy", "AntiMod_Honcho", "AntiMod_Drone", "AntiMod_Teller", "AntiMod_Alma", "AntiCustomNames", "AntiRange", "AntiHeight", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
