@@ -2387,7 +2387,7 @@ local Ex = {
     NotifyFilter = {},
     -- Movement
     Speed = false, SpeedValue = 30, SpeedMethod = "Velocity",
-    SpeedHack = false, SpeedHackValue = 30, ACBypass = true, TrailPct = 100, CatchPct = 200,
+    SpeedHack = false, SpeedHackValue = 30, ACBypass = true, TrailPct = 100, SnapGap = 30, NearRate = 20,
     AntiScreech = false, AntiHaste = false, AntiVacuum = false, AntiEyes = false, AntiLookman = false,
     AntiSnare = false, AntiRansom = false, AntiRush = false, AntiAmbush = false, AntiCustom = false,
     AntiGlitch = false, AntiDread = false, AntiSeek = false, AntiFigure = false, AntiGod = false,
@@ -2868,7 +2868,10 @@ function FX.DoorNear(pos, now)
     return false
 end
 
--- Cada frame: el root real (el que ve el servidor) avanza hacia tu root local a velocidad legitima
+-- Cada frame: el root real (el que ve el servidor) se acerca a tu root local.
+--   * corriendo lejos de todo: sigue a velocidad legitima (el servidor no ve tu velocidad real)
+--   * cerca de una puerta/prompt (y 1.5s despues): se acerca casi instantaneo (Near Sync Rate)
+--   * te detienes, o el retraso supera "Max Lag": salta de golpe a tu posicion
 function FX.RootStep(dt)
     if not Ex.ACBypass then return end
     local char = LocalPlayer.Character
@@ -2878,7 +2881,7 @@ function FX.RootStep(dt)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return end
     local now = os.clock()
-    dt = math.min(dt or 0.016, 0.1)
+    dt = math.min(math.max(dt or 0.016, 1 / 240), 0.1)
 
     -- cerca de algo con lo que interactuar (cada 0.1s)
     if now - RootS.nearChk > 0.1 then
@@ -2888,17 +2891,30 @@ function FX.RootStep(dt)
             if pr.Parent and pr.Enabled then near = true else RootS.shown[pr] = nil end
         end
         if not near then near = FX.DoorNear(s.Position, now) end
-        if near then RootS.near = now + 0.6 end
+        if near then RootS.near = now + 1.5 end
     end
 
-    local speed = FX.LegitSpeed(hum)
-    if now < RootS.near then speed = speed * (Ex.CatchPct or 200) / 100 end
-
+    local sp = s.Position
     local gp = g.Position
-    local d = s.Position - gp
+    local d = sp - gp
     local dist = d.Magnitude
-    local step = speed * dt
-    local np = (dist <= step) and s.Position or (gp + d.Unit * step)
+
+    -- ?te estas moviendo? (por desplazamiento real, no por velocidad, que otras funciones ponen a 0)
+    local lastSP = RootS.lastSP or sp
+    RootS.lastSP = sp
+    local moving = (sp - lastSP).Magnitude / dt > 2
+    if moving then RootS.stillSince = nil else RootS.stillSince = RootS.stillSince or now end
+
+    local np
+    if dist > (Ex.SnapGap or 30)
+        or (RootS.stillSince and now - RootS.stillSince > 0.12 and dist > 0.5) then
+        np = sp -- salto directo: el servidor te ve ya en tu sitio
+    elseif now < RootS.near then
+        np = gp + d * (1 - math.exp(-(Ex.NearRate or 20) * dt)) -- casi instantaneo, sin pasarse
+    else
+        local step = FX.LegitSpeed(hum) * dt
+        np = (dist <= step) and sp or (gp + d.Unit * step)
+    end
     g.CFrame = CFrame.new(np) * s.CFrame.Rotation
     g.AssemblyLinearVelocity = Vector3.zero
     g.AssemblyAngularVelocity = Vector3.zero
@@ -2916,7 +2932,7 @@ end
 do
     local function onChar(char)
         RootS.char, RootS.real, RootS.stand = nil, nil, nil
-        RootS.near, RootS.nearChk = 0, 0
+        RootS.near, RootS.nearChk, RootS.lastSP, RootS.stillSince = 0, 0, nil, nil
         if not Ex.ACBypass then return end
         task.spawn(function()
             char:WaitForChild("HumanoidRootPart", 10)
@@ -4115,11 +4131,14 @@ AddToggle(AntiCheatTab, "ACBypass", "Anti cheat bypass",
         end
     end)
 AddSlider(AntiCheatTab, "TrailPct", "Server Follow Speed (%)",
-    "How fast the server-side root follows you, as a percentage of your normal walking speed. Lower = safer from pull-backs, but it lags more behind you. Raise it only if the server starts pulling you back.",
+    "Away from doors and prompts, how fast the server-side root follows you, as a percentage of your normal walking speed. Lower = safer from pull-backs.",
     50, 150, Ex.TrailPct, function(v) Ex.TrailPct = v end)
-AddSlider(AntiCheatTab, "CatchPct", "Catch-up Near Prompts (%)",
-    "Extra follow speed when you are close to a door or any prompt, so the server sees you in range in time. Higher = interacts sooner after a fast run, but is a faster move for the server.",
-    100, 400, Ex.CatchPct, function(v) Ex.CatchPct = v end)
+AddSlider(AntiCheatTab, "NearRate", "Near Sync Rate",
+    "Close to a door or prompt (and for 1.5s after), the server-side root closes the gap this fast. Higher = nearly instant, so you do not get sent back to the previous room. 40 is almost a direct jump.",
+    5, 40, Ex.NearRate, function(v) Ex.NearRate = v end)
+AddSlider(AntiCheatTab, "SnapGap", "Max Lag (studs)",
+    "If the server-side root falls this far behind you, it jumps straight to your position. It also jumps when you stop moving. Lower = fewer long delays, but bigger sudden jumps.",
+    10, 80, Ex.SnapGap, function(v) Ex.SnapGap = v end)
 
 AntiCheatTab:Section({ Title = "Mobile Buttons" })
 AddToggle(AntiCheatTab, "FloatButtons", "Floating Buttons", "Small draggable buttons for ACM, SLIDE and FLY. On by default on touch devices.", Ex.FloatButtons, function(v)
@@ -4188,7 +4207,7 @@ FX.UpdateButtons()
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "TrailPct", "CatchPct", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "TrailPct", "SnapGap", "NearRate", "AntiScreech", "AntiHaste", "AntiVacuum", "AntiEyes", "AntiLookman", "AntiSnare", "AntiRansom",
     "AntiRush", "AntiAmbush", "AntiCustom", "AntiGlitch", "AntiDread", "AntiSeek", "AntiFigure", "AntiGod", "AntiMod_Halt", "AntiMod_Bash", "AntiMod_Scribbles", "AntiMod_Giggle", "AntiMod_Timothy", "AntiMod_Jeff", "AntiMod_Gloombat", "AntiMod_Grumble", "AntiMod_Firedamp", "AntiMod_Bramble", "AntiMod_Surge", "AntiMod_Caw", "AntiMod_Eyestalk", "AntiMod_Groundskeeper", "AntiMod_Grampy", "AntiMod_Honcho", "AntiMod_Drone", "AntiMod_Teller", "AntiMod_Alma", "AntiCustomNames", "AntiRange", "AntiHeight", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "ACMMode", "PhaseSpeed", "PhaseMax", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
