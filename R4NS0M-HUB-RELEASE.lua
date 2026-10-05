@@ -1,9 +1,11 @@
+warn("--- [R4NS0M] EXECUTING SCRIPT ---")
 --[[
   R4NS0M CD-1  |  Team CHX
   Version 1.0.0
   Tabs: Main, Info, Visuals, Player, Automation, Anticheat, Antis, Alerts, Misc, Keybinds, Configs
   Ransomity is real
 ]]
+print("[R4NS0M] Loading Services")
 -- Services
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -11,6 +13,8 @@ local LocalPlayer = Players.LocalPlayer
 
 math.randomseed(os.time())
 
+print("[R4NS0M] Services Loaded")
+print("[R4NS0M] Loading Icon")
 ----------------------------------------------------
 -- ICON LOADER (fixed)
 -- El ID 107740382639133 suele ser un DECAL. assetdelivery devuelve XML
@@ -85,6 +89,8 @@ end
 
 local IconAsset = GetIconAsset()
 
+print("[R4NS0M] Icon loaded")
+print("[R4NS0M] Loading Execution Count")
 ----------------------------------------------------
 -- EXECUTION COUNTER
 ----------------------------------------------------
@@ -110,6 +116,8 @@ elseif getexecutorname then
     currentExecutor = getexecutorname()
 end
 
+print("[R4NS0M] Execution Count loaded")
+print("[R4NS0M] Loading WindUI")
 ----------------------------------------------------
 -- LOAD WINDUI (con pcall)
 ----------------------------------------------------
@@ -152,6 +160,8 @@ for _, t in ipairs({}) do
     t:Paragraph({ Title = "Coming soon", Desc = "This tab has no features yet." })
 end
 
+print("[R4NS0M] WindUI loaded")
+print("[R4NS0M] Loading Info Tab")
 ----------------------------------------------------
 -- INFO TAB
 ----------------------------------------------------
@@ -183,6 +193,9 @@ InfoTab:Paragraph({
     Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.0"
 })
 
+print("[R4NS0M] Info tab loaded")
+print("[R4NS0M] Loading ESP")
+print("[R4NS0M] Loading Item ESP (0/4)")
 ----------------------------------------------------
 -- VISUALS / ESP
 ----------------------------------------------------
@@ -241,7 +254,7 @@ ITEM_LOOKUP["modulescanner"] = "Scanner Module"
 do
     local PENDING_DEX_NAMES = {
         ScannerModule = "", -- <<< nombre del Dex del modulo del Scanner (ej. "ScannerModuleItem")
-        AbrahamHat = "",    -- <<< nombre del Dex del Abraham's Hat
+        AbrahamHat = "AbrahamHat",    -- <<< nombre del Dex del Abraham's Hat
     }
     if PENDING_DEX_NAMES.ScannerModule ~= "" then ITEM_LOOKUP[Norm(PENDING_DEX_NAMES.ScannerModule)] = "Scanner Module" end
     if PENDING_DEX_NAMES.AbrahamHat ~= "" then ITEM_LOOKUP[Norm(PENDING_DEX_NAMES.AbrahamHat)] = "Abraham's Hat" end
@@ -319,6 +332,9 @@ local OBJECTIVE_NAMES = {
     SallyToy = "Sally's Toy",
 }
 local STARDUST_NAMES = { Stardust = "Stardust", StardustPickup = "Stardust" }
+
+print("[R4NS0M] Item ESP loaded (1/4)")
+print("[R4NS0M] Loading Entity ESP (1/4)")
 -- Entidades: { nombre, modos donde aparece ("*" = todos), tokens de nombre interno (normalizados) }
 -- Fuentes: DOORS Wiki (Entities, The Great Outdoors Update, The Archives Update, The Stairwell)
 local ENTITY_DEFS = {
@@ -462,6 +478,8 @@ local function EntityLabel(name, strict, allowSkip)
     end
 end
 
+print("[R4NS0M] Loaded Entity ESP (2/4)")
+print("[R4NS0M] Loading Entity Name Cache (2/4)")
 -- PERF: cache de funciones de nombres. En Outdoors se crean miles de modelos con nombres repetidos
 -- (arboles, rocas...) y antes cada uno recorria ~100 tokens con gsub. Ahora cada nombre se calcula UNA vez.
 do
@@ -503,6 +521,8 @@ do
     end
 end
 
+print("[R4NS0M] Loaded Entity Name Cache (3/4)")
+print("[R4NS0M] Loading ESP Config (3/4)")
 local GOLD_NAMES = { GoldPile = "Gold" }
 local HIDE_NAMES = { Wardrobe = "Closet", Bed = "Bed", Toolshed = "Tool Shed", Locker = "Locker" }
 
@@ -554,9 +574,15 @@ local Cfg = {
         players    = { Enabled = false, Color = Color3.fromHex("#3b82f6") },
     }
 }
+
+print("[R4NS0M] Loaded ESP Config (4/4)")
+print("[R4NS0M] Fully Loaded ESP")
+print("[R4NS0M] Loading Tracers")
 -- Tracer por categoria (apagado por defecto)
 for _, c in pairs(Cfg.Categories) do c.Tracer = false end
 
+print("[R4NS0M] Loaded Tracers")
+print("[R4NS0M] Loading ESP Fonts")
 -- Fuentes disponibles para el texto del ESP
 local FONT_LIST = { "Oswald", "Roboto Sans", "Nunito", "Gotham Bold", "Ubuntu", "Source Sans", "Code" }
 local FONT_MAP = {
@@ -576,6 +602,8 @@ for _, name in ipairs(ENTITY_LIST) do
     Cfg.EntityFilter[name] = true
 end
 
+print("[R4NS0M] Loaded ESP Fonts")
+print("[R4NS0M] Loading Debug Logger")
 -- Debug logger: imprime/guarda nombres reales que el script no reconoce
 local DebugLog, DebugSeen = {}, {}
 local function Dbg(kind, inst, extra)
@@ -589,6 +617,8 @@ local function Dbg(kind, inst, extra)
     print("[R4NS0M DEBUG] " .. line)
 end
 
+print("[R4NS0M] Loaded Debug Logger")
+print("[R4NS0M] Loading Render Containers")
 ----------------------------------------------------
 -- Contenedores de render
 ----------------------------------------------------
@@ -613,6 +643,8 @@ end
 
 local Tracked = {}
 
+print("[R4NS0M] Loaded Render Containers")
+print("[R4NS0M] Loading Gamemodes")
 ----------------------------------------------------
 -- MODO DE JUEGO
 -- Se detecta UNA vez al cargar y solo se activan los ESP/funciones de ese modo.
@@ -839,6 +871,8 @@ local function GetPart(inst)
     end
 end
 
+print("[R4NS0M] Loaded Gamemodes")
+print("[R4NS0M] Loading Visual Instances")
 -- PERF: las instancias visuales (Highlight, caja, billboard, linea) se crean SOLO cuando un objeto
 -- se va a dibujar y se liberan cuando lleva unos segundos oculto. Antes se creaban 5 instancias por
 -- cada objeto detectado aunque el ESP estuviera apagado.
@@ -1065,6 +1099,8 @@ function Watch.RegisterGold(target)
     end)
 end
 
+print("[R4NS0M] Loaded Visual Instances")
+print("[R4NS0M] Loading Workspace Element Detection")
 ----------------------------------------------------
 -- Deteccion
 ----------------------------------------------------
@@ -1643,6 +1679,8 @@ Rescan = function()
     end)
 end
 
+print("[R4NS0M] Loaded Workspace Element Detection")
+print("[R4NS0M] Loading Mode Connections")
 -- Conexiones (se crean una sola vez, despues de detectar el modo)
 -- PERF: los objetos nuevos (el mapa de Outdoors carga miles) entran a una cola y se procesan con un
 -- presupuesto de ~3ms por frame, en vez de todos de golpe dentro del evento.
@@ -1684,6 +1722,8 @@ task.spawn(function()
 end)
 Rescan()
 
+print("[R4NS0M] Loaded Mode Connections")
+print("[R4NS0M] Loading Player ESP")
 ----------------------------------------------------
 -- Jugadores (ESP Players)
 ----------------------------------------------------
@@ -1705,6 +1745,8 @@ do
     Players.PlayerAdded:Connect(TrackPlayer)
 end
 
+print("[R4NS0M] Loaded Player ESP")
+print("[R4NS0M] Loading Rendering")
 ----------------------------------------------------
 -- Render
 ----------------------------------------------------
@@ -1970,6 +2012,8 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+print("[R4NS0M] Loaded Rendering")
+print("[R4NS0M] Loading Visuals UI")
 ----------------------------------------------------
 -- UI (pestana Visuals): solo se crean las opciones del modo detectado
 ----------------------------------------------------
@@ -2100,6 +2144,8 @@ ApplyPreset = function(modeName)
     return true
 end
 
+print("[R4NS0M] Loaded Visuals UI")
+print("[R4NS0M] Loading Main Tab")
 ----------------------------------------------------
 -- MAIN TAB: estado del modo
 ----------------------------------------------------
@@ -2154,6 +2200,8 @@ MainTab:Dropdown({
     end
 })
 
+print("[R4NS0M] Loaded Main Tab")
+print("[R4NS0M] Loading Visuals Tab")
 ----------------------------------------------------
 -- VISUALS TAB
 ----------------------------------------------------
@@ -2340,6 +2388,8 @@ pcall(function()
     WindUI:Notify({ Title = "Game Mode", Content = "Detected: " .. Mode.Name .. ". Only its ESP options are loaded.", Duration = 4 })
 end)
 
+print("[R4NS0M] Loaded Visuals Tab")
+print("[R4NS0M] Loading Debug Mode")
 ----------------------------------------------------
 -- MISC: Debug Mode
 ----------------------------------------------------
@@ -2462,6 +2512,8 @@ MiscTab:Button({
         end
     end
 })
+
+print("[R4NS0M] Loaded Debug Mode")
 ----------------------------------------------------
 -- EXTRAS
 --   Alerts      : Entity Notifier (DOORS achievement style popup)
@@ -2471,6 +2523,8 @@ MiscTab:Button({
 --   Keybinds    : PC hotkeys for all of the above
 -- Todo va dentro de un bloque do..end para no gastar variables locales del script.
 ----------------------------------------------------
+print("[R4NS0M] Loading Alerts")
+
 do
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
@@ -2771,7 +2825,9 @@ Workspace.ChildAdded:Connect(function(m)
     local ok, label = pcall(EntityLabel, m.Name, false)
     if ok and label and label ~= "Mandrake" then pcall(OnEntitySeen, label, m) end
 end)
-
+	
+print("[R4NS0M] Loaded Alerts")
+print("[R4NS0M] Loading Player Tab")
 ----------------------------------------------------
 -- Estado del personaje
 ----------------------------------------------------
@@ -2886,6 +2942,8 @@ Hooks.Slide = function(v)
     if not v and FX.StopSlide then FX.StopSlide() end
 end
 
+print("[R4NS0M] Loaded Player Tab")
+print("[R4NS0M] Loading Automation")
 -- Instant Proximity Prompt: HoldDuration = 0 en todos los prompts (y los que aparezcan despues)
 function FX.MakeInstant(pp)
     if not pp:IsA("ProximityPrompt") then return end
@@ -2954,6 +3012,8 @@ LocalPlayer.CharacterAdded:Connect(function()
     if FX.StopSlide then pcall(FX.StopSlide) end
 end)
 
+print("[R4NS0M] Loaded Automation")
+print("[R4NS0M] Loading Anticheat Tab")
 ----------------------------------------------------
 -- Slide
 ----------------------------------------------------
@@ -3182,6 +3242,8 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
+print("[R4NS0M] Loaded Anticheat Tab")
+print("[R4NS0M] Loading PC Keybinds")
 ----------------------------------------------------
 -- Teclas (PC)
 ----------------------------------------------------
@@ -3219,6 +3281,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
     elseif k == Ex.Key_PosSpoof then Flip("PositionSpoof", "Position Spoof") end
 end)
 
+print("[R4NS0M] Loaded PC Keybinds")
+print("[R4NS0M] Loading Mobile Floating Buttons")
 ----------------------------------------------------
 -- Botones flotantes (movil): ACM, Slide y Fly. Se pueden arrastrar.
 ----------------------------------------------------
@@ -3277,6 +3341,8 @@ function FX.UpdateButtons()
     end
 end
 
+print("[R4NS0M] Loaded Mobile Floating Buttons")
+print("[R4NS0M] Loading Extra UI Helpers")
 ----------------------------------------------------
 -- UI helpers extra
 ----------------------------------------------------
@@ -3309,12 +3375,8 @@ local function AddInput(tab, id, title, desc, placeholder, value)
     Setters[id] = function(v) pcall(function() el:Set(v) end) end
 end
 
-----------------------------------------------------
--- ANTIS TAB
--- (Los antis antiguos del script se eliminaron: God Mode, Evade, client-script antis, etc.
---  Ahora la pestana Antis solo usa los Bypass / Remove / No Damage / Floor bypass de Abysall, mas abajo.)
-----------------------------------------------------
-
+print("[R4NS0M] Loaded Extra UI Helpers")
+print("[R4NS0M] Loading Alerts Tab")
 ----------------------------------------------------
 -- ALERTS TAB: Entity Notifier
 ----------------------------------------------------
@@ -3406,6 +3468,7 @@ OnModeApplied = function()
     FX.RefreshNotify()
 end
 
+print("[R4NS0M] Loaded Alerts Tab")
 ----------------------------------------------------
 -- PLAYER TAB
 ----------------------------------------------------
@@ -3436,6 +3499,8 @@ AddToggle(PlayerTab, "Noclip", "Noclip", "Walk through walls and objects. Simple
 PlayerTab:Section({ Title = "Lighting" })
 AddToggle(PlayerTab, "Fullbright", "Fullbright", "Removes darkness and fog so you can see everything.", Ex.Fullbright, function(v) Apply("Fullbright", v) end)
 
+print("[R4NS0M] Loaded Player Tab")
+print("[R4NS0M] Loading Automation Tab")
 ----------------------------------------------------
 -- AUTOMATION TAB
 ----------------------------------------------------
@@ -3444,6 +3509,8 @@ AddToggle(AutomationTab, "InstantPrompt", "Instant Proximity Prompt",
     "Removes the hold time of every interaction prompt (doors, drawers, levers, items...). Turning it off restores the original times.",
     Ex.InstantPrompt, function(v) Apply("InstantPrompt", v) end)
 
+print("[R4NS0M] Loaded Automation Tab")
+print("[R4NS0M] Loading Anticheat Tab")
 ----------------------------------------------------
 -- ANTI CHEAT TAB: Anticheat Manipulator
 ----------------------------------------------------
@@ -3584,6 +3651,8 @@ Functions.GetNearestFigure = function()
 	return Nearest.Object
 end
 
+print("[R4NS0M] Loaded Anticheat Tab")
+print("[R4NS0M] Loading Anti Functions")
 -- ============================================================================================
 -- __namecall hook (Crouch, Heartbeat minigame, MotorReplication)
 -- ============================================================================================
@@ -4486,6 +4555,8 @@ task.spawn(function()
 	end)
 end)
 
+print("[R4NS0M] Loaded Anti Functions")
+print("[R4NS0M] Loading Anticheat and Anti UI")
 -- ============================================================================================
 -- Interfaz: pestaña Anticheat y Antis
 -- ============================================================================================
@@ -4546,9 +4617,10 @@ AddToggle(AntisTab, "RemovePaintingsDoor", "Remove Paintings Door", "Removes the
 AddToggle(AntisTab, "RemoveSkeletonDoor", "Remove Skeleton Door", "Removes the skeleton door from the infirmary.", Ex.RemoveSkeletonDoor, function(v) Apply("RemoveSkeletonDoor", v) end)
 end)()
 
-
+print("[R4NS0M] Loaded Anticheat and Anti UI")
+print("[R4NS0M] Loading Extra Functions")
 -- ============================================================================================
--- FUNCIONES EXTRA DE ABYSALL + MELD
+-- FUNCIONES EXTRA
 --   Automation : Auto Breaker Box, Infinite Items, Auto Interact, Prompt Reach, Prompt Clip
 --   Misc       : Disable Idle Kick
 --   Antis      : Meld (Stop Growth / Remove sin quitar cuerdas ni puertas)
@@ -4878,6 +4950,7 @@ LocalPlayer.Idled:Connect(function()
 	end
 end)
 
+print("[R4NS0M] Loading Meld Scripts")
 -- ------------------------------------------------------------------------------------------
 -- MELD (The Stairwell)
 --  * Stop Growth : desactiva los scripts / modulos de Meld (lo que lo hace crecer). NO toca partes, asi las cuerdas
@@ -5015,6 +5088,8 @@ Hooks.MeldRemove = function(v)
 	MeldRefresh()
 end
 
+print("[R4NS0M] Loaded Meld Scripts")
+
 -- mantiene el Reach / Clip en los prompts nuevos
 Workspace.DescendantAdded:Connect(function(d)
 	if d:IsA("ProximityPrompt") then
@@ -5032,10 +5107,12 @@ Workspace.DescendantAdded:Connect(function(d)
 	if d.Name == "ElevatorBreaker" then HookBreaker(d) end
 end)
 
+print("[R4NS0M] Loaded Extra Functions")
+print("[R4NS0M] Loading more UI")
 -- ------------------------------------------------------------------------------------------
 -- Interfaz
 -- ------------------------------------------------------------------------------------------
-AutomationTab:Section({ Title = "Abysall Automation" })
+AutomationTab:Section({ Title = "Automation" })
 AddToggle(AutomationTab, "AutoBreakerBox", "Auto Breaker Box",
 	"Automatically solves the elevator breaker box. Interact with it once and the rest is done for you.",
 	Ex.AutoBreakerBox, function(v) Apply("AutoBreakerBox", v) end)
@@ -5086,6 +5163,8 @@ end)
 AddToggle(AntiCheatTab, "BtnACM", "ACM Button", "Show the ACM floating button.", Ex.BtnACM, function(v) Ex.BtnACM = v; FX.UpdateButtons() end)
 AddToggle(AntiCheatTab, "BtnFly", "FLY Button", "Show the FLY floating button.", Ex.BtnFly, function(v) Ex.BtnFly = v; FX.UpdateButtons() end)
 
+print("[R4NS0M] Loaded more UI")
+print("[R4NS0M] Loading Keybinds Tab")
 ----------------------------------------------------
 -- KEYBINDS TAB
 ----------------------------------------------------
@@ -5140,6 +5219,8 @@ MiscTab:Button({
 
 FX.UpdateButtons()
 
+print("[R4NS0M] Loaded Keybinds Tab")
+print("[R4NS0M] Loading Config presets")
 ----------------------------------------------------
 -- Guardar / cargar (las teclas y ajustes se guardan; ACM, Fly y Noclip siempre arrancan apagados)
 ----------------------------------------------------
@@ -5249,6 +5330,8 @@ local function VisualsApply(data)
     if em then Cfg.EntityFilter = em end
 end
 
+print("[R4NS0M] Loaded Config presets")
+print("[R4NS0M] Loading Config System")
 ----------------------------------------------------
 -- CONFIG SYSTEM
 ----------------------------------------------------
@@ -5488,3 +5571,5 @@ ConfigsTab:Button({
 })
 
 Window:SelectTab(1)
+print("[R4NS0M] Loaded Config System")
+warn("--- [R4NS0M] RUNNING SCRIPT ---")
