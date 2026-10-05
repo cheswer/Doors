@@ -2519,7 +2519,7 @@ print("[R4NS0M] Loaded Debug Mode")
 --   Alerts      : Entity Notifier (DOORS achievement style popup)
 --   Player      : Speed (max 90), Jump, Infinite Jump, Slide, Fly, Noclip, Fullbright
 --   Automation  : Instant Proximity Prompt
---   Anti cheat  : Anticheat Manipulator (= Velocity Manipulation de Abysall), Void Guard, floating buttons (ACM / SLIDE / FLY)
+--   Anti cheat  : Anticheat Manipulator (= Velocity Manipulation), Void Guard, floating buttons (ACM / SLIDE / FLY)
 --   Keybinds    : PC hotkeys for all of the above
 -- Todo va dentro de un bloque do..end para no gastar variables locales del script.
 ----------------------------------------------------
@@ -2568,7 +2568,7 @@ local Ex = {
     Fly = false, FlySpeed = 40,
     Noclip = false, Fullbright = false,
     -- Anticheat Manipulator
-    ACM = false, VoidGuard = true, -- ACM ahora usa el metodo Velocity Manipulation de Abysall
+    ACM = false, VoidGuard = true, -- ACM ahora usa el metodo Velocity Manipulation
     FloatButtons = UserInputService.TouchEnabled, BtnACM = true, BtnFly = true,
     -- Automation
     InstantPrompt = false,
@@ -3107,7 +3107,7 @@ function FX.Speed(hum, root, dt, now)
     end
 end
 
--- Anticheat Manipulator: ahora es el Velocity Manipulation de Abysall (vive en el bloque ANTI CHEAT BYPASS,
+-- Anticheat Manipulator: ahora es el Velocity Manipulation (vive en el bloque ANTI CHEAT BYPASS,
 -- lee Ex.ACM y Ex.VelocityManipulationMode). El antiguo Phase Walk se elimino.
 
 RunService.Stepped:Connect(function()
@@ -3517,7 +3517,7 @@ print("[R4NS0M] Loading Anticheat Tab")
 AntiCheatTab:Section({ Title = "Anticheat Manipulator" })
 AntiCheatTab:Paragraph({
     Title = "What it does",
-    Desc = "The Anticheat Manipulator now uses Abysall's Velocity Manipulation: it moves your character forward very slowly (or pivots it relative to the camera), "
+    Desc = "The Anticheat Manipulator now uses Velocity Manipulation: it moves your character forward very slowly (or pivots it relative to the camera), "
         .. "which mitigates the game's anti-noclip so you can walk through walls and doors. There is no guarantee: the server may still flag you, so use it at your own risk."
 })
 AddToggle(AntiCheatTab, "ACM", "Anticheat Manipulator", "Main switch. PC: keybind (Keybinds tab). Mobile: the ACM floating button.", Ex.ACM, function(v) Apply("ACM", v) end)
@@ -4698,7 +4698,7 @@ Hooks.PromptReach = function() ScanReach() end
 Hooks.PromptClip = function() ScanReach() end
 
 -- ------------------------------------------------------------------------------------------
--- Auto Breaker Box (remote EBF, igual que Abysall)
+-- Auto Breaker Box (remote EBF)
 -- ------------------------------------------------------------------------------------------
 local Breaker = { Interacted = false, Notified = false, Hooked = setmetatable({}, { __mode = "k" }) }
 local function HookBreaker(obj)
@@ -4741,7 +4741,7 @@ end
 
 -- ------------------------------------------------------------------------------------------
 -- Infinite Items (Lockpicks / Skeleton Key / Shears / Multitool): sin gastar usos
--- Metodo de Abysall: el prompt de candado real se esconde y se pone uno falso. Al usarlo se suelta el
+-- El prompt de candado real se esconde y se pone uno falso. Al usarlo se suelta el
 -- item, y cuando aparece en Drops se vuelve a recoger a la vez que se dispara el prompt real.
 -- ------------------------------------------------------------------------------------------
 local IF = { Fakes = {}, Real = setmetatable({}, { __mode = "k" }), Container = Instance.new("Folder") }
@@ -5208,7 +5208,7 @@ AddToggle(AutomationTab, "AutoInteract", "Auto Interact",
 	"Automatically triggers nearby prompts (items, gold, levers...). It skips hiding spots, locks, dropped items, glitch fragments and fake doors.",
 	Ex.AutoInteract, function(v) Ex.AutoInteract = v end)
 AddToggle(AutomationTab, "InfiniteItems", "Infinite Items",
-	"Lets the selected items open locks, vines and chests without losing uses. Needs fireproximityprompt. Works by hiding the real lock prompt and replacing it with a fake one, like Abysall.",
+	"Lets the selected items open locks, vines and chests without losing uses. Needs fireproximityprompt. Works by hiding the real lock prompt and replacing it with a fake one.",
 	Ex.InfiniteItems, function(v) Apply("InfiniteItems", v) end)
 do
 	local dd = AutomationTab:Dropdown({
@@ -5230,7 +5230,7 @@ AutomationTab:Section({ Title = "Prompts" })
 AddSlider(AutomationTab, "PromptReach", "Prompt Reach Multiplier", "Multiplies how far away you can interact with prompts (1 = normal).", 1, 3, Ex.PromptReach, function(v) Apply("PromptReach", v) end)
 AddToggle(AutomationTab, "PromptClip", "Prompt Clip", "Lets you interact with prompts through walls.", Ex.PromptClip, function(v) Apply("PromptClip", v) end)
 
-MiscTab:Section({ Title = "Abysall Misc" })
+MiscTab:Section({ Title = "Misc" })
 AddToggle(MiscTab, "DisableIdleKick", "Disable Idle Kick", "Prevents the kick for being idle for 20 minutes.", Ex.DisableIdleKick, function(v) Apply("DisableIdleKick", v) end)
 
 AntisTab:Section({ Title = "Meld (The Stairwell)" })
