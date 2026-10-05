@@ -3489,7 +3489,6 @@ AddToggle(PlayerTab, "InfJump", "Infinite Jump", "Jump again in mid-air every ti
 PlayerTab:Section({ Title = "Slide" })
 AddToggle(PlayerTab, "Slide", "Enable Slide", "Turns on the game's own slide and adds a forward slide with a lowered camera. It stops at walls. Keybind on PC, SLIDE button on mobile.", Ex.Slide, function(v) Apply("Slide", v) end)
 AddSlider(PlayerTab, "SlideSpeed", "Slide Speed", "Starting speed of the slide. It fades out smoothly.", 30, 90, Ex.SlideSpeed, function(v) Ex.SlideSpeed = v end)
-PlayerTab:Button({ Title = "Slide Now", Desc = "Does one slide right now (same as the keybind).", Callback = DoSlide })
 
 PlayerTab:Section({ Title = "Fly & Noclip" })
 AddToggle(PlayerTab, "Fly", "Fly", "Fly freely. PC: Space goes up, Left Ctrl goes down. Mobile: look up or down while moving.", Ex.Fly, function(v) Apply("Fly", v) end)
@@ -5017,6 +5016,207 @@ task.spawn(function()
 end)
 
 -- ------------------------------------------------------------------------------------------
+-- Avisos de oxigeno / haste, cerrar closet sin espera, sin aceleracion, alcance de puertas, sonidos
+-- ------------------------------------------------------------------------------------------
+Ex.NotifyOxygen = false
+Ex.NotifyHaste = false
+Ex.NoClosetDelay = false
+Ex.NoAcceleration = false
+Ex.DoorReach = false
+Ex.NoFootsteps = false
+Ex.NoPromptSounds = false
+
+-- Texto flotante simple (se desvanece solo)
+local Cap = { Gui = nil, Label = nil, Token = 0 }
+local function Caption(text)
+	pcall(function()
+		if not Cap.Gui or not Cap.Gui.Parent then
+			local g = Instance.new("ScreenGui")
+			g.Name = "R4_Caption"
+			g.ResetOnSpawn = false
+			g.IgnoreGuiInset = true
+			g.DisplayOrder = 50
+			local l = Instance.new("TextLabel")
+			l.BackgroundTransparency = 1
+			l.AnchorPoint = Vector2.new(0.5, 1)
+			l.Position = UDim2.new(0.5, 0, 0.82, 0)
+			l.Size = UDim2.new(0.6, 0, 0, 34)
+			l.Font = Enum.Font.GothamBold
+			l.TextSize = 24
+			l.TextColor3 = Color3.new(1, 1, 1)
+			l.Parent = g
+			g.Parent = Hui
+			Cap.Gui, Cap.Label = g, l
+		end
+		Cap.Token = Cap.Token + 1
+		local tk = Cap.Token
+		Cap.Label.Text = text
+		Cap.Label.TextTransparency = 0
+		Cap.Label.TextStrokeTransparency = 0.4
+		task.delay(2.5, function()
+			if Cap.Token == tk and Cap.Label and Cap.Label.Parent then
+				TweenService:Create(Cap.Label, TweenInfo.new(1.2), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+			end
+		end)
+	end)
+end
+
+-- Oxigeno: avisa cada vez que baja
+local OxyConn, OxyLast
+local function HookOxygen(char)
+	if OxyConn then OxyConn:Disconnect(); OxyConn = nil end
+	if not char then return end
+	OxyLast = char:GetAttribute("Oxygen")
+	OxyConn = char:GetAttributeChangedSignal("Oxygen"):Connect(function()
+		local n = char:GetAttribute("Oxygen")
+		if Ex.NotifyOxygen and type(n) == "number" and type(OxyLast) == "number" and n < OxyLast then
+			Caption("Oxygen: " .. (math.floor(n * 10) / 10) .. "%")
+		end
+		OxyLast = n
+	end)
+end
+HookOxygen(LocalPlayer.Character)
+LocalPlayer.CharacterAdded:Connect(HookOxygen)
+
+-- Haste: tiempo restante antes de que aparezca
+local HasteTimer, HasteConn
+task.spawn(function()
+	while true do
+		pcall(function()
+			local fr = RS:FindFirstChild("FloorReplicated")
+			local t = fr and fr:FindFirstChild("DigitalTimer")
+			if t and t ~= HasteTimer then
+				HasteTimer = t
+				if HasteConn then HasteConn:Disconnect() end
+				HasteConn = t:GetPropertyChangedSignal("Value"):Connect(function()
+					if not Ex.NotifyHaste then return end
+					local v = math.max(0, math.floor(tonumber(t.Value) or 0))
+					Caption(string.format("%02d:%02d", math.floor(v / 60), v % 60))
+				end)
+			end
+		end)
+		task.wait(3)
+	end
+end)
+
+-- Cerrar closet sin espera
+local ClosetLast = 0
+RunService.Heartbeat:Connect(function()
+	if not Ex.NoClosetDelay then return end
+	local now = os.clock()
+	if now - ClosetLast < 0.1 then return end
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not (hum and root) then return end
+	local cp = char:FindFirstChild("CollisionPart") or char:FindFirstChild("Collision")
+	if hum.MoveDirection ~= Vector3.zero
+		and ((cp and cp:IsA("BasePart") and cp.Anchored) or root.Anchored)
+		and char:GetAttribute("AnimatingClient") ~= true
+		and char:GetAttribute("Hiding") == true then
+		local rf = RemotesFolder()
+		local r = rf and rf:FindFirstChild("CamLock")
+		if r then
+			ClosetLast = now
+			pcall(function() r:FireServer() end)
+		end
+	end
+end)
+
+-- Sin aceleracion: el personaje frena al instante (se guarda y restaura la fisica original)
+local AccelOrig = setmetatable({}, { __mode = "k" })
+local function ApplyAccel(on)
+	local char = LocalPlayer.Character
+	if not char then return end
+	for _, p in ipairs(char:GetDescendants()) do
+		if p:IsA("BasePart") then
+			if on then
+				if AccelOrig[p] == nil then AccelOrig[p] = p.CustomPhysicalProperties or false end
+				local b = p.CustomPhysicalProperties
+				p.CustomPhysicalProperties = PhysicalProperties.new(100, b and b.Friction or 0.3, b and b.Elasticity or 0, b and b.FrictionWeight or 1, b and b.ElasticityWeight or 1)
+			elseif AccelOrig[p] ~= nil then
+				p.CustomPhysicalProperties = AccelOrig[p] or nil
+				AccelOrig[p] = nil
+			end
+		end
+	end
+end
+Hooks.NoAcceleration = function(v) ApplyAccel(v) end
+LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(0.6)
+	if Ex.NoAcceleration then ApplyAccel(true) end
+end)
+
+-- Alcance de puertas: abre las puertas cercanas (75 studs) sin acercarte
+local DoorDone = setmetatable({}, { __mode = "k" })
+local DoorHooked = setmetatable({}, { __mode = "k" })
+local DoorLast = 0
+RunService.Heartbeat:Connect(function()
+	if not Ex.DoorReach then return end
+	local now = os.clock()
+	if now - DoorLast < 0.25 then return end
+	DoorLast = now
+	local char = LocalPlayer.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	local rooms = Rooms()
+	if not (root and rooms) then return end
+	for _, room in ipairs(rooms:GetChildren()) do
+		local model = room:FindFirstChild("Door")
+		if model and not DoorDone[model] then
+			local part = model:FindFirstChild("Door")
+			local ce = model:FindFirstChild("ClientOpen")
+			if part and part:IsA("BasePart") and ce then
+				if not DoorHooked[model] then
+					DoorHooked[model] = true
+					local snd = part:FindFirstChild("Open")
+					if snd and snd:IsA("Sound") then
+						snd.Played:Once(function() DoorDone[model] = true end)
+					end
+				end
+				if (part.Position - root.Position).Magnitude < 75 then
+					pcall(function() ce:FireServer() end)
+				end
+			end
+		end
+	end
+end)
+
+-- Sonidos: pasos e interacciones
+local FootConn
+local function HookFootsteps(char)
+	if FootConn then FootConn:Disconnect(); FootConn = nil end
+	if not char then return end
+	FootConn = char.ChildAdded:Connect(function(o)
+		if Ex.NoFootsteps and o:IsA("Sound") and o.Name == "Sound" then o.Volume = 0 end
+	end)
+end
+HookFootsteps(LocalPlayer.Character)
+LocalPlayer.CharacterAdded:Connect(HookFootsteps)
+
+local function SetPromptSounds(mute)
+	pcall(function()
+		local pg = LocalPlayer:FindFirstChild("PlayerGui")
+		local mg = pg and pg:FindFirstChild("MainUI") and pg.MainUI:FindFirstChild("Initiator")
+		mg = mg and mg:FindFirstChild("Main_Game")
+		local ps = mg and mg:FindFirstChild("PromptService")
+		if ps then
+			if ps:FindFirstChild("Triggered") then ps.Triggered.Volume = mute and 0 or 0.04 end
+			if ps:FindFirstChild("Holding") then ps.Holding.Volume = mute and 0 or 0.1 end
+			if ps:FindFirstChild("Notification") then ps.Notification.Volume = mute and 0 or 0.03 end
+		end
+		local cap = mg and mg:FindFirstChild("Reminder") and mg.Reminder:FindFirstChild("Caption")
+		if cap and cap:IsA("Sound") then cap.Volume = mute and 0 or 0.1 end
+	end)
+end
+Hooks.NoPromptSounds = function(v) SetPromptSounds(v) end
+task.spawn(function()
+	while true do
+		task.wait(1.5)
+		if Ex.NoPromptSounds then SetPromptSounds(true) end
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
 -- Disable Idle Kick
 -- ------------------------------------------------------------------------------------------
 Hooks.DisableIdleKick = function(v)
@@ -5229,6 +5429,19 @@ end
 AutomationTab:Section({ Title = "Prompts" })
 AddSlider(AutomationTab, "PromptReach", "Prompt Reach Multiplier", "Multiplies how far away you can interact with prompts (1 = normal).", 1, 3, Ex.PromptReach, function(v) Apply("PromptReach", v) end)
 AddToggle(AutomationTab, "PromptClip", "Prompt Clip", "Lets you interact with prompts through walls.", Ex.PromptClip, function(v) Apply("PromptClip", v) end)
+AddToggle(AutomationTab, "DoorReach", "Door Reach", "Opens doors from further away (up to 75 studs).", Ex.DoorReach, function(v) Apply("DoorReach", v) end)
+
+AlertsTab:Section({ Title = "Environment" })
+AddToggle(AlertsTab, "NotifyOxygen", "Notify Oxygen Level", "Shows how much oxygen you have left every time it drops.", Ex.NotifyOxygen, function(v) Apply("NotifyOxygen", v) end)
+AddToggle(AlertsTab, "NotifyHaste", "Notify Haste Time", "Shows the time remaining before 'Haste' spawns.", Ex.NotifyHaste, function(v) Apply("NotifyHaste", v) end)
+
+PlayerTab:Section({ Title = "Movement" })
+AddToggle(PlayerTab, "NoClosetDelay", "Remove Closet Delay", "Removes the short window where you can't exit a closet after the animation finishes.", Ex.NoClosetDelay, function(v) Apply("NoClosetDelay", v) end)
+AddToggle(PlayerTab, "NoAcceleration", "Remove Acceleration", "Your character stops right away instead of sliding while moving.", Ex.NoAcceleration, function(v) Apply("NoAcceleration", v) end)
+
+MiscTab:Section({ Title = "Sounds" })
+AddToggle(MiscTab, "NoFootsteps", "Remove Footstep Sounds", "Mutes the sound of walking.", Ex.NoFootsteps, function(v) Apply("NoFootsteps", v) end)
+AddToggle(MiscTab, "NoPromptSounds", "Remove Interacting Sounds", "Mutes the sounds of interacting with prompts. Turning it off restores them.", Ex.NoPromptSounds, function(v) Apply("NoPromptSounds", v) end)
 
 MiscTab:Section({ Title = "Misc" })
 AddToggle(MiscTab, "DisableIdleKick", "Disable Idle Kick", "Prevents the kick for being idle for 20 minutes.", Ex.DisableIdleKick, function(v) Apply("DisableIdleKick", v) end)
@@ -5317,6 +5530,7 @@ local EXTRA_KEYS = {
     "NotifySoundId", "NotifyIconId",
     "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "VoidGuard", "AutoBreakerBox", "InfiniteItems", "InfiniteItemsList", "AutoInteract", "PromptReach", "PromptClip", "DisableIdleKick", "MeldStopGrowth", "MeldRemove", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
+    "NotifyOxygen", "NotifyHaste", "NoClosetDelay", "NoAcceleration", "DoorReach", "NoFootsteps", "NoPromptSounds",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
 }
 
