@@ -141,7 +141,7 @@ local VisualsTab    = Window:Tab({ Title = "Visuals",    Icon = "eye" })
 local PlayerTab     = Window:Tab({ Title = "Player",     Icon = "user" })
 local AutomationTab = Window:Tab({ Title = "Automation", Icon = "zap" })
 local AntiCheatTab  = Window:Tab({ Title = "Anticheat", Icon = "shield" })
-local AntisTab      = Window:Tab({ Title =      Icon = "ban" })
+local AntisTab      = Window:Tab({ Title = "Antis",      Icon = "ban" })
 local AlertsTab     = Window:Tab({ Title = "Alerts",     Icon = "bell" })
 local MiscTab       = Window:Tab({ Title = "Misc",       Icon = "ellipsis" })
 local KeybindsTab   = Window:Tab({ Title = "Keybinds",   Icon = "keyboard" })
@@ -201,7 +201,9 @@ local ITEM_NAMES = {
     -- Items sacados del Explorer (Dex) que antes no se reconocian
     "Big Bomb", "Bomb", "Cheese", "Knockbomb", "Nanner", "Nanner Peel", "Rift Candle", "Rift Smoothie",
     "Snake Box", "Stop Sign", -- "Verity"
+    -- Items nuevos (Dex): JerryCan, BrokenMonitor, DinkyLamp, BottleCrate, CoinRoll, PeachCobbler, Briefcase, ObjectScanner, LargeScrew
     "Fuel Can", "Broken Monitor", "Broken Lamp", "Bottle Crate", "Coin Roll", "Peach Cobbler", "Briefcase", "Scanner", "Large Screw",
+    "Abraham's Hat", -- el nombre interno (Dex) se pone en PENDING_DEX_NAMES.AbrahamHat (mas abajo)
 }
 
 local function Norm(s)
@@ -226,20 +228,31 @@ ITEM_LOOKUP["crucifixwall"] = "Crucifix" -- Crucifix incrustado en la pared (nom
 ITEM_LOOKUP["treatbag"] = "Trick or Treat Bag"
 ITEM_LOOKUP["candybag"] = "Trick or Treat Bag"
 ITEM_LOOKUP["trickortreat"] = "Trick or Treat Bag"
+
+-- Items con ESP propio (no entran al filtro de items normales)
+ITEM_LOOKUP["glitchfragment"] = "Glitch Fragment"
+ITEM_LOOKUP["glitchcube"] = "Glitch Fragment" -- nombre interno real (GlitchCube) -> se muestra como Glitch Fragment, con su propio ESP
+ITEM_LOOKUP["lotuspetal"] = "Lotus Petal"
+-- El MODULO del Scanner tiene su propio ESP ("Scanner Module"). Su nombre del Dex todavia no se conoce:
+-- cuando lo tengas, ponlo en PENDING_DEX_NAMES (justo abajo) y se marcara solo.
+-- Ojo: "Scanner" (ObjectScanner) es el item normal y va al ESP Items.
+ITEM_LOOKUP["scannermodule"] = "Scanner Module"
+ITEM_LOOKUP["modulescanner"] = "Scanner Module"
+do
+    local PENDING_DEX_NAMES = {
+        ScannerModule = "", -- <<< nombre del Dex del modulo del Scanner (ej. "ScannerModuleItem")
+        AbrahamHat = "",    -- <<< nombre del Dex del Abraham's Hat
+    }
+    if PENDING_DEX_NAMES.ScannerModule ~= "" then ITEM_LOOKUP[Norm(PENDING_DEX_NAMES.ScannerModule)] = "Scanner Module" end
+    if PENDING_DEX_NAMES.AbrahamHat ~= "" then ITEM_LOOKUP[Norm(PENDING_DEX_NAMES.AbrahamHat)] = "Abraham's Hat" end
+end
+local SPECIAL_CATS = { ["Glitch Fragment"] = "glitch", ["Lotus Petal"] = "lotus", ["Scanner Module"] = "scanner", ["Stardust"] = "stardust" }
+ITEM_LOOKUP["batterypack"] = "Battery Pack"
 ITEM_LOOKUP["jerrycan"] = "Fuel Can"
 ITEM_LOOKUP["dinkylamp"] = "Broken Lamp"
 ITEM_LOOKUP["objectscanner"] = "Scanner"
 ITEM_LOOKUP["gweensodapack"] = "Pack of Gween Soda"
-ITEM_LOOKUP["packofgweensoda"] = "Pack of Gween Soda"
-ITEM_LOOKUP["glitchcube"] = "Glitch Fragment"
-
--- Items con ESP propio (no entran al filtro de items normales)
-ITEM_LOOKUP["glitchfragment"] = "Glitch Fragment"
-ITEM_LOOKUP["lotuspetal"] = "Lotus Petal"
-ITEM_LOOKUP["scannermodule"] = "Scanner Module"
-ITEM_LOOKUP["modulescanner"] = "Scanner Module"
-local SPECIAL_CATS = { ["Glitch Fragment"] = "glitch", ["Lotus Petal"] = "lotus", ["Scanner Module"] = "scanner" }
-ITEM_LOOKUP["batterypack"] = "Battery Pack"
+ITEM_LOOKUP["stardustpickup"] = "Stardust" -- por si llega como item: se redirige abajo (ver SPECIAL_CATS)
 
 -- Alias de nombres internos reales (sacados del Explorer / Dex)
 local INTERNAL_ALIASES = {
@@ -247,7 +260,7 @@ local INTERNAL_ALIASES = {
     BigBomb = "Big Bomb", Bomb = "Bomb", BoxingGloves = "Boxing Gloves", Bread = "Bread", Bulklight = "Bulklight",
     Candle = "Candle", Cheese = "Cheese", Compass = "Compass", Crucifix = "Crucifix", Donut = "Donut",
     Flashlight = "Flashlight", Glowsticks = "Glowstick", GoldGun = "Gold Gun", GoldBlaster = "Gold Gun",
-    GweenSoda = "Gween Soda", HolyGrenade = "Holy Hand Grenade", KnockbackStick = "Knockback Stick",
+    GweenSoda = "Gween Soda", GweenSodaPack = "Pack of Gween Soda", HolyGrenade = "Holy Hand Grenade", KnockbackStick = "Knockback Stick",
     Knockbomb = "Knockbomb", Lantern = "Lantern", LaserPointer = "Laser Pointer", Lighter = "Lighter",
     Lockpick = "Lockpicks", Multitool = "Multitool", Nanner = "Nanner", NannerPeel = "Nanner Peel",
     Pizza = "Pizza", PocketMirror = "Pocket Mirror", RiftCandle = "Rift Candle", RiftJar = "Rift Jar",
@@ -255,6 +268,10 @@ local INTERNAL_ALIASES = {
     Smoothie = "Smoothie", SnakeBox = "Snake Box", StarBottle = "Starlight Bottle", StarJug = "Starlight Jug",
     StarVial = "Starlight Vial", StopSign = "Stop Sign", Straplight = "Straplight", TipJar = "Tip Jar",
     Vitamins = "Vitamins",
+    -- Items nuevos: nombre interno (Dex) -> nombre que se muestra
+    JerryCan = "Fuel Can", BrokenMonitor = "Broken Monitor", DinkyLamp = "Broken Lamp", BottleCrate = "Bottle Crate",
+    CoinRoll = "Coin Roll", PeachCobbler = "Peach Cobbler", Briefcase = "Briefcase", ObjectScanner = "Scanner",
+    LargeScrew = "Large Screw",
 }
 for k, v in pairs(INTERNAL_ALIASES) do ITEM_LOOKUP[Norm(k)] = v end
 
@@ -344,7 +361,7 @@ local ENTITY_DEFS = {
     { "Bramble", "Outdoors", { "bramble" } },
     { "Grampy", "Outdoors", { "grampy" } },
     { "World Lotus", "Outdoors", { "worldlotus", "theworldlotus" } },
-    -- The Archives (A-60/A-90/A-120 ahora son Bash/Ransom/Scribbles)
+    -- The Archives (A-60 / A-90 / A-120; Bash y Scribbles son sus nombres internos nuevos)
     { "Honcho", "Archives", { "honcho" } },
     { "Drone", "Archives", { "drone" } },
     { "Forget-Me-Nots", "Archives", { "forgetmenot", "forgetmenots" } },
@@ -392,7 +409,7 @@ local GLITCH_TOKENS = {
 local ENTITY_EXACT = {
     RushMoving = "Rush", AmbushMoving = "Ambush", BackdoorRush = "Blitz", BackdoorLookman = "Lookman",
     Lookman = "Lookman", Eyes = "Eyes", Halt = "Halt",
-    JeffTheKiller = "Jeff", A60 = "A-60", A120 = "A-120", Snare = "Snare",
+    JeffTheKiller = "Jeff", A60 = "A-60", A120 = "A-120", Bash = "A-60", Scribbles = "A-120", Snare = "Snare",
 }
 
 -- Entidades sin ESP (inutil marcarlas): Ransom (A-90), Jack, Shadow, Screech (y Glitched Screech).
@@ -406,6 +423,10 @@ local function IsExcludedEntity(name)
     return name:find("SCJVEREECH", 1, true) ~= nil -- Glitched Screech (nombre interno)
 end
 
+STRICT_SKIP.__stem = { -- variantes de nombre de Stem (no es un local nuevo: el script esta cerca del limite de locales)
+    stem = true, stemmoving = true, stemrig = true, stemmodel = true, stementity = true, stemragdoll = true,
+    stemmonster = true, stemchase = true, stemmover = true, stemclient = true, stemfake = true, stemreal = true,
+}
 -- strict = true: solo coincidencia exacta (para modelos dentro de los cuartos)
 -- allowSkip = true: permite tokens de STRICT_SKIP (Timothy, Bob, Jeff, Void...). Solo se usa
 -- para modelos con Humanoid/AnimationController, asi la decoracion no se marca.
@@ -423,6 +444,8 @@ local function EntityLabel(name, strict, allowSkip)
         if n:find("rush", 1, true) then return "Glitched Rush" end
         return nil -- el "Glitch" generico (efectos del Glitch Fragment) aparecia sin parar: ya no se marca
     end
+    -- Stem: el nombre exacto no basta (fuera de tu mano usa variantes: StemRig, StemMoving, StemModel...)
+    if STRICT_SKIP.__stem[n] and (allowSkip or not strict) then return "Stem" end
     local nb = n -- nombre sin sufijo (BashMoving -> bash)
     for _, suf in ipairs({ "moving", "model", "entity", "rig" }) do
         if #nb > #suf and nb:sub(-#suf) == suf then nb = nb:sub(1, #nb - #suf) break end
@@ -627,11 +650,16 @@ do
     -- ESP Stairs & Ladders: solo existe en The Mines
     MODE_CATS.Mines[#MODE_CATS.Mines + 1] = "stairs"
 end
--- Modo de prueba: todos los ESP y todas las entidades a la vez
-MODE_CATS.Test = { "doors", "dupe", "gold", "keys", "wardrobes", "chests", "objectives", "stardust", "entities", "items",
-    "drawers", "lockers", "glitch", "lotus", "interactables", "scanner", "stairs", "exit", "cart", "players" }
+-- Test Mode: TODAS las categorias de ESP y TODAS las entidades a la vez (para probar facil)
+do
+    local all = {}
+    for id in pairs(Cfg.Categories) do all[#all + 1] = id end
+    table.sort(all)
+    MODE_CATS.Test = all
+end
+Mode.All = function() return Mode.Name == "Unknown" or Mode.Name == "Test" end
 
--- Fools comparte entidades con Hotel; Rooms comparte A-60/A-90/A-120 con Archives
+-- Fools comparte entidades con Hotel; Rooms comparte A-60/A-120 con Archives
 for _, n in ipairs({ "A-60", "A-120" }) do
     if ENTITY_MODES[n] then ENTITY_MODES[n]["Rooms"] = true end
 end
@@ -642,7 +670,7 @@ local function CurrentEntityList()
     local out, key = {}, EntityModeKey()
     for _, d in ipairs(ENTITY_DEFS) do
         local set = ENTITY_MODES[d[1]]
-        if Mode.Name == "Unknown" or Mode.Name == "Test" or set["*"] or set[key] then out[#out + 1] = d[1] end
+        if Mode.All() or set["*"] or set[key] then out[#out + 1] = d[1] end
     end
     return out
 end
@@ -959,20 +987,7 @@ function Watch.Run()
     end)
 end
 
-local REDIRECT = {
-    glitchcube = { "glitch", "Glitch Fragment" }, glitchfragment = { "glitch", "Glitch Fragment" },
-    stardustpickup = { "stardust", "Stardust" },
-}
-
 local function Register(inst, cat, label, opts)
-    if cat == "items" or cat == "interactables" or cat == "drawers" then
-        local red = REDIRECT[Norm(inst.Name)]
-        if red then
-            cat, label = red[1], red[2]
-            opts = opts or {}
-            opts.Known, opts.Key = true, label
-        end
-    end
     if not Active[cat] then return end -- categoria que no existe en este modo
 
     -- Mandrake: se queda "en observacion" hasta que se mueva cerca de ti
@@ -1293,8 +1308,10 @@ local function Process(inst)
                 local blob = Norm(t.Name) .. "|" .. Norm(tostring(t:GetAttribute("DisplayName") or "")) .. "|" .. Norm(tostring(objText or ""))
                 if blob:find("glitch", 1, true) then
                     display = "Glitch Fragment"
-                elseif blob:find("scanner", 1, true) or (blob:find("scan", 1, true) and blob:find("module", 1, true)) then
-                    display = "Scanner Module"
+                elseif blob:find("stardust", 1, true) then
+                    display = "Stardust"
+                elseif blob:find("module", 1, true) and blob:find("scan", 1, true) then
+                    display = "Scanner Module" -- solo el MODULO; el item ObjectScanner es "Scanner" (ESP Items)
                 end
             end
             if not display and Mode.Name == "Outdoors" then return end -- en Outdoors no se marcan items desconocidos
@@ -1565,31 +1582,27 @@ local function ProcessLoose(d)
     local label = EntityLabel(d.Name, false)
     if not label or label == "Mandrake" then return end
     local set = ENTITY_MODES[label]
-    if Mode.Name ~= "Unknown" and Mode.Name ~= "Test" and set and not set["*"] and not set[EntityModeKey()] then return end
+    if not Mode.All() and set and not set["*"] and not set[EntityModeKey()] then return end
     Dbg("LOOSE", d, "label=" .. label)
     RegisterEntityWhenReady(d, label, true)
-end
-
--- Stem: el modelo puede vivir fuera de Workspace/Camera/personaje. Se detecta por nombre en cualquier parte.
-local function ProcessStem(d)
-    if not Active.entities or Tracked[d] or not d:IsA("Model") then return end
-    local n = Norm(d.Name)
-    if n:sub(1, 4) ~= "stem" or #n > 14 then return end
-    if n:find("flower", 1, true) or n:find("plant", 1, true) or n:find("leaf", 1, true) then return end
-    if Mode.Name ~= "Stairwell" and Mode.Name ~= "Test" and Mode.Name ~= "Unknown" then return end
-    if Players:GetPlayerFromCharacter(d) or HasTrackedAncestor(d) then return end
-    Dbg("STEM", d, DescribeChildren(d))
-    RegisterEntityWhenReady(d, "Stem", true)
 end
 
 local function OnDescendant(d)
     -- PERF: solo estas clases importan; el resto (Decals, Sounds, Attachments, Scripts...) se descarta ya
     if not (d:IsA("ProximityPrompt") or d:IsA("Model") or d:IsA("BasePart") or d:IsA("Humanoid") or d:IsA("AnimationController")) then return end
+    -- Stem: se detecta donde este (no solo en tu mano). Nombre exacto/variantes, solo en modos donde existe.
+    if d:IsA("Model") and Active.entities and not Tracked[d] and STRICT_SKIP.__stem[Norm(d.Name)] then
+        local set = ENTITY_MODES["Stem"]
+        if (Mode.Name == "Unknown" or Mode.Name == "Test" or (set and set[EntityModeKey()]))
+            and not Players:GetPlayerFromCharacter(d) and not HasTrackedAncestor(d) then
+            Dbg("STEM", d, "mode=" .. Mode.Name)
+            RegisterEntityWhenReady(d, "Stem", true)
+        end
+    end
     Process(d)
     ProcessStairs(d)
     ProcessNoise(d)
     ProcessLoose(d)
-    ProcessStem(d)
     if d:IsA("Model") then
         if IsDupeName(d.Name) then ProcessDupe(d) end
         -- Entidades glitched pueden aparecer anidadas: se detectan por su nombre oficial
@@ -1702,7 +1715,7 @@ local function FilterPasses(e)
     elseif e.Cat == "entities" then
         if e.Known then
             local set = ENTITY_MODES[e.Key]
-            if Mode.Name ~= "Unknown" and Mode.Name ~= "Test" and set and not set["*"] and not set[EntityModeKey()] then
+            if not Mode.All() and set and not set["*"] and not set[EntityModeKey()] then
                 return false -- entidad de otro modo
             end
             return Cfg.EntityFilter[e.Key] == true
@@ -2018,11 +2031,11 @@ local CATEGORY_UI = {
     { id = "items", section = "Loot", title = "ESP Items",
       desc = "Pickup items lying around (Flashlight, Lockpicks, Vitamins, Crucifix...). Choose which ones to show in the Item Filter below." },
     { id = "stardust", section = "Loot", title = "ESP Stardust",
-      desc = "Stardust pickups found in the Outdoors." },
+      desc = "Stardust pickups (internally StardustPickup). They have their own ESP and never show in ESP Items." },
     { id = "glitch", section = "Loot", title = "ESP Glitch Fragment",
-      desc = "The rare Glitch Fragment item. Glitched Rush, Ambush and Screech are handled by ESP Entities instead." },
+      desc = "The rare Glitch Fragment (internally GlitchCube). It has its own ESP and never shows in ESP Items. Glitched Rush, Ambush and Screech are handled by ESP Entities instead." },
     { id = "scanner", section = "Loot", title = "ESP Scanner Module",
-      desc = "The very rare module for the Scanner. It has its own ESP and never shows in ESP Items." },
+      desc = "The module for the Scanner. It has its own ESP and never shows in ESP Items (the Scanner item itself is listed in ESP Items). Needs its Dex name in PENDING_DEX_NAMES to be detected." },
     { id = "lotus", section = "Loot", title = "ESP Lotus Petals",
       desc = "Lotus petals scattered around the Outdoors." },
 
@@ -2121,12 +2134,12 @@ local FORCE_LABELS = {
     ["Archives"] = "Archives",
     ["Rooms"] = "Rooms",
     ["Unknown"] = "Unknown",
-    ["Test (everything)"] = "Test",
+    ["Test Mode (all ESP + entities)"] = "Test",
 }
 MainTab:Dropdown({
     Title = "Force Gamemode",
     Desc = "Forces the script to use a specific mode instead of auto-detecting it. Choose Auto (detect) to go back to normal detection (the Lobby is detected automatically).",
-    Values = { "Auto (detect)", "Outdoors", "Backdoors", "Hotel", "Mines", "Stairwells", "Super Hard Mode (Fools)", "Archives", "Rooms", "Unknown", "Test (everything)" },
+    Values = { "Auto (detect)", "Outdoors", "Backdoors", "Hotel", "Mines", "Stairwells", "Super Hard Mode (Fools)", "Archives", "Rooms", "Unknown", "Test Mode (all ESP + entities)" },
     Value = "Auto (detect)",
     Callback = function(label)
         local mode = FORCE_LABELS[label]
@@ -2454,7 +2467,7 @@ MiscTab:Button({
 --   Alerts      : Entity Notifier (DOORS achievement style popup)
 --   Player      : Speed (max 90), Jump, Infinite Jump, Slide, Fly, Noclip, Fullbright
 --   Automation  : Instant Proximity Prompt
---   Anti cheat  : Anticheat Manipulator (Phase Walk / Noclip), Speed Guard, floating buttons (ACM / SLIDE / FLY)
+--   Anti cheat  : Anticheat Manipulator (= Velocity Manipulation de Abysall), Void Guard, floating buttons (ACM / SLIDE / FLY)
 --   Keybinds    : PC hotkeys for all of the above
 -- Todo va dentro de un bloque do..end para no gastar variables locales del script.
 ----------------------------------------------------
@@ -2491,19 +2504,17 @@ local Ex = {
     NotifyFilter = {},
     -- Movement
     Speed = false, SpeedValue = 30, SpeedMethod = "Velocity",
-    SpeedHack = false, SpeedHackValue = 30, DisableAnticheat = false, PositionSpoof = false, CrouchSpoof = false, AutoHeartbeatMinigame = false,
+    SpeedHack = false, SpeedHackValue = 30, DisableAnticheat = false, VelocityManipulationMode = "Velocity", PositionSpoof = false, CrouchSpoof = false, AutoHeartbeatMinigame = false,
     BypassGiggle = false, BypassDupe = false, BypassEyes = false, BypassLookman = false, BypassGloombatEggs = false, BypassSeekObstructions = false, BypassVacuum = false, BypassKillbricks = false, BypassSeekingWall = false, BypassSnare = false, BypassBanana = false, BypassJeff = false,
     RemoveScreech = false, RemoveHalt = false, RemoveA90 = false, RemoveDread = false, RemoveSurge = false, NoScreechDamage = false, NoHaltDamage = false, NoA90Damage = false, NoSurgeDamage = false,
     RemoveSeekTrigger = false, RemoveFigure = false, AutoRevive = false, FigureGodmode = false, RemoveBasementGate = false, RemovePaintingsDoor = false, RemoveSkeletonDoor = false,
     Key_PosSpoof = "H",
-    AutoBreakerBox = false, AutoSolveAnchors = false, DoorReach = false, DisableIdleKick = false, NotifyLibraryCode = false,
-    MeldStopGrowth = false, MeldRemove = false,
     Jump = false, JumpPower = 50, InfJump = false,
     Slide = false, SlideSpeed = 55,
     Fly = false, FlySpeed = 40,
     Noclip = false, Fullbright = false,
     -- Anticheat Manipulator
-    ACM = false, ACMMode = "Velocity", VoidGuard = true,
+    ACM = false, VoidGuard = true, -- ACM ahora usa el metodo Velocity Manipulation de Abysall
     FloatButtons = UserInputService.TouchEnabled, BtnACM = true, BtnFly = true,
     -- Automation
     InstantPrompt = false,
@@ -2919,10 +2930,7 @@ Hooks.Noclip = function(v)
 end
 
 Hooks.ACM = function(v)
-    if not v then
-        St.Glide, St.PhaseUntil = nil, 0
-        if not Ex.Noclip then RestoreCollide() end
-    end
+    if not v and not Ex.Noclip then RestoreCollide() end
 end
 
 Hooks.Fullbright = function(v)
@@ -3039,6 +3047,8 @@ function FX.Speed(hum, root, dt, now)
     end
 end
 
+-- Anticheat Manipulator: ahora es el Velocity Manipulation de Abysall (vive en el bloque ANTI CHEAT BYPASS,
+-- lee Ex.ACM y Ex.VelocityManipulationMode). El antiguo Phase Walk se elimino.
 
 RunService.Stepped:Connect(function()
     local char = LocalPlayer.Character
@@ -3300,6 +3310,12 @@ local function AddInput(tab, id, title, desc, placeholder, value)
 end
 
 ----------------------------------------------------
+-- ANTIS TAB
+-- (Los antis antiguos del script se eliminaron: God Mode, Evade, client-script antis, etc.
+--  Ahora la pestana Antis solo usa los Bypass / Remove / No Damage / Floor bypass de Abysall, mas abajo.)
+----------------------------------------------------
+
+----------------------------------------------------
 -- ALERTS TAB: Entity Notifier
 ----------------------------------------------------
 local function NotifyList()
@@ -3434,11 +3450,14 @@ AddToggle(AutomationTab, "InstantPrompt", "Instant Proximity Prompt",
 AntiCheatTab:Section({ Title = "Anticheat Manipulator" })
 AntiCheatTab:Paragraph({
     Title = "What it does",
-    Desc = "Velocity Manipulation: moves your character forward slowly, mitigating the game's anti-noclip. Velocity = a tiny forward push. Pivot = moves the character relative to the camera. Use it together with the Anticheat Bypass. Risk is yours."
+    Desc = "The Anticheat Manipulator now uses Abysall's Velocity Manipulation: it moves your character forward very slowly (or pivots it relative to the camera), "
+        .. "which mitigates the game's anti-noclip so you can walk through walls and doors. There is no guarantee: the server may still flag you, so use it at your own risk."
 })
 AddToggle(AntiCheatTab, "ACM", "Anticheat Manipulator", "Main switch. PC: keybind (Keybinds tab). Mobile: the ACM floating button.", Ex.ACM, function(v) Apply("ACM", v) end)
-AddDropdown(AntiCheatTab, "ACMMode", "Manipulation Method", "Velocity: a tiny forward push. Pivot: moves the character relative to the camera.", { "Velocity", "Pivot" }, Ex.ACMMode, function(v) Ex.ACMMode = v end)
-AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your last safe spot while noclipping or flying, you are sent back to that spot.", Ex.VoidGuard, function(v) Ex.VoidGuard = v end)
+AddDropdown(AntiCheatTab, "VelocityManipulationMode", "Manipulation Method",
+    "Velocity: a tiny forward push (recommended). Pivot: moves the character relative to the camera.",
+    { "Velocity", "Pivot" }, Ex.VelocityManipulationMode, function(v) Ex.VelocityManipulationMode = v end)
+AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot.", Ex.VoidGuard, function(v) Ex.VoidGuard = v end)
 
 -- ============================================================================================
 -- ANTI CHEAT BYPASS
@@ -3448,7 +3467,7 @@ AddToggle(AntiCheatTab, "VoidGuard", "Void Guard", "If you fall far below your l
 -- ============================================================================================
 ;(function()
 local Env = {
-	getconnections = getconnections, hookmetamethod = hookmetamethod, newcclosure = newcclosure, getnamecallmethod = getnamecallmethod,
+	hookmetamethod = hookmetamethod, newcclosure = newcclosure, getnamecallmethod = getnamecallmethod,
 	firetouchinterest = firetouchinterest, isnetworkowner = isnetworkowner, cloneref = cloneref,
 }
 
@@ -3468,10 +3487,10 @@ local Services = setmetatable({}, {
 local Globals = {}
 local Connections = {}
 local Functions = {}
-local Objects = { Entities = {}, SeekObstructions = {}, SeekBridges = {}, Obstructions = {}, Anchors = {}, Meld = {} }
+local Objects = { Entities = {}, SeekObstructions = {}, SeekBridges = {}, Obstructions = {} }
 
 -- Toggles / Options leen directamente el estado del hub (Ex)
-local ValueAliases = { NoclipToggle = "Noclip", VelocityManipulationToggle = "ACM", VelocityManipulationMode = "ACMMode" }
+local ValueAliases = { NoclipToggle = "Noclip", VelocityManipulationToggle = "ACM" } -- Velocity Manipulation = Anticheat Manipulator
 local function MakeProxy()
 	return setmetatable({}, {
 		__index = function(_, Key)
@@ -3788,105 +3807,176 @@ Hooks.NoSurgeDamage = function(Value)
 	end
 end
 
-local RemoveMap = { RemoveScreech = { "Screech", "GlitchScreech" }, RemoveHalt = { "Shade" }, RemoveA90 = { "A90" }, RemoveDread = { "Dread" } }
-local RemoveBase, RemoveToggle = {}, {}
-for Toggle, Names in RemoveMap do
-	for _, N in Names do
-		RemoveBase[N] = N RemoveBase[N .. "_Disabled"] = N RemoveToggle[N] = Toggle
-	end
-end
-local MeldRenamed = {}
-local function SyncRemoves()
-	local RS = Services.ReplicatedStorage
-	local PG = LocalPlayer:FindFirstChild("PlayerGui")
-	local MU = PG and PG:FindFirstChild("MainUI")
-	local MG = MU and MU:FindFirstChild("Initiator") and MU.Initiator:FindFirstChild("Main_Game")
-	local RL = MG and MG:FindFirstChild("RemoteListener")
-	local CM = RS:FindFirstChild("ModulesClient") or RS:FindFirstChild("ClientModules")
-	local FR = RS:FindFirstChild("FloorReplicated")
-	local Disabled = 0
-	local function Scan(Root, AnyClass)
-		if not Root then return end
-		for _, D in Root:GetDescendants() do
-			local Base = RemoveBase[D.Name]
-			if Base and (AnyClass or D:IsA("LuaSourceContainer")) then
-				local Want = Ex[RemoveToggle[Base]]
-				local IsOff = D.Name ~= Base
-				if Want and not IsOff then D.Name = Base .. "_Disabled" IsOff = true
-				elseif not Want and IsOff then D.Name = Base IsOff = false end
-				if IsOff then Disabled += 1 end
-			elseif RL and Root == RL and D:IsA("LuaSourceContainer") and D.Name:lower():find("meld", 1, true) then
-				local Orig = MeldRenamed[D]
-				if Ex.MeldStopGrowth and not Orig then MeldRenamed[D] = D.Name D.Name = D.Name .. "_Disabled"
-				elseif not Ex.MeldStopGrowth and Orig then D.Name = Orig MeldRenamed[D] = nil end
-				if MeldRenamed[D] then Disabled += 1 end
-			end
-		end
-	end
-	Scan(RL, false) Scan(CM, false) Scan(FR, true)
-	local MF = MU and MU:FindFirstChild("MainFrame")
-	local SV = MF and (MF:FindFirstChild("SurgeVignette") or MF:FindFirstChild("SurgeVignette_Disabled"))
-	if SV then
-		SV.Name = Ex.RemoveSurge and "SurgeVignette_Disabled" or "SurgeVignette"
-		if Ex.RemoveSurge then Disabled += 1 end
-	end
-	Globals.RemoveActive = Disabled > 0
-end
-local function AnyRemoveOn()
-	return Ex.RemoveScreech or Ex.RemoveHalt or Ex.RemoveA90 or Ex.RemoveDread or Ex.RemoveSurge or Ex.MeldStopGrowth
-end
-for _, Name in { "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge" } do
-	Hooks[Name] = function() Globals.RemoveActive = true pcall(SyncRemoves) end
+-- FIX Remove Screech: antes Modules.Screech solo se buscaba UNA vez al aparecer el personaje; si MainUI/Initiator todavia
+-- no existia (o el modulo se cargaba despues) quedaba en nil y el toggle no hacia nada. Ahora el modulo se busca al
+-- activar el toggle (con reintentos), se vigila si aparece mas tarde, y ademas se elimina cualquier Screech que ya este vivo.
+local function FindClientModule(Name)
+	local pg = LocalPlayer:FindFirstChild("PlayerGui")
+	local mu = pg and pg:FindFirstChild("MainUI")
+	local ini = mu and mu:FindFirstChild("Initiator")
+	local mg = ini and ini:FindFirstChild("Main_Game")
+	local rl = mg and mg:FindFirstChild("RemoteListener")
+	local mods = rl and rl:FindFirstChild("Modules")
+	if not mods then return nil end
+	return mods:FindFirstChild(Name) or mods:FindFirstChild(Name .. "_Disabled")
 end
 
--- Floor bypass
-local DoorNames = { ThingToOpen = "RemoveBasementGate", MovingDoor = "RemovePaintingsDoor", Wax_Door = "RemoveSkeletonDoor", SkeletonDoor = "RemoveSkeletonDoor" }
-local DoorSaved = setmetatable({}, { __mode = "k" })
-local function ApplyDoor(Object, Remove)
-	if not Object.Parent then return end
-	if Remove then
-		if not DoorSaved[Object] then
-			local Saved = {}
-			if Object:IsA("BasePart") then Saved[Object] = { Object.CanCollide, Object.CanTouch } end
-			for _, P in Object:GetDescendants() do
-				if P:IsA("BasePart") then Saved[P] = { P.CanCollide, P.CanTouch } end
+local function KillLiveScreech()
+	-- Screech vivo (Workspace / Camera) + efectos de GlitchScreech que ya existan
+	for _, Parent in { Services.Workspace, Services.Workspace.CurrentCamera } do
+		if Parent then
+			for _, Obj in Parent:GetChildren() do
+				local L = Obj.Name:lower()
+				if (L == "screech" or L == "glitchscreech" or L:find("scjvereech", 1, true)) and Obj ~= LocalPlayer.Character then
+					pcall(function() Obj:Destroy() end)
+				end
 			end
-			DoorSaved[Object] = Saved
-		end
-		for P in DoorSaved[Object] do
-			if P.Parent then P.CanCollide = false P.CanTouch = false end
-		end
-		pcall(function() Object:PivotTo(CFrame.new(-10000, -10000, -10000)) end)
-	else
-		local Saved = DoorSaved[Object]
-		if Saved then
-			for P, V in Saved do
-				if P.Parent then P.CanCollide, P.CanTouch = V[1], V[2] end
-			end
-			DoorSaved[Object] = nil
-		end
-		local Original = Object:GetAttribute("OriginalPosition")
-		if Original then pcall(function() Object:PivotTo(Original) end) end
-	end
-end
-for _, ToggleName in { "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor" } do
-	Hooks[ToggleName] = function(Value)
-		for _, Object in Objects.Obstructions do
-			if DoorNames[Object.Name] == ToggleName then ApplyDoor(Object, Value) end
 		end
 	end
 end
+
+Functions.ApplyRemoveScreech = function()
+	local Value = Ex.RemoveScreech
+	if not (Modules.GlitchScreech and Modules.GlitchScreech.Parent) then
+		local FR = Services.ReplicatedStorage:FindFirstChild("FloorReplicated")
+		if FR then
+			for _, D in FR:GetDescendants() do
+				if D.Name == "GlitchScreech" or D.Name == "GlitchScreech_Disabled" then Modules.GlitchScreech = D break end
+			end
+		end
+	end
+	local M = FindClientModule("Screech")
+	if M then
+		Modules.Screech = M
+		M.Name = Value and "Screech_Disabled" or "Screech"
+	end
+	local GS = Modules.GlitchScreech
+	if GS and GS.Parent then
+		GS.Name = Value and "GlitchScreech_Disabled" or "GlitchScreech"
+	end
+	if Value then pcall(KillLiveScreech) end
+end
+
+Hooks.RemoveScreech = function(Value)
+	Functions.ApplyRemoveScreech()
+	if not Value then return end
+	-- reintentos por si MainUI todavia no cargo (pasa justo al entrar a la partida)
+	task.spawn(function()
+		for _ = 1, 40 do
+			if not Ex.RemoveScreech then return end
+			if FindClientModule("Screech") then
+				Functions.ApplyRemoveScreech()
+				break
+			end
+			task.wait(0.5)
+		end
+	end)
+end
+
+-- mientras Remove Screech este activo: se re-aplica y se limpia cada 0.5s (el juego puede volver a crear el modulo/modelo)
 task.spawn(function()
 	while true do
 		task.wait(0.5)
-		for _, Object in Objects.Obstructions do
-			local ToggleName = DoorNames[Object.Name]
-			if ToggleName and Ex[ToggleName] and Object.Parent then
-				local Ok, Pos = pcall(function() return Object:GetPivot().Position end)
-				if Ok and Pos.Y > -5000 then ApplyDoor(Object, true) end
+		if Ex.RemoveScreech then
+			pcall(Functions.ApplyRemoveScreech)
+		end
+	end
+end)
+Hooks.RemoveHalt = function(Value)
+	if Modules.Shade then
+		Modules.Shade.Name = Value and "Shade_Disabled" or "Shade"
+	end
+end
+Hooks.RemoveA90 = function(Value)
+	if Modules.A90 then
+		Modules.A90.Name = Value and "A90_Disabled" or "A90"
+	end
+end
+Hooks.RemoveDread = function(Value)
+	if Modules.Dread then
+		Modules.Dread.Name = Value and "Dread_Disabled" or "Dread"
+	end
+end
+Hooks.RemoveSurge = function(Value)
+	if Globals.SurgeFrame then
+		Globals.SurgeFrame.Name = (Value and "SurgeVignette_Disabled" or "SurgeVignette")
+	end
+end
+
+-- Floor bypass: Basement Gate / Paintings Door / Skeleton Door
+-- FIX: antes SOLO se detectaban en Fools / OldHotel (en cualquier otro modo el objeto nunca se registraba y el
+-- toggle fallaba con un PivotTo(nil)). Ahora se detectan por nombre en TODOS los modos, se guarda su posicion
+-- original al verlos, se mueven lejos Y se les quita colision/toque, y mientras el toggle siga activo se re-aplica.
+local ObstructionNames = { ThingToOpen = "RemoveBasementGate", MovingDoor = "RemovePaintingsDoor", Wax_Door = "RemoveSkeletonDoor" }
+Functions.SetObstructionRemoved = function(Object, Value)
+	if not Object or not Object.Parent then return end
+	if Object:GetAttribute("OriginalPosition") == nil then
+		local ok, Pivot = pcall(function() return Object:GetPivot() end)
+		if ok then Object:SetAttribute("OriginalPosition", Pivot) end
+	end
+	local Original = Object:GetAttribute("OriginalPosition")
+	if Value then
+		-- ya esta lejos: no repetir
+		local ok, Cur = pcall(function() return Object:GetPivot().Position end)
+		if ok and Cur.Y > -9000 then
+			pcall(function() Object:PivotTo(CFrame.new(-10000, -10000, -10000)) end)
+		end
+		local Parts = Object:IsA("BasePart") and { Object } or Object:GetDescendants()
+		for _, Part in Parts do
+			if Part:IsA("BasePart") then
+				if Part:GetAttribute("OrigCollide") == nil then
+					Part:SetAttribute("OrigCollide", Part.CanCollide)
+					Part:SetAttribute("OrigTouch", Part.CanTouch)
+				end
+				Part.CanCollide = false
+				Part.CanTouch = false
 			end
 		end
-		if AnyRemoveOn() or Globals.RemoveActive then pcall(SyncRemoves) end
+	else
+		if typeof(Original) == "CFrame" then
+			pcall(function() Object:PivotTo(Original) end)
+		end
+		local Parts = Object:IsA("BasePart") and { Object } or Object:GetDescendants()
+		for _, Part in Parts do
+			if Part:IsA("BasePart") and Part:GetAttribute("OrigCollide") ~= nil then
+				Part.CanCollide = Part:GetAttribute("OrigCollide")
+				Part.CanTouch = Part:GetAttribute("OrigTouch")
+				Part:SetAttribute("OrigCollide", nil)
+				Part:SetAttribute("OrigTouch", nil)
+			end
+		end
+	end
+end
+
+for ObjName, ToggleName in ObstructionNames do
+	Hooks[ToggleName] = function(Value)
+		-- por si el objeto aun no se habia registrado: se busca de nuevo en todo el Workspace
+		for _, Object in Services.Workspace:GetDescendants() do
+			if Object.Name == ObjName and (Object:IsA("Model") or Object:IsA("BasePart")) and not table.find(Objects.Obstructions, Object) then
+				table.insert(Objects.Obstructions, Object)
+			end
+		end
+		for _, Object in Objects.Obstructions do
+			if Object.Name == ObjName then
+				pcall(Functions.SetObstructionRemoved, Object, Value)
+			end
+		end
+	end
+end
+
+-- re-aplicacion periodica (el juego mueve estas puertas con tweens/animaciones y a veces las devuelve)
+task.spawn(function()
+	while true do
+		task.wait(0.4)
+		for ObjName, ToggleName in ObstructionNames do
+			if Ex[ToggleName] then
+				for _, Object in Objects.Obstructions do
+					if Object.Name == ObjName and Object.Parent then
+						pcall(Functions.SetObstructionRemoved, Object, true)
+					end
+				end
+			end
+		end
 	end
 end)
 
@@ -4062,45 +4152,15 @@ Functions.HandleObject = function(Object)
 				end
 			end
 		end
-	elseif DoorNames[Name] then
-		Object:SetAttribute("OriginalPosition", Object:GetPivot())
-		table.insert(Objects.Obstructions, Object)
-		if Ex[DoorNames[Name]] then ApplyDoor(Object, true) end
-	elseif Name == "ElevatorBreaker" then
-		if Toggles.AutoBreakerBox.Value and not Globals.BreakerBoxNotified then
-			Functions.Notify({ Title = "Interact with the breaker box.", Body = "It will be automatically solved." })
-			Globals.BreakerBoxNotified = true
+	elseif ObstructionNames[Name] and (Object:IsA("Model") or Object:IsA("BasePart")) then
+		-- Gate / Paintings Door / Skeleton Door: en TODOS los modos (ya no solo Fools / OldHotel)
+		if not table.find(Objects.Obstructions, Object) then
+			pcall(function() Object:SetAttribute("OriginalPosition", Object:GetPivot()) end)
+			table.insert(Objects.Obstructions, Object)
 		end
-		task.spawn(function()
-			local Code = Object:WaitForChild("SurfaceGui", 10) and Object.SurfaceGui:WaitForChild("Frame", 10) and Object.SurfaceGui.Frame:WaitForChild("Code", 10)
-			if not Code then return end
-			Connections.BreakerConnection = Code:GetPropertyChangedSignal("Text"):Connect(function()
-				if Toggles.AutoBreakerBox.Value then
-					if not Globals.BreakerBoxStartNotified and (Floor == "Fools" or Floor == "OldHotel") then
-						Functions.Notify({ Title = "Attempting to solve the breaker box.", Body = "Please wait." })
-						Globals.BreakerBoxStartNotified = true
-					end
-					RemotesFolder.EBF:FireServer()
-				end
-				Globals.BreakerBoxInteracted = true
-			end)
-		end)
-	elseif Name == "ElevatorCar" then
-		local ElevConn = Object.DescendantAdded:Connect(function(Desc)
-			if Toggles.AutoBreakerBox.Value and Desc.Name == "TouchInterest" and not Globals.BreakerBoxFinishedNotified then
-				Functions.Notify({ Title = "Successfully solved the breaker box.", Body = "Try going to the elevator!" })
-				Globals.BreakerBoxFinishedNotified = true
-			end
-		end)
-		Object.Destroying:Once(function() ElevConn:Disconnect() end)
-	elseif Name == "MinesAnchor" then
-		table.insert(Objects.Anchors, Object)
-	elseif Name:lower():find("meld", 1, true) and (Object:IsA("Model") or Object:IsA("BasePart") or Object:IsA("Folder")) then
-		table.insert(Objects.Meld, Object)
-		if Ex.MeldStopGrowth or Ex.MeldRemove then Functions.MeldAll(Object) end
-		table.insert(Connections, Object.DescendantAdded:Connect(function(Desc)
-			if Ex.MeldStopGrowth or Ex.MeldRemove then task.defer(pcall, Functions.MeldApply, Desc, Object) end
-		end))
+		if Ex[ObstructionNames[Name]] then
+			Functions.SetObstructionRemoved(Object, true)
+		end
 	end
 end
 
@@ -4109,13 +4169,11 @@ local AllowedInstances = {
 	Lava = true, JeffTheKiller = true, Snare = true, FakeDoor = true, DoorFake = true, SideroomSpace = true,
 	FigureRig = true, FigureRagdoll = true, Figure = true, Seek_Arm = true, ChandelierObstruction = true, ScaryWall = true,
 	TriggerEventCollision = true, GiggleCeiling = true, GloomPile = true, SeekFloodline = true, Bridge = true,
-	BananaPeel = true, Wax_Door = true, SkeletonDoor = true, ThingToOpen = true, MovingDoor = true, ElevatorBreaker = true, ElevatorCar = true, MinesAnchor = true,
+	BananaPeel = true, Wax_Door = true, ThingToOpen = true, MovingDoor = true,
 }
 Functions.QueueObject = function(Object)
 	if not AllowedInstances[Object.Name] and not (Object:GetAttribute("RawName") and Object:GetAttribute("RawName"):find("Halt")) and Object:GetAttribute("Shade") ~= true then
-		if not ((Object:IsA("Model") or Object:IsA("BasePart") or Object:IsA("Folder")) and Object.Name:lower():find("meld", 1, true)) then
-			return
-		end
+		return
 	end
 	table.insert(Globals.ObjectQueue, Object)
 end
@@ -4123,173 +4181,8 @@ end
 -- ============================================================================================
 -- Personaje: collision clone, ladder disabler, spoofs, velocity manipulation
 -- ============================================================================================
--- ============================================================================================
--- Extras: Meld, Auto Breaker Box, Auto Solve Anchors, Door Reach, Idle Kick, Library code
--- ============================================================================================
-local MeldSaved, MeldScripts = setmetatable({}, { __mode = "k" }), setmetatable({}, { __mode = "k" })
-local function MeldKeep(Inst, Root)
-	local P = Inst
-	while P do
-		local N = P.Name:lower()
-		if N:find("rope", 1, true) or N:find("door", 1, true) or N:find("cuerda", 1, true) then return true end
-		if P == Root then break end
-		P = P.Parent
-	end
-	return false
-end
-Functions.MeldApply = function(Inst, Root)
-	if MeldKeep(Inst, Root) then return end
-	if Inst:IsA("BasePart") then
-		local S = MeldSaved[Inst]
-		if not S then
-			S = { T = Inst.Transparency, C = Inst.CanCollide, H = Inst.CanTouch, S = Inst.Size }
-			MeldSaved[Inst] = S
-			Inst:GetPropertyChangedSignal("Size"):Connect(function()
-				local Cur = MeldSaved[Inst]
-				if not Cur then return end
-				if Ex.MeldStopGrowth then
-					if Inst.Size ~= Cur.S then Inst.Size = Cur.S end
-				else
-					Cur.S = Inst.Size
-				end
-			end)
-		end
-		if Ex.MeldRemove then
-			Inst.Transparency = 1 Inst.CanCollide = false Inst.CanTouch = false
-		else
-			Inst.Transparency = S.T Inst.CanCollide = S.C Inst.CanTouch = S.H
-		end
-	elseif (Inst:IsA("LocalScript") or Inst:IsA("Script")) then
-		if Ex.MeldStopGrowth then
-			if MeldScripts[Inst] == nil then MeldScripts[Inst] = Inst.Disabled end
-			Inst.Disabled = true
-		elseif MeldScripts[Inst] ~= nil then
-			Inst.Disabled = MeldScripts[Inst]
-			MeldScripts[Inst] = nil
-		end
-	end
-end
-Functions.MeldAll = function(Root)
-	for _, D in Root:GetDescendants() do pcall(Functions.MeldApply, D, Root) end
-	pcall(Functions.MeldApply, Root, Root)
-end
-local function MeldRefresh()
-	for _, Root in Objects.Meld do
-		if Root.Parent then Functions.MeldAll(Root) end
-	end
-	Globals.RemoveActive = true
-	pcall(SyncRemoves)
-end
-Hooks.MeldStopGrowth = MeldRefresh
-Hooks.MeldRemove = MeldRefresh
-
-Hooks.AutoBreakerBox = function(Value)
-	if Value and CurrentRooms and CurrentRooms:FindFirstChild("ElevatorBreaker", true) then
-		if not Globals.BreakerBoxInteracted then
-			if not Globals.BreakerBoxNotified then
-				Functions.Notify({ Title = "Interact with the breaker box.", Body = "It will be automatically solved." })
-				Globals.BreakerBoxInteracted = true
-			end
-		else
-			RemotesFolder.EBF:FireServer()
-		end
-	end
-end
-
-Hooks.DisableIdleKick = function(Value)
-	if Functions.CheckCompatability({"getconnections"}) then
-		for _, Conn in Env.getconnections(LocalPlayer.Idled) do
-			if Value then Conn:Disable() else Conn:Enable() end
-		end
-	end
-end
-
-Functions.GetLibraryCode = function()
-	local Paper = Character:FindFirstChild("LibraryHintPaper")
-		or Character:FindFirstChild("LibraryHintPaperHard")
-		or LocalPlayer.Backpack:FindFirstChild("LibraryHintPaper")
-		or LocalPlayer.Backpack:FindFirstChild("LibraryHintPaperHard")
-
-	if Paper and Paper:FindFirstChild("UI") then
-		local Code = {}
-		local CodeLength = Floor == "Fools" and 10 or 5
-		for I = 1, CodeLength do Code[I] = "_" end
-
-		local HintChildren = LocalPlayer.PlayerGui.PermUI.Hints:GetChildren()
-		local UIChildren = Paper.UI:GetChildren()
-
-		for _, Hint in HintChildren do
-			for _, UIChild in UIChildren do
-				if Hint:IsA("ImageLabel") and UIChild:IsA("ImageLabel")
-					and Hint.ImageRectOffset == UIChild.ImageRectOffset
-					and Code[tonumber(UIChild.Name)]
-				then
-					Code[tonumber(UIChild.Name)] = Hint.TextLabel.Text
-				end
-			end
-		end
-		return table.concat(Code)
-	end
-	return Floor == "Fools" and "__________" or "_____"
-end
-
-Functions.BindLibraryCode = function()
-	local function Check()
-		if not Toggles.NotifyLibraryCode.Value or Globals.LibraryCodeFound then return end
-		local Ok, Code = pcall(Functions.GetLibraryCode)
-		if Ok and Code and not Code:find("_") then
-			Globals.LibraryCodeFound = true
-			pcall(function() WindUI:Notify({ Title = "Padlock code found!", Content = "The code is: '" .. Code .. "'", Duration = 15 }) end)
-		end
-	end
-	local PermUI = LocalPlayer.PlayerGui:FindFirstChild("PermUI")
-	local Hints = PermUI and PermUI:FindFirstChild("Hints")
-	if Hints then Connections.LibraryCodeHandler1 = Hints.ChildAdded:Connect(Check) end
-	Connections.LibraryCodeHandler2 = Character.ChildAdded:Connect(function(Child)
-		if Child.Name == "LibraryHintPaper" or Child.Name == "LibraryHintPaperHard" then Check() end
-	end)
-end
-
-Globals.LastAnchor, Globals.LastReach = tick(), tick()
-task.spawn(function()
-	while true do
-		task.wait(0.1)
-		pcall(function()
-			if not (Ready and Character and Character.Parent) then return end
-
-			if Ex.DoorReach and CurrentRooms then
-				for _, Room in CurrentRooms:GetChildren() do
-					local Door = Room:FindFirstChild("Door")
-					if Door and Door:FindFirstChild("Door") and Door:FindFirstChild("ClientOpen")
-						and LocalPlayer:DistanceFromCharacter(Door.Door.Position) < 75 then
-						Door.ClientOpen:FireServer()
-					end
-				end
-			end
-
-			if Ex.AutoSolveAnchors then
-				local MainUI = LocalPlayer.PlayerGui:FindFirstChild("MainUI")
-				local Hint = MainUI and MainUI:FindFirstChild("AnchorHintFrame")
-				if Hint and Hint:FindFirstChild("AnchorCode") and Hint:FindFirstChild("Code") then
-					for _, Anchor in Objects.Anchors do
-						if Anchor.Parent and Anchor:FindFirstChild("Sign") and Anchor.Sign.TextLabel.Text == Hint.AnchorCode.Text then
-							if Anchor.PrimaryPart and Anchor:FindFirstChild("ActivateEventPrompt")
-								and LocalPlayer:DistanceFromCharacter(Anchor.PrimaryPart.Position) < Anchor.ActivateEventPrompt.MaxActivationDistance
-								and not Anchor:GetAttribute("Activated") then
-								local Text = Hint.Code.Text
-								task.spawn(function() pcall(function() Anchor:WaitForChild("AnchorRemote"):InvokeServer(Text) end) end)
-							end
-							break
-						end
-					end
-				end
-			end
-		end)
-	end
-end)
-
 local CharacterOldConnectionKeys = {
-	"MainHandler", "SHMFixer", "LibraryCodeHandler1", "LibraryCodeHandler2", "AnticheatDisabler", "AnticheatEnableDetector1", "AnticheatEnableDetector2", "AutoReviveHandler",
+	"MainHandler", "SHMFixer", "AnticheatDisabler", "AnticheatEnableDetector1", "AnticheatEnableDetector2", "AutoReviveHandler",
 }
 
 Functions.HandleCharacter = function(NewCharacter)
@@ -4343,8 +4236,6 @@ Functions.HandleCharacter = function(NewCharacter)
 			RootPart.Anchored = false
 		end
 	end)
-
-	pcall(Functions.BindLibraryCode)
 
 	Globals.AnticheatDisabled = false
 
@@ -4406,8 +4297,6 @@ Functions.HandleCharacter = function(NewCharacter)
 		if Toggles.RemoveA90.Value and Modules.A90 then Modules.A90.Name = "A90_Disabled" end
 		if Toggles.RemoveDread.Value and Modules.Dread then Modules.Dread.Name = "Dread_Disabled" end
 	end
-
-	task.spawn(function() Globals.RemoveActive = true pcall(SyncRemoves) end)
 
 	Connections.MainHandler = Services.RunService.RenderStepped:Connect(function()
 		if not (Character and Character.Parent and RootPart and RootPart.Parent and Collision and CollisionClone and CollisionPart) then return end
@@ -4479,7 +4368,7 @@ Functions.HandleCharacter = function(NewCharacter)
 		CollisionClone.CollisionGroup = Collision.CollisionGroup
 		CollisionClone.Position = RootPart.Position + Vector3.new(0, Toggles.PositionSpoof.Value and 1.75 or 0.18, 0)
 
-		if Toggles.VelocityManipulationToggle.Value and Options.VelocityManipulationMode.Value ~= "Pivot" then
+		if Toggles.VelocityManipulationToggle.Value and Options.VelocityManipulationMode.Value == "Velocity" then
 			Globals.ManipulateBody.Parent = RootPart
 			Globals.ManipulateBody.Velocity = RootPart.CFrame.LookVector * 2.25
 		else
@@ -4614,13 +4503,6 @@ AddToggle(AntiCheatTab, "AutoHeartbeatMinigame", "Auto Heartbeat Minigame",
 	"Prevents the 'Figure' minigame from ever failing.",
 	Ex.AutoHeartbeatMinigame, function(v) Ex.AutoHeartbeatMinigame = v end)
 
-AutomationTab:Section({ Title = "Game automation" })
-AddToggle(AutomationTab, "AutoBreakerBox", "Auto Breaker Box", "Automatically solves the breaker box.", Ex.AutoBreakerBox, function(v) Apply("AutoBreakerBox", v) end)
-AddToggle(AutomationTab, "AutoSolveAnchors", "Auto Solve Anchors", "Automatically enters the correct code into anchors when you are near them (The Mines).", Ex.AutoSolveAnchors, function(v) Ex.AutoSolveAnchors = v end)
-AddToggle(AutomationTab, "DoorReach", "Door Reach", "Allows you to open doors from further away.", Ex.DoorReach, function(v) Ex.DoorReach = v end)
-AddToggle(AutomationTab, "NotifyLibraryCode", "Notify Library Code", "Shows the padlock code as soon as you have found every hint.", Ex.NotifyLibraryCode, function(v) Ex.NotifyLibraryCode = v end)
-AddToggle(AutomationTab, "DisableIdleKick", "Disable Idle Kick", "Prevents the kick from being idle for 20 minutes.", Ex.DisableIdleKick, function(v) Apply("DisableIdleKick", v) end)
-
 AntisTab:Section({ Title = "Bypass" })
 for _, B in ipairs({
 	{ "BypassGiggle", "Bypass Giggle", "Prevents 'Giggle' from attacking you." },
@@ -4654,10 +4536,6 @@ for _, B in ipairs({
 	AddToggle(AntisTab, B[1], B[2], B[3], Ex[B[1]], function(v) Apply(B[1], v) end)
 end
 
-AntisTab:Section({ Title = "Meld (Stairwell)" })
-AddToggle(AntisTab, "MeldStopGrowth", "Stop Meld Growth", "Disables the scripts and client module that make Meld grow, and freezes the size of its parts. Ropes and doors are left untouched.", Ex.MeldStopGrowth, function(v) Apply("MeldStopGrowth", v) end)
-AddToggle(AntisTab, "MeldRemove", "Remove Meld", "Hides Meld and turns off its touch and collision, WITHOUT removing its ropes and doors.", Ex.MeldRemove, function(v) Apply("MeldRemove", v) end)
-
 AntisTab:Section({ Title = "Floor bypass" })
 AddToggle(AntisTab, "RemoveSeekTrigger", "Delete Seek Trigger", "Disables the 'Seek' chase trigger (Old Hotel / Fools).", Ex.RemoveSeekTrigger, function(v) Ex.RemoveSeekTrigger = v end)
 AddToggle(AntisTab, "RemoveFigure", "Delete Figure", "Completely removes the entity 'Figure' (doesn't always work).", Ex.RemoveFigure, function(v) Ex.RemoveFigure = v end)
@@ -4666,6 +4544,538 @@ AddToggle(AntisTab, "FigureGodmode", "Figure Godmode", "Prevents 'Figure' from h
 AddToggle(AntisTab, "RemoveBasementGate", "Remove Basement Gate", "Removes the gate from basement rooms.", Ex.RemoveBasementGate, function(v) Apply("RemoveBasementGate", v) end)
 AddToggle(AntisTab, "RemovePaintingsDoor", "Remove Paintings Door", "Removes the fireplace doors from painting rooms.", Ex.RemovePaintingsDoor, function(v) Apply("RemovePaintingsDoor", v) end)
 AddToggle(AntisTab, "RemoveSkeletonDoor", "Remove Skeleton Door", "Removes the skeleton door from the infirmary.", Ex.RemoveSkeletonDoor, function(v) Apply("RemoveSkeletonDoor", v) end)
+end)()
+
+
+-- ============================================================================================
+-- FUNCIONES EXTRA DE ABYSALL + MELD
+--   Automation : Auto Breaker Box, Infinite Items, Auto Interact, Prompt Reach, Prompt Clip
+--   Misc       : Disable Idle Kick
+--   Antis      : Meld (Stop Growth / Remove sin quitar cuerdas ni puertas)
+-- Todo vive en esta funcion para no gastar variables locales del script.
+-- ============================================================================================
+;(function()
+local RS = game:GetService("ReplicatedStorage")
+local PPS = game:GetService("ProximityPromptService")
+local Hui = (gethui and gethui()) or game:GetService("CoreGui")
+
+local function RemotesFolder()
+	return RS:FindFirstChild("RemotesFolder") or RS:FindFirstChild("EntityInfo") or RS:FindFirstChild("Bricks")
+end
+local function Rooms() return Workspace:FindFirstChild("CurrentRooms") end
+local function Char() return LocalPlayer.Character end
+local function HasItem(Name, OnlyCharacter)
+	local c = Char()
+	if not OnlyCharacter then
+		local bp = LocalPlayer:FindFirstChild("Backpack")
+		local it = bp and bp:FindFirstChild(Name)
+		if it then return it end
+	end
+	return c and c:FindFirstChild(Name) or nil
+end
+
+Ex.AutoBreakerBox = false
+Ex.InfiniteItems = false
+Ex.InfiniteItemsList = { "Lockpicks", "Skeleton Key", "Shears", "Multitool" }
+Ex.AutoInteract = false
+Ex.PromptReach = 1
+Ex.PromptClip = false
+Ex.DisableIdleKick = false
+Ex.MeldStopGrowth = false
+Ex.MeldRemove = false
+
+local Prompts = setmetatable({}, { __mode = "k" }) -- prompt -> { dist, los }
+
+-- ------------------------------------------------------------------------------------------
+-- Prompt Reach / Prompt Clip (guarda los valores originales y los restaura al apagar)
+-- ------------------------------------------------------------------------------------------
+local function ApplyReach(pp)
+	if not pp:IsA("ProximityPrompt") or pp:GetAttribute("FakePrompt") then return end
+	local o = Prompts[pp]
+	if not o then
+		o = { Dist = pp.MaxActivationDistance, LOS = pp.RequiresLineOfSight }
+		Prompts[pp] = o
+	end
+	pp.MaxActivationDistance = o.Dist * Ex.PromptReach
+	pp.RequiresLineOfSight = Ex.PromptClip and false or o.LOS
+end
+local function ReapplyAllReach()
+	for pp in pairs(Prompts) do
+		if pp.Parent then
+			pcall(function()
+				local o = Prompts[pp]
+				pp.MaxActivationDistance = o.Dist * Ex.PromptReach
+				pp.RequiresLineOfSight = Ex.PromptClip and false or o.LOS
+			end)
+		end
+	end
+end
+-- la primera vez hay que registrar los valores originales de TODOS los prompts existentes
+local function ScanReach()
+	task.spawn(function()
+		local n = 0
+		for _, d in ipairs(Workspace:GetDescendants()) do
+			if d:IsA("ProximityPrompt") then pcall(ApplyReach, d) end
+			n = n + 1
+			if n % 400 == 0 then task.wait() end
+		end
+		ReapplyAllReach()
+	end)
+end
+Hooks.PromptReach = function() ScanReach() end
+Hooks.PromptClip = function() ScanReach() end
+
+-- ------------------------------------------------------------------------------------------
+-- Auto Breaker Box (remote EBF, igual que Abysall)
+-- ------------------------------------------------------------------------------------------
+local Breaker = { Interacted = false, Notified = false, Hooked = setmetatable({}, { __mode = "k" }) }
+local function HookBreaker(obj)
+	if Breaker.Hooked[obj] then return end
+	Breaker.Hooked[obj] = true
+	task.spawn(function()
+		local sg = obj:WaitForChild("SurfaceGui", 15)
+		local frame = sg and sg:WaitForChild("Frame", 5)
+		local code = frame and frame:WaitForChild("Code", 5)
+		if not code then return end
+		if Ex.AutoBreakerBox and not Breaker.Notified then
+			Breaker.Notified = true
+			NotifyUI("Auto Breaker Box", "Interact with the breaker box once. It will be solved automatically.")
+		end
+		code:GetPropertyChangedSignal("Text"):Connect(function()
+			if Ex.AutoBreakerBox then
+				local rf = RemotesFolder()
+				local r = rf and rf:FindFirstChild("EBF")
+				if r then pcall(function() r:FireServer() end) end
+			end
+			Breaker.Interacted = true
+		end)
+	end)
+end
+Hooks.AutoBreakerBox = function(v)
+	if not v then return end
+	local rooms = Rooms()
+	local br = rooms and rooms:FindFirstChild("ElevatorBreaker", true)
+	if br then
+		HookBreaker(br)
+		if Breaker.Interacted then
+			local rf = RemotesFolder()
+			local r = rf and rf:FindFirstChild("EBF")
+			if r then pcall(function() r:FireServer() end) end
+		else
+			NotifyUI("Auto Breaker Box", "Interact with the breaker box once. It will be solved automatically.")
+		end
+	end
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Infinite Items (Lockpicks / Skeleton Key / Shears / Multitool): sin gastar usos
+-- Metodo de Abysall: el prompt de candado real se esconde y se pone uno falso. Al usarlo se suelta el
+-- item, y cuando aparece en Drops se vuelve a recoger a la vez que se dispara el prompt real.
+-- ------------------------------------------------------------------------------------------
+local IF = { Fakes = {}, Real = setmetatable({}, { __mode = "k" }), Container = Instance.new("Folder") }
+IF.Container.Name = "R4_PromptContainer"
+pcall(function() IF.Container.Parent = Hui end)
+local TOOL_DISPLAY = { Lockpick = "Lockpicks", SkeletonKey = "Skeleton Key", Shears = "Shears", Multitool = "Multitool" }
+local LOCK_NAMES = { UnlockPrompt = true, SkullPrompt = true, LockPrompt = true, ThingToEnable = true, FusesPrompt = true }
+
+local function IsLockPrompt(p)
+	return LOCK_NAMES[p.Name]
+		or (p.Parent and p.Parent:GetAttribute("Locked") == true)
+		or (p.Parent and p.Parent.Parent and p.Parent.Parent.Name == "Locker_Small_Locked" and p.Name == "ActivateEventPrompt")
+end
+
+local function InfListHas(display)
+	for _, n in ipairs(Ex.InfiniteItemsList or {}) do
+		if n == display then return true end
+	end
+	return false
+end
+
+local function MakeFake(real)
+	if IF.Real[real] or real:GetAttribute("FakePrompt") or not IsLockPrompt(real) or not fireproximityprompt then return end
+	local parent = real.Parent
+	if not parent then return end
+	local fake = real:Clone()
+	fake:SetAttribute("FakePrompt", true)
+	fake.Parent = parent
+	IF.Fakes[fake] = real
+	IF.Real[real] = fake
+	pcall(function() real.Parent = IF.Container end)
+	local conn = real:GetPropertyChangedSignal("Enabled"):Connect(function() fake.Enabled = real.Enabled end)
+	real:GetPropertyChangedSignal("ActionText"):Once(function() -- el candado cambio de estado: se devuelve el real
+		pcall(function() real.Parent = parent end)
+		fake:Destroy()
+		conn:Disconnect()
+		IF.Real[real] = nil
+	end)
+	real.Destroying:Once(function() fake:Destroy(); conn:Disconnect(); IF.Real[real] = nil end)
+	fake.Enabled = real.Enabled
+end
+
+local function RemoveFakes()
+	for fake, real in pairs(IF.Fakes) do
+		pcall(function()
+			if real and fake.Parent then real.Parent = fake.Parent end
+			fake:Destroy()
+		end)
+		IF.Fakes[fake] = nil
+		if real then IF.Real[real] = nil end
+	end
+end
+
+Hooks.InfiniteItems = function(v)
+	if not fireproximityprompt then
+		NotifyUI("Infinite Items", "Your executor has no fireproximityprompt. This feature is disabled.")
+		return
+	end
+	if v then
+		task.spawn(function()
+			local n = 0
+			for _, d in ipairs(Workspace:GetDescendants()) do
+				if not Ex.InfiniteItems then return end
+				if d:IsA("ProximityPrompt") then pcall(MakeFake, d) end
+				n = n + 1
+				if n % 400 == 0 then task.wait() end
+			end
+		end)
+	else
+		RemoveFakes()
+	end
+end
+
+PPS.PromptTriggered:Connect(function(Object)
+	if not Object:GetAttribute("FakePrompt") then return end
+	local real = IF.Fakes[Object]
+	if not real then return end
+	local char = Char()
+	if not char then return end
+
+	local Tool
+	for _, N in { "Lockpick", "Shears", "SkeletonKey", "Key", "GeneratorFuse", "KeyElectrical", "KeyBackdoor", "KeyIron", "Multitool" } do
+		Tool = char:FindFirstChild(N)
+		if Tool then break end
+	end
+	local Parent = Object.Parent
+	local PName = Parent and Parent.Name or ""
+	local Lock = IsLockPrompt(Object)
+
+	if Lock then
+		local has = false
+		for _, K in { "Key", "GeneratorFuse", "KeyBackdoor", "KeyElectrical", "KeyIron", "Lockpick", "SkeletonKey", "Shears", "Multitool" } do
+			if HasItem(K, true) then has = true break end
+		end
+		if not has then
+			for _, K in { "Key", "GeneratorFuse", "KeyElectrical", "KeyIron" } do
+				if HasItem(K) then has = true break end
+			end
+		end
+		if not has then return end
+	end
+	local vine = PName == "CuttableVines" or PName == "Chest_Vine" or PName == "Cellar"
+	if vine and not HasItem("Shears", true) and not HasItem("Multitool", true) then return end
+	if PName == "SkullLock" and not HasItem("SkeletonKey", true) then return end
+	if (PName == "Lock1" or PName == "Lock2") and not HasItem("Lockpick", true) and not HasItem("Multitool", true) then return end
+	if HasItem("Shears", true) and Lock and not vine then return end
+
+	local AnyTool = char:FindFirstChildOfClass("Tool")
+	local display = AnyTool and TOOL_DISPLAY[AnyTool.Name]
+	local rf = RemotesFolder()
+	local Drops = Workspace:FindFirstChild("Drops")
+	if AnyTool and display and Ex.InfiniteItems and InfListHas(display) and rf and rf:FindFirstChild("DropItem") and Drops then
+		Drops.ChildAdded:Once(function(NewTool)
+			local pickup = NewTool:FindFirstChild("ModulePrompt") or NewTool:WaitForChild("ModulePrompt", 3)
+			if pickup then pcall(fireproximityprompt, pickup) end
+			pcall(fireproximityprompt, real)
+		end)
+		rf.DropItem:FireServer(AnyTool)
+	else
+		pcall(fireproximityprompt, real)
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Auto Interact (version ligera): dispara los prompts cercanos
+-- ------------------------------------------------------------------------------------------
+local AI_BLACKLIST = {
+	HidePrompt = true, RiftPrompt = true, StarRiftPrompt = true, InteractPrompt = true, ClimbPrompt = true,
+	DonatePrompt = true, DialoguePrompt = true, RevivePrompt = true, EnterPrompt = true, AnimatePrompt = true,
+	ToolEventPrompt = true, Prompt = true, PropPrompt = true, UnlockPrompt = true, SkullPrompt = true, LockPrompt = true,
+	ThingToEnable = true, FusesPrompt = true, LongPushPrompt = true, BigPropPrompt = true, PushPrompt = true,
+}
+local AI = { Last = 0, Set = setmetatable({}, { __mode = "k" }) }
+
+local function AISkip(pp)
+	if AI_BLACKLIST[pp.Name] or pp:GetAttribute("FakePrompt") or pp:GetAttribute("AutoInteractIgnore") then return true end
+	local par = pp.Parent
+	if not par then return true end
+	local Drops = Workspace:FindFirstChild("Drops")
+	if Drops and pp:IsDescendantOf(Drops) then return true end
+	local n = par.Name
+	if n == "GlitchCube" or n == "TrackLever" or n == "Padlock" or n == "MinesAnchor" or n == "ElevatorBreaker"
+		or n == "KeyObtainFake" or n == "TithingPlate" then return true end
+	if par.Parent and (par.Parent.Name == "DoorFake" or par.Parent.Name == "FakeDoor" or par.Parent.Name == "IndustrialGate") then return true end
+	if par:GetAttribute("JeffShop") or par:GetAttribute("Locked") == true then return true end
+	if pp.Name == "ActivateEventPrompt" and pp.ActionText == "Close" then return true end
+	-- no recoger un item que ya tienes (llaves) ni vendas con la vida llena
+	if n == "KeyObtain" and (HasItem("Key") or HasItem("KeyBackdoor")) then return true end
+	if n == "ElectricalKeyObtain" and HasItem("KeyElectrical") then return true end
+	if n == "AlarmClock" and HasItem("AlarmClock") then return true end
+	if n == "Bandage" then
+		local _, hum = GetParts()
+		if hum and hum.Health >= hum.MaxHealth and not HasItem("BandagePack") then return true end
+	end
+	return false
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.1)
+		if Ex.AutoInteract and fireproximityprompt then
+			local _, _, root = GetParts()
+			if root then
+				local cur = LocalPlayer:GetAttribute("CurrentRoom")
+				for pp in pairs(AI.Set) do
+					if not pp.Parent then
+						AI.Set[pp] = nil
+					elseif pp.Enabled and not AISkip(pp) then
+						local pr = pp:GetAttribute("ParentRoom")
+						if not (pr and cur and tonumber(pr) ~= tonumber(cur)) then
+							local par = pp.Parent
+							local pos
+							if par:IsA("BasePart") then pos = par.Position
+							elseif par:IsA("Attachment") then pos = par.WorldPosition
+							elseif par:IsA("Model") then pos = par:GetPivot().Position end
+							if pos and (pos - root.Position).Magnitude <= pp.MaxActivationDistance then
+								pcall(fireproximityprompt, pp)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Disable Idle Kick
+-- ------------------------------------------------------------------------------------------
+Hooks.DisableIdleKick = function(v)
+	if getconnections then
+		pcall(function()
+			for _, c in ipairs(getconnections(LocalPlayer.Idled)) do
+				if v then c:Disable() else c:Enable() end
+			end
+		end)
+	end
+end
+LocalPlayer.Idled:Connect(function()
+	if Ex.DisableIdleKick then
+		pcall(function()
+			local vu = game:GetService("VirtualUser")
+			vu:CaptureController()
+			vu:ClickButton2(Vector2.new())
+		end)
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- MELD (The Stairwell)
+--  * Stop Growth : desactiva los scripts / modulos de Meld (lo que lo hace crecer). NO toca partes, asi las cuerdas
+--                  y las puertas de Meld se quedan exactamente como estan.
+--  * Remove Meld : oculta y quita colision/toque a las partes de Meld, EXCEPTO cuerdas y puertas.
+-- No se conoce la estructura exacta de Meld en el Dex, asi que todo se hace por NOMBRE (contiene "meld") y las
+-- palabras de abajo se pueden editar. Con Debug Mode activado se imprime lo que se encuentra.
+-- ------------------------------------------------------------------------------------------
+local MELD_KEEP = { "rope", "cord", "cable", "chain", "string", "wire", "door", "gate", "puerta", "cuerda" }
+local Meld = { Orig = setmetatable({}, { __mode = "k" }), Scripts = setmetatable({}, { __mode = "k" }), Conn = nil, Loop = false }
+
+local function IsMeldName(n) return type(n) == "string" and n:lower():find("meld", 1, true) ~= nil end
+local function KeepName(n)
+	n = n:lower()
+	for _, w in ipairs(MELD_KEEP) do
+		if n:find(w, 1, true) then return true end
+	end
+	return false
+end
+-- raiz Meld de una instancia (la mas cercana hacia arriba que tenga "meld" en el nombre)
+local function MeldRoot(inst)
+	local p, i = inst, 0
+	while p and p ~= Workspace and i < 12 do
+		if IsMeldName(p.Name) and (p:IsA("Model") or p:IsA("Folder") or p:IsA("BasePart")) then return p end
+		p, i = p.Parent, i + 1
+	end
+end
+local function UnderKeep(part, root)
+	local p, i = part, 0
+	while p and i < 12 do
+		if KeepName(p.Name) then return true end
+		if p == root then break end
+		p, i = p.Parent, i + 1
+	end
+	return false
+end
+
+local function MeldHidePart(part)
+	if part:IsA("BasePart") then
+		if not Meld.Orig[part] then Meld.Orig[part] = { T = part.Transparency, C = part.CanCollide, Touch = part.CanTouch } end
+		part.Transparency, part.CanCollide, part.CanTouch = 1, false, false
+	elseif part:IsA("ParticleEmitter") or part:IsA("Beam") or part:IsA("Trail") or part:IsA("Light") then
+		if not Meld.Orig[part] then Meld.Orig[part] = { En = part.Enabled } end
+		part.Enabled = false
+	elseif part:IsA("Decal") or part:IsA("Texture") then
+		if not Meld.Orig[part] then Meld.Orig[part] = { T = part.Transparency } end
+		part.Transparency = 1
+	end
+end
+
+local function MeldRestoreAll()
+	for obj, o in pairs(Meld.Orig) do
+		pcall(function()
+			if o.En ~= nil then obj.Enabled = o.En
+			elseif obj:IsA("BasePart") then obj.Transparency, obj.CanCollide, obj.CanTouch = o.T, o.C, o.Touch
+			else obj.Transparency = o.T end
+		end)
+		Meld.Orig[obj] = nil
+	end
+end
+
+local function MeldHandle(d)
+	-- Stop Growth: scripts y modulos con "meld" en el nombre
+	if Ex.MeldStopGrowth then
+		if (d:IsA("Script") or d:IsA("LocalScript")) and (IsMeldName(d.Name) or MeldRoot(d)) then
+			if Meld.Scripts[d] == nil then Meld.Scripts[d] = d.Disabled end
+			pcall(function() d.Disabled = true end)
+			if Cfg.Debug then print("[R4NS0M MELD] script disabled: " .. d:GetFullName()) end
+		elseif d:IsA("ModuleScript") and IsMeldName(d.Name) and not d.Name:find("_Disabled", 1, true) then
+			Meld.Scripts[d] = d.Name
+			pcall(function() d.Name = d.Name .. "_Disabled" end)
+			if Cfg.Debug then print("[R4NS0M MELD] module disabled: " .. d:GetFullName()) end
+		end
+	end
+	-- Remove Meld: oculta todo menos cuerdas y puertas
+	if Ex.MeldRemove and (d:IsA("BasePart") or d:IsA("ParticleEmitter") or d:IsA("Beam") or d:IsA("Trail") or d:IsA("Light") or d:IsA("Decal") or d:IsA("Texture")) then
+		local root = MeldRoot(d)
+		if root and not Players:GetPlayerFromCharacter(root) and not UnderKeep(d, root) then
+			MeldHidePart(d)
+		end
+	end
+end
+
+local function MeldScanAll()
+	task.spawn(function()
+		local n = 0
+		local scopes = { Workspace, RS, LocalPlayer:FindFirstChild("PlayerGui") }
+		for _, scope in ipairs(scopes) do
+			if scope then
+				for _, d in ipairs(scope:GetDescendants()) do
+					if not (Ex.MeldStopGrowth or Ex.MeldRemove) then return end
+					pcall(MeldHandle, d)
+					n = n + 1
+					if n % 300 == 0 then task.wait() end
+				end
+			end
+		end
+	end)
+end
+
+local function MeldRefresh()
+	if Ex.MeldStopGrowth or Ex.MeldRemove then
+		if not Meld.Conn then
+			Meld.Conn = Workspace.DescendantAdded:Connect(function(d) task.defer(pcall, MeldHandle, d) end)
+		end
+		MeldScanAll()
+		if not Meld.Loop then
+			Meld.Loop = true
+			task.spawn(function() -- el juego puede recrear / re-encender cosas: se repasa cada 3s
+				while Ex.MeldStopGrowth or Ex.MeldRemove do
+					task.wait(3)
+					MeldScanAll()
+				end
+				Meld.Loop = false
+			end)
+		end
+	else
+		if Meld.Conn then Meld.Conn:Disconnect(); Meld.Conn = nil end
+	end
+end
+
+Hooks.MeldStopGrowth = function(v)
+	if not v then
+		for obj, old in pairs(Meld.Scripts) do
+			pcall(function()
+				if typeof(old) == "string" then obj.Name = old else obj.Disabled = old end
+			end)
+			Meld.Scripts[obj] = nil
+		end
+	end
+	MeldRefresh()
+end
+Hooks.MeldRemove = function(v)
+	if not v then MeldRestoreAll() end
+	MeldRefresh()
+end
+
+-- mantiene el Reach / Clip en los prompts nuevos
+Workspace.DescendantAdded:Connect(function(d)
+	if d:IsA("ProximityPrompt") then
+		AI.Set[d] = true
+		if Ex.PromptReach ~= 1 or Ex.PromptClip then task.defer(pcall, ApplyReach, d) end
+		if Ex.InfiniteItems then task.delay(0.3, function() pcall(MakeFake, d) end) end
+	end
+end)
+task.spawn(function()
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("ProximityPrompt") then AI.Set[d] = true end
+	end
+end)
+Workspace.DescendantAdded:Connect(function(d)
+	if d.Name == "ElevatorBreaker" then HookBreaker(d) end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Interfaz
+-- ------------------------------------------------------------------------------------------
+AutomationTab:Section({ Title = "Abysall Automation" })
+AddToggle(AutomationTab, "AutoBreakerBox", "Auto Breaker Box",
+	"Automatically solves the elevator breaker box. Interact with it once and the rest is done for you.",
+	Ex.AutoBreakerBox, function(v) Apply("AutoBreakerBox", v) end)
+AddToggle(AutomationTab, "AutoInteract", "Auto Interact",
+	"Automatically triggers nearby prompts (items, gold, levers...). It skips hiding spots, locks, dropped items, glitch fragments and fake doors.",
+	Ex.AutoInteract, function(v) Ex.AutoInteract = v end)
+AddToggle(AutomationTab, "InfiniteItems", "Infinite Items",
+	"Lets the selected items open locks, vines and chests without losing uses. Needs fireproximityprompt. Works by hiding the real lock prompt and replacing it with a fake one, like Abysall.",
+	Ex.InfiniteItems, function(v) Apply("InfiniteItems", v) end)
+do
+	local dd = AutomationTab:Dropdown({
+		Title = "Infinite Items List",
+		Desc = "Items that will not be consumed while Infinite Items is on.",
+		Values = { "Lockpicks", "Skeleton Key", "Shears", "Multitool" },
+		Value = Ex.InfiniteItemsList,
+		Multi = true,
+		AllowNone = true,
+		Callback = function(selected)
+			local out = {}
+			for _, n in ipairs(selected or {}) do out[#out + 1] = n end
+			Ex.InfiniteItemsList = out
+		end
+	})
+	Setters.InfiniteItemsList = function(list) pcall(function() dd:Select(list) end) end
+end
+AutomationTab:Section({ Title = "Prompts" })
+AddSlider(AutomationTab, "PromptReach", "Prompt Reach Multiplier", "Multiplies how far away you can interact with prompts (1 = normal).", 1, 3, Ex.PromptReach, function(v) Apply("PromptReach", v) end)
+AddToggle(AutomationTab, "PromptClip", "Prompt Clip", "Lets you interact with prompts through walls.", Ex.PromptClip, function(v) Apply("PromptClip", v) end)
+
+MiscTab:Section({ Title = "Abysall Misc" })
+AddToggle(MiscTab, "DisableIdleKick", "Disable Idle Kick", "Prevents the kick for being idle for 20 minutes.", Ex.DisableIdleKick, function(v) Apply("DisableIdleKick", v) end)
+
+AntisTab:Section({ Title = "Meld (The Stairwell)" })
+AntisTab:Paragraph({
+	Title = "How Meld removal works",
+	Desc = "Both options work by name (anything called 'meld'). Stop Growth only disables Meld's scripts/modules, so its ropes and doors stay untouched. "
+		.. "Remove Meld hides the rest of its parts but always keeps ropes, cables, chains and doors. Turn on Debug Mode to print what was found.",
+})
+AddToggle(AntisTab, "MeldStopGrowth", "Stop Meld Growth", "Disables the scripts that make Meld grow. Ropes and doors are not removed.", Ex.MeldStopGrowth, function(v) Apply("MeldStopGrowth", v) end)
+AddToggle(AntisTab, "MeldRemove", "Remove Meld (keep ropes & doors)", "Hides Meld and removes its collision/touch, except its ropes and doors.", Ex.MeldRemove, function(v) Apply("MeldRemove", v) end)
 end)()
 
 AntiCheatTab:Section({ Title = "Mobile Buttons" })
@@ -4736,9 +5146,8 @@ FX.UpdateButtons()
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "AutoBreakerBox", "AutoSolveAnchors", "DoorReach", "DisableIdleKick", "NotifyLibraryCode", "MeldStopGrowth", "MeldRemove", 
-    "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
-    "Fullbright", "ACMMode", "VoidGuard", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
+    "Fullbright", "VoidGuard", "AutoBreakerBox", "InfiniteItems", "InfiniteItemsList", "AutoInteract", "PromptReach", "PromptClip", "DisableIdleKick", "MeldStopGrowth", "MeldRemove", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
 }
 
@@ -4763,7 +5172,6 @@ ExtraApply = function(data)
         end
         Setters.NotifyFilter(NotifySelected())
     end
-    if Ex.ACMMode ~= "Pivot" then Ex.ACMMode = "Velocity"; if Setters.ACMMode then Setters.ACMMode("Velocity") end end
     FX.UpdateButtons()
 end
 end
