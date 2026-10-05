@@ -392,7 +392,7 @@ local ENTITY_DEFS = {
     { "Creak", "Stairwell", { "creak" } },
     { "Noise", "*", { "noisemodel", "noise" } },
     { "Noise TV", "*", { "tvstand" } },
-    { "Stem", "Stairwell", { "stem", "stemmoving", "stemrig", "stemmodel", "stementity" } },
+    { "Stem", "Stairwell", { "stem", "stemmoving", "stemrig", "stemmodel", "stementity", "StemsEntity" } },
     { "Meld", "Stairwell", { "meld" } },
     { "Cobbler", "Stairwell", { "cobbler" } },
     { "Hijack", "Stairwell", { "hijack" } },
