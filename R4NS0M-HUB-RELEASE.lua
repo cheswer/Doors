@@ -567,7 +567,7 @@ local Cfg = {
         interactables = { Enabled = false, Color = Color3.fromHex("#7fffd4") },
         glitch     = { Enabled = false, Color = Color3.fromHex("#8100a6") },
         lotus      = { Enabled = false, Color = Color3.fromHex("#ff6ff7") },
-        scanner    = { Enabled = false, Color = Color3.fromHex("#00ffa2") },
+        scanner    = { Enabled = false, Color = Color3.fromHex("#a145ff") },
         stairs     = { Enabled = false, Color = Color3.fromHex("#ff5fa2") },
         exit       = { Enabled = false, Color = Color3.fromHex("#93ff85") },
         cart       = { Enabled = false, Color = Color3.fromHex("#6d77ff") },
