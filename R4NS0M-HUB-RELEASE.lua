@@ -253,7 +253,7 @@ ITEM_LOOKUP["scannermodule"] = "Scanner Module"
 ITEM_LOOKUP["modulescanner"] = "Scanner Module"
 do
     local PENDING_DEX_NAMES = {
-        ScannerModule = "", -- <<< nombre del Dex del modulo del Scanner (ej. "ScannerModuleItem")
+        ScannerModule = "Drive", -- <<< nombre del Dex del modulo del Scanner (ej. "ScannerModuleItem")
         AbrahamHat = "AbrahamHat",    -- <<< nombre del Dex del Abraham's Hat
     }
     if PENDING_DEX_NAMES.ScannerModule ~= "" then ITEM_LOOKUP[Norm(PENDING_DEX_NAMES.ScannerModule)] = "Scanner Module" end
