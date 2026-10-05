@@ -4802,12 +4802,100 @@ local AI_BLACKLIST = {
 	ToolEventPrompt = true, Prompt = true, PropPrompt = true, UnlockPrompt = true, SkullPrompt = true, LockPrompt = true,
 	ThingToEnable = true, FusesPrompt = true, LongPushPrompt = true, BigPropPrompt = true, PushPrompt = true,
 }
-local AI = { Last = 0, Set = setmetatable({}, { __mode = "k" }) }
+local AI = { Last = 0, Set = setmetatable({}, { __mode = "k" }), Static = setmetatable({}, { __mode = "k" }) }
+
+-- ------------------------------------------------------------------------------------------
+-- Ignorar asientos (sentarse) y cosas de Jeff / innecesarias.
+-- La actualizacion nueva cambia el nombre del prompt, asi que no se depende de un nombre exacto:
+-- se detecta por clase (Seat/VehicleSeat), por nombre, ActionText/ObjectText y por la cadena de padres.
+-- ------------------------------------------------------------------------------------------
+local AI_SIT_WORDS = { "sit", "seat", "chair", "sofa", "couch", "bench", "stool", "throne", "armchair", "recliner" }
+local AI_JEFF_WORDS = { "jeff", "shop", "purchase", "buy", "vendor", "merchant", "store", "cashier", "sell" }
+local AI_JUNK_WORDS = { "donate", "tithe", "dialogue", "talk", "revive", "emote", "dance", "gift" }
+
+local function AIHas(str, list)
+	if type(str) ~= "string" or str == "" then return false end
+	str = str:lower()
+	for _, w in ipairs(list) do
+		if str:find(w, 1, true) then return true end
+	end
+	return false
+end
+
+-- "sit" puede aparecer dentro de otras palabras (visit...): se comparan como palabra suelta
+local function AIWord(str, list)
+	if type(str) ~= "string" or str == "" then return false end
+	str = str:gsub("(%l)(%u)", "%1 %2"):gsub("[^%a]+", " "):lower()
+	for w in str:gmatch("%a+") do
+		for _, k in ipairs(list) do
+			if w == k or w == k .. "s" then return true end
+		end
+	end
+	return false
+end
+
+local function AIIsSeat(inst)
+	return inst:IsA("Seat") or inst:IsA("VehicleSeat")
+end
+
+local function AIStaticSkip(pp)
+	-- texto del prompt: "Sit", "Sentarse", etc.
+	local at, ot = pp.ActionText, pp.ObjectText
+	if AIWord(pp.Name, AI_SIT_WORDS) or AIWord(at, AI_SIT_WORDS) or AIWord(ot, AI_SIT_WORDS) then return true end
+	if type(at) == "string" and (at:lower():find("sent", 1, true) or at:lower():find("siénta", 1, true)) then return true end
+	if AIWord(pp.Name, AI_JEFF_WORDS) or AIWord(at, AI_JEFF_WORDS) or AIWord(ot, AI_JEFF_WORDS) then return true end
+	if AIWord(pp.Name, AI_JUNK_WORDS) or AIWord(at, AI_JUNK_WORDS) then return true end
+
+	-- el prompt puede estar en una parte que es un asiento, o junto/dentro de un modelo con asiento
+	local par = pp.Parent
+	if not par then return false end
+	if AIIsSeat(par) then return true end
+
+	-- cadena de padres (hasta 6 niveles): nombre de silla/sofa, atributos de Jeff/tienda, asiento hermano
+	local cur, depth = par, 0
+	while cur and cur ~= Workspace and depth < 6 do
+		if AIIsSeat(cur) then return true end
+		local n = cur.Name
+		if AIWord(n, AI_SIT_WORDS) or AIWord(n, AI_JEFF_WORDS) then return true end
+		if cur:GetAttribute("JeffShop") or cur:GetAttribute("Shop") or cur:GetAttribute("ShopItem") or cur:GetAttribute("Price") or cur:GetAttribute("Cost") then return true end
+		-- un asiento directamente dentro de este contenedor (silla = modelo con Seat) -> es prompt de sentarse
+		if depth <= 1 and not cur:IsA("Folder") then
+			for _, c in ipairs(cur:GetChildren()) do
+				if AIIsSeat(c) then return true end
+			end
+		end
+		cur = cur.Parent
+		depth = depth + 1
+	end
+	return false
+end
+
+-- Red de seguridad: si por cualquier motivo el personaje termina sentado, se levanta solo
+task.spawn(function()
+	while true do
+		task.wait(0.15)
+		if Ex.AutoInteract then
+			pcall(function()
+				local _, hum = GetParts()
+				if hum and hum.Sit and hum.SeatPart and (hum.SeatPart:IsA("Seat") or hum.SeatPart:IsA("VehicleSeat")) then
+					hum.Sit = false
+					hum:ChangeState(Enum.HumanoidStateType.Jumping)
+				end
+			end)
+		end
+	end
+end)
 
 local function AISkip(pp)
 	if AI_BLACKLIST[pp.Name] or pp:GetAttribute("FakePrompt") or pp:GetAttribute("AutoInteractIgnore") then return true end
 	local par = pp.Parent
 	if not par then return true end
+	local st = AI.Static[pp]
+	if st == nil then
+		st = AIStaticSkip(pp) and true or false
+		AI.Static[pp] = st
+	end
+	if st then return true end
 	local Drops = Workspace:FindFirstChild("Drops")
 	if Drops and pp:IsDescendantOf(Drops) then return true end
 	local n = par.Name
