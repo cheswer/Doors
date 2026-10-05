@@ -4958,6 +4958,7 @@ task.spawn(function()
 end)
 
 local function AISkip(pp)
+	if Ex.AIExtraSkip and Ex.AIExtraSkip(pp) then return true end
 	if AI_BLACKLIST[pp.Name] or pp:GetAttribute("FakePrompt") or pp:GetAttribute("AutoInteractIgnore") then return true end
 	local par = pp.Parent
 	if not par then return true end
@@ -5464,6 +5465,436 @@ end)
 AddToggle(AntiCheatTab, "BtnACM", "ACM Button", "Show the ACM floating button.", Ex.BtnACM, function(v) Ex.BtnACM = v; FX.UpdateButtons() end)
 AddToggle(AntiCheatTab, "BtnFly", "FLY Button", "Show the FLY floating button.", Ex.BtnFly, function(v) Ex.BtnFly = v; FX.UpdateButtons() end)
 
+print("[R4NS0M] Loading Batch 2")
+-- ============================================================================================
+-- BATCH 2
+--   Automation : Guess Library Code, Auto Steer Minecart, Auto Complete Dam Seek / Cringle, Auto Interact Ignore List
+--   Alerts     : Notify Library Code (texto abajo + aviso)
+--   Misc       : Revive
+-- ============================================================================================
+;(function()
+local RS = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local function Remotes() return RS:FindFirstChild("RemotesFolder") or RS:FindFirstChild("EntityInfo") or RS:FindFirstChild("Bricks") end
+local function Rooms() return Workspace:FindFirstChild("CurrentRooms") end
+local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
+local function CurRoom() return tonumber(LocalPlayer:GetAttribute("CurrentRoom")) or 0 end
+local function FloorName()
+	local gd = RS:FindFirstChild("GameData")
+	local f = gd and gd:FindFirstChild("Floor")
+	return f and f.Value or ""
+end
+
+Ex.NotifyLibraryCode = false
+Ex.GuessLibraryCode = false
+Ex.AutoSteerMinecart = false
+Ex.AIIgnore = {
+	["Jeff Items"] = true, ["Meld Chords"] = true, ["Share Gold Plate"] = true, ["Portraits"] = true,
+	["Terminals"] = true, ["Stems"] = true, ["Ladders"] = true, ["Locks (Key/Shears/Lockpick)"] = true,
+	["Chairs"] = true, ["Shopping Cart"] = true, ["Archives Box"] = true, ["Dropped Items"] = true,
+	["Cobbler Items"] = true, ["Stairwell Items/Salvage"] = true, ["Glitch Fragments"] = true,
+}
+
+-- ------------------------------------------------------------------------------------------
+-- Auto Interact: Ignore List (se enlaza desde AISkip por Ex.AIExtraSkip)
+-- Se decide por palabras en el nombre del prompt, sus textos y la cadena de padres (cache por prompt).
+-- ------------------------------------------------------------------------------------------
+local AICache = setmetatable({}, { __mode = "k" })
+local function Chain(pp)
+	local parts = { pp.Name, pp.ActionText, pp.ObjectText }
+	local cur, d = pp.Parent, 0
+	while cur and cur ~= Workspace and d < 8 do
+		parts[#parts + 1] = cur.Name
+		cur = cur.Parent
+		d = d + 1
+	end
+	return table.concat(parts, " "):lower(), parts
+end
+local function Words(str)
+	local out = {}
+	str = str:gsub("(%l)(%u)", "%1 %2"):gsub("[^%a]+", " "):lower()
+	for w in str:gmatch("%a+") do out[w] = true end
+	return out
+end
+local function Category(pp)
+	local flat, parts = Chain(pp)
+	local compact = flat:gsub("[^%a]", "")
+	local raw = table.concat(parts, " ")
+	local w = Words(raw)
+	if w.jeff or w.shop or compact:find("jeffshop", 1, true) then return "Jeff Items" end
+	if compact:find("meld", 1, true) and (compact:find("chord", 1, true) or w.chord or w.chords) then return "Meld Chords" end
+	if compact:find("tithing", 1, true) or compact:find("sharegold", 1, true) or compact:find("goldplate", 1, true) then return "Share Gold Plate" end
+	if w.portrait or w.portraits or w.painting then return "Portraits" end
+	if w.terminal or w.terminals then return "Terminals" end
+	if w.stem or w.stems then return "Stems" end
+	if w.ladder or w.ladders then return "Ladders" end
+	if compact:find("unlock", 1, true) or compact:find("skeletonkey", 1, true) or w.shears or w.lockpick or w.lockpicks then return "Locks (Key/Shears/Lockpick)" end
+	if w.chair or w.chairs or w.sofa or w.couch or w.seat or w.armchair then return "Chairs" end
+	if compact:find("shoppingcart", 1, true) then return "Shopping Cart" end
+	if compact:find("archive", 1, true) and (w.box or w.boxes or compact:find("box", 1, true)) then return "Archives Box" end
+	if w.cobbler or compact:find("cobbler", 1, true) then return "Cobbler Items" end
+	if w.salvage or w.scrap or w.scrapper then return "Stairwell Items/Salvage" end
+	if compact:find("glitchcube", 1, true) or compact:find("glitchfragment", 1, true) then return "Glitch Fragments" end
+	return false
+end
+Ex.AIExtraSkip = function(pp)
+	local c = AICache[pp]
+	if c == nil then
+		local ok, r = pcall(Category, pp)
+		c = ok and r or false
+		AICache[pp] = c
+	end
+	if c and Ex.AIIgnore[c] then return true end
+	if Ex.AIIgnore["Dropped Items"] then
+		local Drops = Workspace:FindFirstChild("Drops")
+		if Drops and pp:IsDescendantOf(Drops) then return true end
+	end
+	return false
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Library Code (papel + libros)
+-- ------------------------------------------------------------------------------------------
+local function GetLibraryCode()
+	local char = LocalPlayer.Character
+	local bp = LocalPlayer:FindFirstChild("Backpack")
+	local paper = (char and (char:FindFirstChild("LibraryHintPaper") or char:FindFirstChild("LibraryHintPaperHard")))
+		or (bp and (bp:FindFirstChild("LibraryHintPaper") or bp:FindFirstChild("LibraryHintPaperHard")))
+	local fools = FloorName() == "Fools"
+	local len = fools and 10 or 5
+	if not (paper and paper:FindFirstChild("UI")) then return nil, string.rep("_", len), len end
+	local perm = LocalPlayer.PlayerGui:FindFirstChild("PermUI")
+	local hints = perm and perm:FindFirstChild("Hints")
+	if not hints then return nil, string.rep("_", len), len end
+	local code = {}
+	for i = 1, len do code[i] = "_" end
+	for _, hint in ipairs(hints:GetChildren()) do
+		for _, ui in ipairs(paper.UI:GetChildren()) do
+			local idx = tonumber(ui.Name)
+			if hint:IsA("ImageLabel") and ui:IsA("ImageLabel") and idx and code[idx]
+				and hint.ImageRectOffset == ui.ImageRectOffset and hint:FindFirstChild("TextLabel") then
+				code[idx] = hint.TextLabel.Text
+			end
+		end
+	end
+	local s = table.concat(code)
+	return (not s:find("_", 1, true)) and s or nil, s, len
+end
+
+-- texto abajo en pantalla (mismo estilo que el aviso de oxigeno)
+local codeGui, codeLabel
+local function EnsureCodeLabel()
+	if codeLabel and codeLabel.Parent then return codeLabel end
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "R4NS0M_LibCode"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 50
+	pcall(function() gui.Parent = (gethui and gethui()) or game:GetService("CoreGui") end)
+	if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+	local l = Instance.new("TextLabel")
+	l.BackgroundTransparency = 1
+	l.AnchorPoint = Vector2.new(0.5, 1)
+	l.Position = UDim2.new(0.5, 0, 1, -90)
+	l.Size = UDim2.new(0.8, 0, 0, 34)
+	l.Font = Enum.Font.GothamBold
+	l.TextSize = 24
+	l.TextColor3 = Color3.new(1, 1, 1)
+	l.TextStrokeTransparency = 0.3
+	l.Visible = false
+	l.Parent = gui
+	codeGui, codeLabel = gui, l
+	return l
+end
+
+local libNotified = false
+task.spawn(function()
+	local lastRoom = 0
+	while true do
+		task.wait(0.4)
+		pcall(function()
+			local room = CurRoom()
+			if room < lastRoom - 5 then libNotified = false end -- nueva partida
+			lastRoom = room
+			if not Ex.NotifyLibraryCode then
+				if codeLabel then codeLabel.Visible = false end
+				return
+			end
+			local full, shown = GetLibraryCode()
+			local l = EnsureCodeLabel()
+			-- se quita al abrir la puerta 51 (cuando ya estas en la sala 51)
+			l.Visible = room < 51 and room >= 1
+			l.Text = "Library Code: " .. shown:gsub(".", "%0 ")
+			if full and not libNotified then
+				libNotified = true
+				Toast("Padlock code found!", "The code is: " .. full)
+			end
+		end)
+	end
+end)
+
+-- Guess Library Code: prueba codigos aleatorios con las cifras que ya conoces (solo sala 50)
+local Used, Tries = {}, 0
+task.spawn(function()
+	while true do
+		task.wait(0.05)
+		if Ex.GuessLibraryCode and CurRoom() == 50 then
+			pcall(function()
+				local rem = Remotes()
+				local pl = rem and rem:FindFirstChild("PL")
+				if not (pl and Workspace:FindFirstChild("Padlock", true)) then return end
+				local _, tpl = GetLibraryCode()
+				local code, n = nil, 0
+				repeat
+					code = tpl:gsub("_", function() return tostring(math.random(0, 9)) end)
+					n = n + 1
+				until not Used[code] or n >= 10
+				Used[code] = true
+				pl:FireServer(code)
+			end)
+		elseif next(Used) and CurRoom() < 45 then
+			Used = {}
+		end
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Revive (el remote sirve aunque el tiempo del boton ya se haya acabado)
+-- ------------------------------------------------------------------------------------------
+local function DoRevive()
+	local rem = Remotes()
+	local r = rem and rem:FindFirstChild("Revive")
+	if not r then Toast("Revive", "Remote not found.") return end
+	pcall(function() r:FireServer() end)
+	Toast("Revive", "Revive sent.")
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Auto Complete Cringle / Dam Seek
+-- ------------------------------------------------------------------------------------------
+local function CompleteCringle()
+	local rooms = Rooms()
+	local part = rooms and rooms:FindFirstChild("RippleExitDoor", true)
+	local char = LocalPlayer.Character
+	if part and char then
+		char:PivotTo(part:GetPivot())
+		Toast("Cringle", "Teleported to the exit.")
+	else
+		Toast("Cringle", "RippleExitDoor not found.")
+	end
+end
+
+local damBusy = false
+local function CompleteDam()
+	if damBusy then return end
+	local rooms = Rooms()
+	local char = LocalPlayer.Character
+	if not (rooms and char) then return end
+	local pumps = {}
+	for _, o in ipairs(rooms:GetDescendants()) do
+		if o.Name == "WaterPump" and o:IsA("Model") then pumps[#pumps + 1] = o end
+	end
+	if #pumps == 0 then Toast("Dam Seek", "No water pumps found. Be in room 100.") return end
+	damBusy = true
+	task.spawn(function()
+		local origin = char:GetPivot()
+		local cutscene = false
+		local rem = Remotes()
+		local conn
+		if rem and rem:FindFirstChild("Cutscene") then
+			conn = rem.Cutscene.OnClientEvent:Connect(function()
+				cutscene = true
+				task.wait(7)
+				cutscene = false
+			end)
+		end
+		Toast("Dam Seek", "Completing the valves, please wait.")
+		local done = {}
+		table.sort(pumps, function(a, b) return a:GetPivot().Y > b:GetPivot().Y end)
+		for _, pump in ipairs(pumps) do
+			local t0 = os.clock()
+			while pump.Parent and not done[pump] and os.clock() - t0 < 6 do
+				task.wait(0.1)
+				if not cutscene then
+					pcall(function() char:PivotTo(pump:GetPivot()) end)
+					local prompt = pump:FindFirstChild("ValvePrompt", true)
+					if prompt and prompt.Enabled and fireproximityprompt then
+						pcall(fireproximityprompt, prompt)
+					elseif not prompt or not prompt.Enabled then
+						done[pump] = true
+					end
+				end
+			end
+			done[pump] = true
+		end
+		if conn then conn:Disconnect() end
+		pcall(function() char:PivotTo(origin) end)
+		damBusy = false
+		Toast("Dam Seek", "Valves completed.")
+	end)
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Auto Steer Minecart (Seek, Mines piso 2): RunnerNodes -> giro por nodo + agacharse en DuckBoard
+-- ------------------------------------------------------------------------------------------
+local Cart = { Nodes = {}, Ducks = {}, Seen = setmetatable({}, { __mode = "k" }), Ducked = false, Nearest = nil }
+local TURN_DIST, DUCK_DIST = 30, 30
+
+local function IsBehind(p1, p2)
+	local a = (p1.CFrame + p1.CFrame.LookVector).Position
+	local b = (p1.CFrame + p1.CFrame.LookVector * -1).Position
+	return (a - p2.Position).Magnitude > (b - p2.Position).Magnitude
+end
+local function GetDirection(p1, p2)
+	local r = p1.CFrame.RightVector:Dot(p1.Position - p2.Position)
+	if r > 0.5 then return IsBehind(p1, p2) and "Right" or "Left" end
+	if r < -0.5 then return IsBehind(p1, p2) and "Left" or "Right" end
+	return "Straight"
+end
+local function NodeId(n) return tonumber(n.Name:split("MinecartNode")[2]) end
+
+local function SetupRunnerNodes(folder)
+	if Cart.Seen[folder] then return end
+	Cart.Seen[folder] = true
+	task.spawn(function()
+		local function closest(node)
+			local best, bd = nil, math.huge
+			local id = NodeId(node)
+			for _, o in ipairs(folder:GetChildren()) do
+				local oid = NodeId(o)
+				if o ~= node and oid and id and oid > id then
+					local d = (node.Position - o.Position).Magnitude
+					if d < bd and o:GetAttribute("DistanceBlacklist") ~= true then bd, best = d, o end
+				end
+			end
+			return best
+		end
+		for _, node in ipairs(folder:GetChildren()) do
+			local id = NodeId(node)
+			if node:GetAttribute("DeathType") then node:SetAttribute("DistanceBlacklist", true) end
+			for i = 1, 20 do
+				local nx = id and folder:FindFirstChild("MinecartNode" .. id + i)
+				if nx and nx:GetAttribute("DeathType") ~= nil then node:SetAttribute("DistanceBlacklist", true) end
+			end
+			local pv = id and folder:FindFirstChild("MinecartNode" .. id - 1)
+			if pv and pv:GetAttribute("ForceConnect") then node:SetAttribute("DistanceBlacklist", nil) end
+			task.wait()
+		end
+		for _, node in ipairs(folder:GetChildren()) do
+			if node:GetAttribute("ForceConnect") then
+				local nx = closest(node)
+				if nx then
+					node:SetAttribute("Turn", GetDirection(node, nx))
+					Cart.Nodes[#Cart.Nodes + 1] = node
+				end
+			end
+			task.wait()
+		end
+	end)
+end
+
+local function ScanCart(o)
+	if o.Name == "RunnerNodes" then SetupRunnerNodes(o)
+	elseif o.Name == "DuckBoard" then Cart.Ducks[#Cart.Ducks + 1] = o end
+end
+local function HookRooms()
+	local rooms = Rooms()
+	if not rooms then return end
+	for _, o in ipairs(rooms:GetDescendants()) do ScanCart(o) end
+	rooms.DescendantAdded:Connect(ScanCart)
+end
+task.spawn(function()
+	local rooms = Workspace:WaitForChild("CurrentRooms", 30)
+	if rooms then HookRooms() end
+end)
+
+local function InCart() return workspace.CurrentCamera and workspace.CurrentCamera:FindFirstChild("MinecartRig") ~= nil end
+local mainGame
+local function MainGame()
+	if mainGame then return mainGame end
+	pcall(function()
+		mainGame = require(LocalPlayer.PlayerGui:WaitForChild("MainUI").Initiator.Main_Game)
+	end)
+	return mainGame
+end
+
+-- sobrescribe el vector de movimiento solo mientras vas en el minecart
+pcall(function()
+	if not require then return end
+	local controls = require(LocalPlayer.PlayerScripts:WaitForChild("PlayerModule")):GetControls()
+	local orig = controls.GetMoveVector
+	controls.GetMoveVector = function(...)
+		if Ex.AutoSteerMinecart and Cart.Nearest and InCart() then
+			local turn = Cart.Nearest:GetAttribute("Turn")
+			return turn == "Left" and Vector3.new(-1, 0, 0) or turn == "Right" and Vector3.new(1, 0, 0) or Vector3.zero
+		end
+		return orig(...)
+	end
+end)
+
+local lastCart = 0
+RunService.Heartbeat:Connect(function()
+	if not Ex.AutoSteerMinecart or not InCart() or os.clock() - lastCart < 0.1 then return end
+	lastCart = os.clock()
+	local near, nd = nil, math.huge
+	for _, n in ipairs(Cart.Nodes) do
+		if n.Parent then
+			local d = LocalPlayer:DistanceFromCharacter(n.Position)
+			if d < TURN_DIST and d < nd then near, nd = n, d end
+		end
+	end
+	Cart.Nearest = near
+	local duck = false
+	for _, b in ipairs(Cart.Ducks) do
+		if b.Parent and b.PrimaryPart and LocalPlayer:DistanceFromCharacter(b.PrimaryPart.Position) < DUCK_DIST then duck = true break end
+	end
+	local mg = MainGame()
+	if mg and mg.crouch then
+		if duck and not Cart.Ducked then pcall(mg.crouch, true) Cart.Ducked = true
+		elseif not duck and Cart.Ducked then pcall(mg.crouch, false) Cart.Ducked = false end
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Interfaz
+-- ------------------------------------------------------------------------------------------
+AutomationTab:Section({ Title = "Floors" })
+AddToggle(AutomationTab, "AutoSteerMinecart", "Auto Steer Minecart", "Completes the Seek minecart chase (Mines floor 2): steers at each turn and crouches under boards.", Ex.AutoSteerMinecart, function(v) Ex.AutoSteerMinecart = v end)
+AutomationTab:Button({ Title = "Auto Complete Dam Seek", Desc = "Teleports to each water pump (highest first) and interacts with it, then returns you. Be in room 100.", Callback = CompleteDam })
+AutomationTab:Button({ Title = "Auto Complete Cringle", Desc = "Teleports you to the end of the quest.", Callback = CompleteCringle })
+
+AutomationTab:Section({ Title = "Library" })
+AddToggle(AutomationTab, "GuessLibraryCode", "Guess Library Code", "Tries random codes on the padlock in room 50, keeping the digits you already know. You still need to collect some books.", Ex.GuessLibraryCode, function(v) Ex.GuessLibraryCode = v end)
+
+AutomationTab:Section({ Title = "Auto Interact Ignore List" })
+do
+	local names = {}
+	for k in pairs(Ex.AIIgnore) do names[#names + 1] = k end
+	table.sort(names)
+	local defaults = {}
+	for _, k in ipairs(names) do defaults[#defaults + 1] = k end
+	AutomationTab:Dropdown({
+		Title = "Ignore List",
+		Desc = "Things Auto Interact will NOT touch. Detection is by name/text, so enable Debug Mode if something slips through.",
+		Values = names,
+		Value = defaults,
+		Multi = true,
+		AllowNone = true,
+		Callback = function(selected)
+			local set = {}
+			for _, n in ipairs(selected or {}) do set[n] = true end
+			Ex.AIIgnore = set
+		end,
+	})
+end
+
+AlertsTab:Section({ Title = "Library" })
+AddToggle(AlertsTab, "NotifyLibraryCode", "Notify Library Code", "Shows the 5 digits at the bottom of the screen (_ for the ones you don't have yet; you need the paper and the matching books). Hides when door 51 opens, and notifies when complete.", Ex.NotifyLibraryCode, function(v) Ex.NotifyLibraryCode = v if v then libNotified = false end end)
+
+MiscTab:Section({ Title = "Revive" })
+MiscTab:Button({ Title = "Revive", Desc = "Sends the revive request. Works even after the revive timer ran out (needs a revive available).", Callback = DoRevive })
+end)()
+
 print("[R4NS0M] Loaded more UI")
 print("[R4NS0M] Loading Keybinds Tab")
 ----------------------------------------------------
@@ -5528,7 +5959,7 @@ print("[R4NS0M] Loading Config presets")
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "NotifyLibraryCode", "GuessLibraryCode", "AutoSteerMinecart", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "VoidGuard", "AutoBreakerBox", "InfiniteItems", "InfiniteItemsList", "AutoInteract", "PromptReach", "PromptClip", "DisableIdleKick", "MeldStopGrowth", "MeldRemove", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "NotifyOxygen", "NotifyHaste", "NoClosetDelay", "NoAcceleration", "DoorReach", "NoFootsteps", "NoPromptSounds",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
