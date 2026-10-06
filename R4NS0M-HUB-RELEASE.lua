@@ -330,6 +330,8 @@ local OBJECTIVE_NAMES = {
     ["Sally's Toy"] = "Sally's Toy",
     SallysToy = "Sally's Toy",
     SallyToy = "Sally's Toy",
+    -- Dam Seek: Workspace.CurrentRooms.100._DamHandler.Flood#.Pumps.WaterPump (# = 1, 2 o 3)
+    WaterPump = "Water Pump",
 }
 local STARDUST_NAMES = { Stardust = "Stardust", StardustPickup = "Stardust" }
 
@@ -392,7 +394,7 @@ local ENTITY_DEFS = {
     { "Creak", "Stairwell", { "creak" } },
     { "Noise", "*", { "noisemodel", "noise" } },
     { "Noise TV", "*", { "tvstand" } },
-    { "Stem", "Stairwell", { "stem", "stemmoving", "stemrig", "stemmodel", "stementity", "StemsEntity" } },
+    { "Stem", "Stairwell", { "stem", "stemmoving", "stemrig", "stemmodel", "stementity", "stemsentity", "stems" } },
     { "Meld", "Stairwell", { "meld" } },
     { "Cobbler", "Stairwell", { "cobbler" } },
     { "Hijack", "Stairwell", { "hijack" } },
@@ -440,7 +442,7 @@ local function IsExcludedEntity(name)
 end
 
 STRICT_SKIP.__stem = { -- variantes de nombre de Stem (no es un local nuevo: el script esta cerca del limite de locales)
-    stem = true, stemmoving = true, stemrig = true, stemmodel = true, stementity = true, stemragdoll = true,
+    stem = true, stems = true, stemsentity = true, stemmoving = true, stemrig = true, stemmodel = true, stementity = true, stemragdoll = true,
     stemmonster = true, stemchase = true, stemmover = true, stemclient = true, stemfake = true, stemreal = true,
 }
 -- strict = true: solo coincidencia exacta (para modelos dentro de los cuartos)
@@ -1056,6 +1058,9 @@ local function Register(inst, cat, label, opts)
 
     if OnEntitySeen and (cat == "entities" or cat == "dupe") and opts and opts.Known then
         pcall(OnEntitySeen, opts.Key or label, inst)
+    end
+    if cat == "items" and Watch.OnItem then
+        pcall(Watch.OnItem, label, inst, opts and opts.Known, opts and opts.Key)
     end
 
     if Cfg.DebugVerbose then
@@ -1822,7 +1827,7 @@ local function Refresh()
             if ok then
                 local d = (part.Position - camPos).Magnitude
                 e.Dist = d
-                ok = cat == "entities" or d <= maxDist
+                ok = (cat == "entities" and e.Label ~= "Stem" and e.Label ~= "Drone" and e.Label ~= "Drones") or d <= maxDist
             end
             if ok then
                 n = n + 1
@@ -2569,11 +2574,11 @@ local Ex = {
     Noclip = false, Fullbright = false,
     -- Anticheat Manipulator
     ACM = false, VoidGuard = true, -- ACM ahora usa el metodo Velocity Manipulation
-    FloatButtons = UserInputService.TouchEnabled, BtnACM = true, BtnFly = true,
+    FloatButtons = UserInputService.TouchEnabled, BtnACM = true, BtnFly = true, BtnSpeedHack = true,
     -- Automation
     InstantPrompt = false,
     -- Keybinds (nombres de Enum.KeyCode)
-    Key_ACM = "X", Key_Noclip = "N", Key_Fly = "G", Key_Speed = "B", Key_Slide = "Z",
+    Key_ACM = "X", Key_Noclip = "N", Key_Fly = "G", Key_Speed = "B", Key_Slide = "Z", Key_SpeedHack = "C",
     Key_Hub = "RightShift", -- abrir / cerrar el hub
 }
 for _, n in ipairs(ENTITY_LIST) do Ex.NotifyFilter[n] = not NOT_WORTH[n] end
@@ -3277,6 +3282,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
     elseif k == Ex.Key_Noclip then Flip("Noclip", "Noclip")
     elseif k == Ex.Key_Fly then Flip("Fly", "Fly")
     elseif k == Ex.Key_Speed then Flip("Speed", "Speed")
+    elseif k == Ex.Key_SpeedHack then Flip("SpeedHack", "Speed Hack")
     elseif k == Ex.Key_Slide then DoSlide()
     elseif k == Ex.Key_PosSpoof then Flip("PositionSpoof", "Position Spoof") end
 end)
@@ -3332,6 +3338,7 @@ end
 
 MakeFloat("ACM", -70, function() Flip("ACM", "Anticheat Manipulator") end, function() return Ex.ACM end, "BtnACM")
 MakeFloat("FLY", 38, function() Flip("Fly", "Fly") end, function() return Ex.Fly end, "BtnFly")
+MakeFloat("SPD", 146, function() Flip("SpeedHack", "Speed Hack") end, function() return Ex.SpeedHack end, "BtnSpeedHack")
 
 function FX.UpdateButtons()
     for _, f in ipairs(Floating) do
@@ -5622,10 +5629,10 @@ task.spawn(function()
 			end
 			local full, shown = GetLibraryCode()
 			local l = EnsureCodeLabel()
-			-- se quita al abrir la puerta 51 (cuando ya estas en la sala 51)
-			l.Visible = room < 51 and room >= 1
+			-- solo en la puerta/sala 50: se quita al abrir la puerta 51
+			l.Visible = room == 50
 			l.Text = "Library Code: " .. shown:gsub(".", "%0 ")
-			if full and not libNotified then
+			if full and not libNotified and room == 50 then
 				libNotified = true
 				Toast("Padlock code found!", "The code is: " .. full)
 			end
@@ -5713,6 +5720,9 @@ local function CompleteDam()
 		table.sort(pumps, function(a, b) return a:GetPivot().Y > b:GetPivot().Y end)
 		for _, pump in ipairs(pumps) do
 			local t0 = os.clock()
+			local wheel = pump:FindFirstChild("Wheel")
+			local wsnd = wheel and wheel:FindFirstChild("Sound")
+			local pconn = wsnd and wsnd.Played:Connect(function() done[pump] = true end)
 			while pump.Parent and not done[pump] and os.clock() - t0 < 6 do
 				task.wait(0.1)
 				if not cutscene then
@@ -5725,6 +5735,7 @@ local function CompleteDam()
 					end
 				end
 			end
+			if pconn then pconn:Disconnect() end
 			done[pump] = true
 		end
 		if conn then conn:Disconnect() end
@@ -5895,6 +5906,367 @@ MiscTab:Section({ Title = "Revive" })
 MiscTab:Button({ Title = "Revive", Desc = "Sends the revive request. Works even after the revive timer ran out (needs a revive available).", Callback = DoRevive })
 end)()
 
+print("[R4NS0M] Loading Batch 3")
+-- ============================================================================================
+-- BATCH 3
+--   Player  : Infinite Jump tambien con el boton de saltar de DOORS (celular)
+--   Visuals : Show Seek Path / Show Eyestalk Path (Lines por defecto o Nodes)
+--   Alerts  : Notify Items (lista + unlisted)
+--   ESP     : Stem de Workspace.LiveEntities
+-- ============================================================================================
+;(function()
+local PathfindingService = game:GetService("PathfindingService")
+local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
+
+Ex.ShowSeekPath = false
+Ex.ShowEyestalkPath = false
+Ex.PathMode = "Lines"
+Ex.NotifyItems = false
+Ex.NotifyUnlistedItems = false
+Ex.NotifyItemFilter = {}
+for _, n in ipairs(ITEM_NAMES) do Ex.NotifyItemFilter[n] = true end
+
+-- ------------------------------------------------------------------------------------------
+-- Infinite Jump en celular: el boton de saltar de DOORS no dispara JumpRequest
+-- ------------------------------------------------------------------------------------------
+do
+	local lastBtn
+	local function DoJump()
+		if not Ex.InfJump then return end
+		local _, hum = GetParts()
+		if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+	end
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			pcall(function()
+				local ui = LocalPlayer.PlayerGui:FindFirstChild("MainUI")
+				local mf = ui and ui:FindFirstChild("MainFrame")
+				local mb = mf and mf:FindFirstChild("MobileButtons")
+				local jb = mb and mb:FindFirstChild("JumpButton")
+				if jb and jb ~= lastBtn then
+					lastBtn = jb
+					jb.MouseButton1Click:Connect(DoJump)
+					jb.Activated:Connect(DoJump)
+				end
+			end)
+		end
+	end)
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Seek / Eyestalk Path
+-- ------------------------------------------------------------------------------------------
+local PathRoot = Instance.new("Folder")
+PathRoot.Name = "R4NS0M_Paths"
+PathRoot.Parent = Workspace
+local Paths = {} -- key -> { kind, points, folder }
+
+local function PathColor(kind) return kind == "seek" and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(0, 255, 255) end
+local function Enabled(kind) return kind == "seek" and Ex.ShowSeekPath or Ex.ShowEyestalkPath end
+
+local function Erase(p)
+	if p.folder then p.folder:Destroy() p.folder = nil end
+end
+local function Render(p)
+	Erase(p)
+	if not Enabled(p.kind) or #p.points == 0 then return end
+	local f = Instance.new("Folder")
+	f.Name = "P"
+	f.Parent = PathRoot
+	p.folder = f
+	local color = PathColor(p.kind)
+	local lines = Ex.PathMode ~= "Nodes"
+	local prevAtt
+	for _, pos in ipairs(p.points) do
+		local part = Instance.new("Part")
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Position = pos
+		if lines then
+			part.Size = Vector3.one * 0.3
+			part.Transparency = 1
+		else
+			part.Shape = Enum.PartType.Ball
+			part.Size = Vector3.one * 1.5
+			part.Material = Enum.Material.Neon
+			part.Color = color
+			part.Transparency = 0.15
+		end
+		part.Parent = f
+		if lines then
+			local att = Instance.new("Attachment")
+			att.Parent = part
+			if prevAtt then
+				local b = Instance.new("Beam")
+				b.Attachment0 = prevAtt
+				b.Attachment1 = att
+				b.FaceCamera = true
+				b.Width0, b.Width1 = 0.25, 0.25
+				b.Brightness = 10
+				b.LightInfluence = 0
+				b.LightEmission = 1
+				b.Color = ColorSequence.new(color)
+				b.Parent = part
+			end
+			prevAtt = att
+		end
+	end
+end
+local function SetPath(key, kind, points)
+	local p = Paths[key]
+	if not p then p = { kind = kind } Paths[key] = p end
+	p.points = points
+	Render(p)
+end
+local function RedrawAll() for _, p in pairs(Paths) do Render(p) end end
+Ex.ClearSeekPaths = function()
+	for k, p in pairs(Paths) do
+		if p.kind == "seek" then Erase(p) Paths[k] = nil end
+	end
+end
+
+-- Seek: las luces guia (SeekGuidingLight) de cada cuarto, ordenadas siguiendo el camino mas cercano
+local function RoomOf(inst)
+	local rooms = Workspace:FindFirstChild("CurrentRooms")
+	local cur = inst
+	while cur and cur.Parent ~= rooms do cur = cur.Parent end
+	return cur
+end
+local seekToken = {}
+local function RebuildSeek(room)
+	if not room or not room.Parent then return end
+	local lights = {}
+	local folder = room:FindFirstChild("PathLights", true)
+	if folder then
+		-- orden real de aparicion de las luces (el juego las agrega en secuencia)
+		for _, d in ipairs(folder:GetChildren()) do
+			if d.Name == "SeekGuidingLight" then
+				local pos = d:IsA("BasePart") and d.Position or (d:IsA("Model") and d:GetPivot().Position)
+				if pos then lights[#lights + 1] = pos end
+			end
+		end
+		if #lights > 0 then
+			SetPath("seek:" .. room.Name, "seek", lights)
+			return
+		end
+	end
+	for _, d in ipairs(room:GetDescendants()) do
+		if d.Name == "SeekGuidingLight" then
+			local pos = d:IsA("BasePart") and d.Position or (d:IsA("Model") and d:GetPivot().Position)
+			if pos then lights[#lights + 1] = pos end
+		end
+	end
+	if #lights == 0 then return end
+	local entrance = room:FindFirstChild("RoomEntrance")
+	local start = entrance and entrance:IsA("BasePart") and entrance.Position or lights[1]
+	local ordered, cur = {}, start
+	while #lights > 0 do
+		local bi, bd = 1, math.huge
+		for i, p in ipairs(lights) do
+			local dd = (p - cur).Magnitude
+			if dd < bd then bi, bd = i, dd end
+		end
+		cur = table.remove(lights, bi)
+		ordered[#ordered + 1] = cur
+	end
+	SetPath("seek:" .. room.Name, "seek", ordered)
+end
+local function OnSeekLight(d)
+	if d.Name ~= "SeekGuidingLight" then return end
+	local room = RoomOf(d)
+	if not room then return end
+	seekToken[room] = (seekToken[room] or 0) + 1
+	local tok = seekToken[room]
+	task.delay(0.5, function()
+		if seekToken[room] == tok then pcall(RebuildSeek, room) end
+	end)
+end
+
+-- Eyestalk: camino calculado desde ti hasta RoomExit en cuartos "Eyestalk"
+local eyeBusy = setmetatable({}, { __mode = "k" })
+local function SetupEyestalk(room)
+	if eyeBusy[room] then return end
+	local raw = room:GetAttribute("RawName")
+	if not (type(raw) == "string" and raw:find("Eyestalk", 1, true)) then return end
+	eyeBusy[room] = true
+	task.spawn(function()
+		local exitPart = room:WaitForChild("RoomExit", 30)
+		room:WaitForChild("RoomEntrance", 30)
+		while room.Parent and not room:GetAttribute("PathFoundR4N") do
+			if Ex.ShowEyestalkPath and exitPart then
+				local char = LocalPlayer.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				if root then
+					local path = PathfindingService:CreatePath({
+						AgentCanJump = false, AgentCanClimb = false, WaypointSpacing = 2, AgentRadius = 1, AgentHeight = 1,
+					})
+					local ok = pcall(function() path:ComputeAsync(root.Position, exitPart.Position) end)
+					if ok and path.Status == Enum.PathStatus.Success then
+						room:SetAttribute("PathFoundR4N", true)
+						local pts = {}
+						for _, w in ipairs(path:GetWaypoints()) do pts[#pts + 1] = w.Position end
+						SetPath("eye:" .. room.Name, "eye", pts)
+						break
+					end
+				end
+			end
+			task.wait(0.5)
+		end
+	end)
+end
+
+task.spawn(function()
+	local rooms = Workspace:WaitForChild("CurrentRooms", 60)
+	if not rooms then return end
+	for _, d in ipairs(rooms:GetDescendants()) do OnSeekLight(d) end
+	for _, r in ipairs(rooms:GetChildren()) do SetupEyestalk(r) end
+	rooms.DescendantAdded:Connect(OnSeekLight)
+	rooms.ChildAdded:Connect(function(r)
+		task.wait(0.5)
+		SetupEyestalk(r)
+	end)
+	-- cuartos que se borran: se limpian sus caminos
+	rooms.ChildRemoved:Connect(function(r)
+		for _, pre in ipairs({ "seek:", "eye:" }) do
+			local p = Paths[pre .. r.Name]
+			if p then Erase(p) Paths[pre .. r.Name] = nil end
+		end
+	end)
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Stem: Workspace.LiveEntities.StemsEntity
+-- ------------------------------------------------------------------------------------------
+task.spawn(function()
+	local le = Workspace:WaitForChild("LiveEntities", 120)
+	if not le then return end
+	local function try(d)
+		if d:IsA("Model") and d.Name:lower():find("stem", 1, true) then
+			task.defer(function()
+				if Active.entities then pcall(RegisterEntityWhenReady, d, "Stem", true) end
+			end)
+		end
+	end
+	for _, d in ipairs(le:GetChildren()) do try(d) end
+	le.ChildAdded:Connect(try)
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Notify Items (se llama desde Register cuando se marca un item)
+-- ------------------------------------------------------------------------------------------
+local itemReady = os.clock() + 5 -- ignora lo que ya existia al cargar
+local itemSeen = setmetatable({}, { __mode = "k" })
+Watch.OnItem = function(label, inst, known, key)
+	if not Ex.NotifyItems or os.clock() < itemReady or itemSeen[inst] then return end
+	itemSeen[inst] = true
+	if known then
+		if not Ex.NotifyItemFilter[key or label] then return end
+	elseif not Ex.NotifyUnlistedItems then
+		return
+	end
+	local desc = ""
+	pcall(function()
+		local part = Tracked[inst] and Tracked[inst].Part
+		local char = LocalPlayer.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if part and root then desc = math.floor((part.Position - root.Position).Magnitude + 0.5) .. " studs away" end
+	end)
+	Toast(label .. " spawned", desc)
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Interfaz
+-- ------------------------------------------------------------------------------------------
+VisualsTab:Section({ Title = "Chase Paths" })
+AddToggle(VisualsTab, "ShowSeekPath", "Show Seek Path", "Draws the correct path during the Seek chase.", Ex.ShowSeekPath, function(v) Ex.ShowSeekPath = v RedrawAll() end)
+AddToggle(VisualsTab, "ShowEyestalkPath", "Show Eyestalk Path", "Draws the safe path to the exit in Eyestalk rooms (calculated from where you stand).", Ex.ShowEyestalkPath, function(v) Ex.ShowEyestalkPath = v RedrawAll() end)
+AddDropdown(VisualsTab, "PathMode", "Path Style", "Lines draws a continuous line; Nodes draws one ball per point.", { "Lines", "Nodes" }, Ex.PathMode, function(v)
+	if type(v) == "table" then v = v[1] end
+	Ex.PathMode = v or "Lines"
+	RedrawAll()
+end)
+
+AlertsTab:Section({ Title = "Items" })
+AddToggle(AlertsTab, "NotifyItems", "Notify Items", "Shows a notification when a selected item appears in the level.", Ex.NotifyItems, function(v) Ex.NotifyItems = v end)
+AddToggle(AlertsTab, "NotifyUnlistedItems", "Notify Unlisted Items", "Also notifies pickups that are not in the list below.", Ex.NotifyUnlistedItems, function(v) Ex.NotifyUnlistedItems = v end)
+do
+	local defaults = {}
+	for _, n in ipairs(ITEM_NAMES) do defaults[#defaults + 1] = n end
+	AlertsTab:Dropdown({
+		Title = "Items to notify",
+		Desc = "Pick which items trigger a notification.",
+		Values = ITEM_NAMES,
+		Value = defaults,
+		Multi = true,
+		AllowNone = true,
+		Callback = function(selected)
+			local map = {}
+			for _, n in ipairs(selected or {}) do map[n] = true end
+			Ex.NotifyItemFilter = map
+		end,
+	})
+end
+end)()
+
+print("[R4NS0M] Loading Batch 4")
+-- ============================================================================================
+-- BATCH 4: etiquetas vivas del ESP (Time Lever con su tiempo, Water Pump hecha) y limpieza del Seek Path
+-- ============================================================================================
+;(function()
+local hooked = setmetatable({}, { __mode = "k" })
+local used = setmetatable({}, { __mode = "k" })
+
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		pcall(function()
+			for inst, e in pairs(Tracked) do
+				local n = inst.Name
+				if n == "TimerLever" then
+					if not hooked[inst] then
+						hooked[inst] = true
+						local main = inst:FindFirstChild("Main")
+						local snd = main and main:FindFirstChild("SoundToPlay")
+						if snd then snd.Played:Once(function() used[inst] = true end) end
+					end
+					local label = "??:??"
+					if used[inst] then
+						label = "00:00"
+					else
+						local tt = inst:FindFirstChild("TakeTimer")
+						local tl = tt and tt:FindFirstChild("TextLabel")
+						local txt = tl and tl.Text
+						if type(txt) == "string" and txt:match("^%d%d:%d%d$") then label = txt end
+					end
+					e.Label = "Time Lever [" .. label .. "]"
+				elseif n == "WaterPump" then
+					if not hooked[inst] then
+						hooked[inst] = true
+						local wheel = inst:FindFirstChild("Wheel")
+						local snd = wheel and wheel:FindFirstChild("Sound")
+						if snd then snd.Played:Once(function() used[inst] = true end) end
+					end
+					e.Label = used[inst] and "Water Pump [Done]" or "Water Pump"
+				end
+			end
+		end)
+	end
+end)
+
+-- Seek Path: al terminar la persecucion se borra el camino dibujado
+Workspace.DescendantAdded:Connect(function(d)
+	if d.Name == "SeekMovingNewClone" then
+		d.Destroying:Once(function()
+			if Ex.ClearSeekPaths then pcall(Ex.ClearSeekPaths) end
+		end)
+	end
+end)
+end)()
+
 print("[R4NS0M] Loaded more UI")
 print("[R4NS0M] Loading Keybinds Tab")
 ----------------------------------------------------
@@ -5907,6 +6279,7 @@ AddKeybind(KeybindsTab, "Key_ACM", "Anticheat Manipulator", "Turns the Anticheat
 AddKeybind(KeybindsTab, "Key_Noclip", "Noclip", "Turns Noclip on or off.", Ex.Key_Noclip)
 AddKeybind(KeybindsTab, "Key_Fly", "Fly", "Turns Fly on or off.", Ex.Key_Fly)
 AddKeybind(KeybindsTab, "Key_Speed", "Speed Boost", "Turns Speed Boost on or off.", Ex.Key_Speed)
+AddKeybind(KeybindsTab, "Key_SpeedHack", "Speed Hack", "Turns Speed Hack (real walk speed) on or off. On mobile there is a floating SPD button.", Ex.Key_SpeedHack)
 AddKeybind(KeybindsTab, "Key_Slide", "Slide", "Does a slide (Slide must be enabled in the Player tab).", Ex.Key_Slide)
 AddKeybind(KeybindsTab, "Key_PosSpoof", "Position Spoof", "Turns Position Spoof on or off.", Ex.Key_PosSpoof)
 
@@ -5959,10 +6332,10 @@ print("[R4NS0M] Loading Config presets")
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "NotifyLibraryCode", "GuessLibraryCode", "AutoSteerMinecart", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "NotifyLibraryCode", "GuessLibraryCode", "AutoSteerMinecart", "ShowSeekPath", "ShowEyestalkPath", "PathMode", "NotifyItems", "NotifyUnlistedItems", "BtnSpeedHack", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "VoidGuard", "AutoBreakerBox", "InfiniteItems", "InfiniteItemsList", "AutoInteract", "PromptReach", "PromptClip", "DisableIdleKick", "MeldStopGrowth", "MeldRemove", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "NotifyOxygen", "NotifyHaste", "NoClosetDelay", "NoAcceleration", "DoorReach", "NoFootsteps", "NoPromptSounds",
-    "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_Slide", "Key_Hub",
+    "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_SpeedHack", "Key_Slide", "Key_Hub",
 }
 
 ExtraSerialize = function()
