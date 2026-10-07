@@ -121,26 +121,123 @@ print("[R4NS0M] Loading WindUI")
 ----------------------------------------------------
 -- LOAD WINDUI (con pcall)
 ----------------------------------------------------
-local okLib, WindUI = pcall(function()
-    return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
-end)
+local WindUI, Window = (function()
+    local env = (getgenv and getgenv()) or _G
 
-if not okLib or not WindUI then
-    warn("[R4NS0M] No se pudo cargar WindUI: " .. tostring(WindUI))
+    -- Stubs para ejecutores (sobre todo moviles) que no traen estas funciones.
+    -- WindUI las llama al cargar y daba "attempt to call a nil value".
+    local permanent = {
+        isfolder  = function() return false end,
+        makefolder = function() end,
+        cloneref  = function(o) return o end,
+        gethui    = function() return game:GetService("CoreGui") end,
+    }
+    local temporary = {
+        isfile    = function() return false end,
+        readfile  = function() return "" end,
+        writefile = function() end,
+        listfiles = function() return {} end,
+        delfile   = function() end,
+        delfolder = function() end,
+    }
+    local addedTemp = {}
+    for name, fn in pairs(permanent) do
+        if type(env[name]) ~= "function" then pcall(function() env[name] = fn end) end
+    end
+    for name, fn in pairs(temporary) do
+        if type(env[name]) ~= "function" then
+            local ok = pcall(function() env[name] = fn end)
+            if ok then addedTemp[#addedTemp + 1] = name end
+        end
+    end
+
+    local function notify(msg)
+        pcall(function()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "R4NS0M", Text = msg, Duration = 8
+            })
+        end)
+    end
+
+    local sources = {
+        "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua",
+        "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua",
+        "https://github.com/Footagesus/WindUI/releases/download/1.6.41/main.lua",
+    }
+
+    local function tryLoad(url)
+        local okGet, src = pcall(function() return game:HttpGet(url) end)
+        if not okGet or type(src) ~= "string" or #src < 1000 then
+            warn("[R4NS0M] HttpGet fallo: " .. url .. " -> " .. tostring(src))
+            return nil
+        end
+        local fn, cerr = loadstring(src)
+        if type(fn) ~= "function" then
+            warn("[R4NS0M] loadstring fallo: " .. url .. " -> " .. tostring(cerr))
+            return nil
+        end
+        local okRun, lib = pcall(fn)
+        if not okRun or type(lib) ~= "table" or type(lib.CreateWindow) ~= "function" then
+            warn("[R4NS0M] WindUI invalido: " .. url .. " -> " .. tostring(lib))
+            return nil
+        end
+        return lib
+    end
+
+    local function makeWindow(lib, icon, full)
+        local cfg = {
+            Title = "R4NS0M CD-1",
+            Icon = icon,
+            Author = "Team CHX",
+            Folder = "R4NS0M_Configs",
+            Size = UDim2.fromOffset(580, 460),
+            Theme = "Dark",
+        }
+        if full then
+            cfg.Transparent = true
+            cfg.SideBarWidth = 170
+            cfg.HasOutline = true
+        end
+        return pcall(function() return lib:CreateWindow(cfg) end)
+    end
+
+    local lib, win
+    for _, url in ipairs(sources) do
+        local candidate = tryLoad(url)
+        if candidate then
+            -- Intenta con la config completa, luego con otro icono, luego minima
+            local ok, w = makeWindow(candidate, IconAsset, true)
+            if not ok then
+                warn("[R4NS0M] CreateWindow fallo (config completa): " .. tostring(w))
+                ok, w = makeWindow(candidate, FALLBACK_ICON, true)
+            end
+            if not ok then
+                warn("[R4NS0M] CreateWindow fallo (icono fallback): " .. tostring(w))
+                ok, w = makeWindow(candidate, FALLBACK_ICON, false)
+            end
+            if ok and w then
+                lib, win = candidate, w
+                break
+            end
+            warn("[R4NS0M] CreateWindow fallo (config minima): " .. tostring(w))
+        end
+    end
+
+    for _, name in ipairs(addedTemp) do
+        pcall(function() env[name] = nil end)
+    end
+
+    if not lib or not win then
+        warn("[R4NS0M] No se pudo cargar WindUI desde ninguna fuente")
+        notify("No se pudo cargar la UI. Revisa tu internet/ejecutor y reintenta.")
+        return nil, nil
+    end
+    return lib, win
+end)()
+
+if not WindUI or not Window then
     return
 end
-
-local Window = WindUI:CreateWindow({
-    Title = "R4NS0M CD-1",
-    Icon = IconAsset,
-    Author = "Team CHX",
-    Folder = "R4NS0M_Configs",
-    Size = UDim2.fromOffset(580, 460),
-    Transparent = true,
-    Theme = "Dark",
-    SideBarWidth = 170,
-    HasOutline = true
-})
 
 -- Tabs (orden fijo)
 local MainTab       = Window:Tab({ Title = "Main",       Icon = "house" })
@@ -7351,8 +7448,13 @@ local configFolder = "R4NS0M_Configs"
 local codesFolder = "R4NS0M_Configs/Codes"
 
 if makefolder then
-    if not isfolder(configFolder) then makefolder(configFolder) end
-    if not isfolder(codesFolder) then makefolder(codesFolder) end
+    if isfolder then
+        if not isfolder(configFolder) then pcall(makefolder, configFolder) end
+        if not isfolder(codesFolder) then pcall(makefolder, codesFolder) end
+    else
+        pcall(makefolder, configFolder)
+        pcall(makefolder, codesFolder)
+    end
 end
 
 local selectedConfig = ""
