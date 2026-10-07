@@ -7380,7 +7380,8 @@ Ex.TimerStopOnDeath = true
 do
 	local FINAL_ROOM = { Hotel = 100, Mines = 200 }
 	local END_WORDS = { "ending", "finale", "final", "credits", "outro", "escape", "tobecontinued", "theend", "gameend" }
-	local END_UI = { "statistic", "credit", "tobecontinued", "continued", "victory", "endscreen" }
+	local END_UI = { "tobecontinued", "endscreen", "victory" }
+	local UIState = setmetatable({}, { __mode = "k" })
 	local function Cmp(s) return (tostring(s or ""):lower():gsub("[^%a]", "")) end
 
 	local function AutoFinish(reason)
@@ -7416,7 +7417,24 @@ do
 		end)
 	end)
 
-	-- 3) pantalla de fin (estadisticas / creditos / to be continued) y muerte
+	-- 2b) valores reales de GameData que cambian al terminar la run
+	task.spawn(function()
+		local gd = RS:WaitForChild("GameData", 30)
+		if not gd then return end
+		for _, nm in ipairs({ "FinalCutscene", "RunHasBeenEnded", "WinnerDecided" }) do
+			local v = gd:FindFirstChild(nm)
+			if v and v:IsA("ValueBase") then
+				v.Changed:Connect(function(val) if val == true then AutoFinish("game ended (" .. nm .. ")") end end)
+			end
+			if gd:GetAttribute(nm) ~= nil then
+				gd:GetAttributeChangedSignal(nm):Connect(function()
+					if gd:GetAttribute(nm) == true then AutoFinish("game ended (" .. nm .. ")") end
+				end)
+			end
+		end
+	end)
+
+	-- 3) pantalla de fin (To Be Continued) y muerte
 	task.spawn(function()
 		local deadSince
 		while true do
@@ -7440,7 +7458,9 @@ do
 									for _, w in ipairs(END_UI) do
 										if nm:find(w, 1, true) then
 											local vis = (c:IsA("ScreenGui") and c.Enabled) or (c:IsA("GuiObject") and c.Visible and c.AbsoluteSize.X > 0)
-											if vis then AutoFinish("end screen (" .. c.Name .. ")") return end
+											local was = UIState[c]
+											UIState[c] = vis and true or false
+											if vis and was == false then AutoFinish("end screen (" .. c.Name .. ")") return end
 										end
 									end
 								end
@@ -8058,11 +8078,11 @@ task.spawn(function()
 					if d:IsA("Model") and not Tracked[d] and not seenExtra[d] then
 						local c = B.Compact(d.Name)
 						-- puertas: cualquier modelo "door" que no sea falso ni parte de otro objeto ya marcado
-						if (c == "door" or c:find("stairwelldoor", 1, true) or c:find("cubbydoor", 1, true) or c:find("exitdoor", 1, true))
+						if (c == "door" or c:find("stairwelldoor", 1, true) or c:find("cubbydoor", 1, true) or c:find("exitdoor", 1, true) or c:find("creakdoor", 1, true))
 							and not c:find("fake", 1, true) and Active.doors and not HasTrackedAncestor(d) then
 							seenExtra[d] = true
 							local num = B.RoomOf(d)
-							local label = c:find("cubby", 1, true) and "Cubby Door" or ("Door" .. (num and (" " .. (num + 1)) or ""))
+							local label = c:find("cubby", 1, true) and "Cubby Door" or (c:find("creakdoor", 1, true) and "Creak Door") or ("Door" .. (num and (" " .. (num + 1)) or ""))
 							Register(d, "doors", label, { Part = GetPart(d), RoomNum = num })
 						end
 					elseif d:IsA("ProximityPrompt") and d.Enabled and not PROMPT_SKIP[d.Name] and not seenExtra[d] and d.Parent then
@@ -9011,7 +9031,7 @@ local ANTI = {
 	BypassDrones        = { tokens = { "drone" },              module = true },
 	BypassAlma          = { tokens = { "alma" },               module = false },
 	NoForgetMeNotDamage = { tokens = { "forgetmenot", "fmn" }, module = false },
-	NoScribblesDamage   = { tokens = { "scribbles", "a120" },  module = true },
+	NoScribblesDamage   = { tokens = { "scribble", "a120" },   module = true },
 	NoBashDamage        = { tokens = { "bash", "a60" },        module = true },
 	AntiNoise           = { tokens = { "noise" },              module = true },
 }
@@ -9049,7 +9069,7 @@ local function Engage(id, on)
 		local rf = Rem()
 		if rf then
 			for _, r in ipairs(rf:GetChildren()) do
-				if (r:IsA("RemoteEvent") or r:IsA("RemoteFunction")) and not s.rems[r] and Match(r.Name, cfg.tokens) then
+				if (r:IsA("BaseRemoteEvent") or r:IsA("RemoteFunction")) and not s.rems[r] and not Cmp(r.Name):find("exploiter", 1, true) and Match(r.Name, cfg.tokens) then
 					local fake = Instance.new(r.ClassName)
 					fake.Name = r.Name
 					s.rems[r] = fake
