@@ -273,6 +273,8 @@ local PlayerTab     = Window:Tab({ Title = "Player",     Icon = "user" })
 local AutomationTab = Window:Tab({ Title = "Automation", Icon = "zap" })
 local AntiCheatTab  = Window:Tab({ Title = "Anticheat", Icon = "shield" })
 local AntisTab      = Window:Tab({ Title = "Antis",      Icon = "ban" })
+ArchivesTab  = Window:Tab({ Title = "Archives",  Icon = "archive" }) -- global a proposito (limite de locales)
+StairwellTab = Window:Tab({ Title = "Stairwell", Icon = "layers" })  -- global a proposito (limite de locales)
 local AlertsTab     = Window:Tab({ Title = "Alerts",     Icon = "bell" })
 local MiscTab       = Window:Tab({ Title = "Misc",       Icon = "ellipsis" })
 local KeybindsTab   = Window:Tab({ Title = "Keybinds",   Icon = "keyboard" })
@@ -350,7 +352,7 @@ InfoTab:Paragraph({
     Title = "Where to find things",
     Desc = "Visuals: ESP, chase paths (Seek / Eyestalk) and lighting.\n"
         .. "Player: movement, speed, jump, fly, noclip.\n"
-        .. "Automation: Auto Interact (with ignore list), library code, minecart, Dam Seek, Cringle.\n"
+        .. "Automation: Auto Interact (with ignore list), library code, minecart, Dam Seek, Cringle. Stairwell and Archives tabs.\n"
         .. "Anticheat: position / crouch spoof and manipulation.\n"
         .. "Antis: entity bypasses and the Seek / Figure combos.\n"
         .. "Alerts: entity, item, library code and Ransom notifications.\n"
@@ -3734,6 +3736,7 @@ local Services = setmetatable({}, {
 local Globals = {}
 local Connections = {}
 local Functions = {}
+FX.Functions = Functions
 local Objects = { Entities = {}, SeekObstructions = {}, SeekBridges = {}, Obstructions = {} }
 
 -- Toggles / Options leen directamente el estado del hub (Ex)
@@ -4791,7 +4794,7 @@ AntisTab:Section({ Title = "Floor bypass" })
 AddToggle(AntisTab, "RemoveSeekTrigger", "Delete Seek Trigger", "Disables the 'Seek' chase trigger (Old Hotel / Fools).", Ex.RemoveSeekTrigger, function(v) Ex.RemoveSeekTrigger = v end)
 AddToggle(AntisTab, "RemoveFigure", "Delete Figure", "Completely removes the entity 'Figure' (doesn't always work).", Ex.RemoveFigure, function(v) Ex.RemoveFigure = v end)
 AddToggle(AntisTab, "AutoRevive", "Infinite Revives", "Automatically revives after dying, with unlimited respawns (Old Hotel / Fools).", Ex.AutoRevive, function(v) Ex.AutoRevive = v end)
-AddToggle(AntisTab, "FigureGodmode", "Figure Godmode", "Prevents 'Figure' from hurting you (Old Hotel / Fools).", Ex.FigureGodmode, function(v) Ex.FigureGodmode = v end)
+AddToggle(AntisTab, "FigureGodmode", "Figure Godmode", "Prevents 'Figure' from hurting you (all floors: underground spoof while a Figure is near).", Ex.FigureGodmode, function(v) Ex.FigureGodmode = v end)
 AddToggle(AntisTab, "RemoveBasementGate", "Remove Basement Gate", "Removes the gate from basement rooms.", Ex.RemoveBasementGate, function(v) Apply("RemoveBasementGate", v) end)
 AddToggle(AntisTab, "RemovePaintingsDoor", "Remove Paintings Door", "Removes the fireplace doors from painting rooms.", Ex.RemovePaintingsDoor, function(v) Apply("RemovePaintingsDoor", v) end)
 AddToggle(AntisTab, "RemoveSkeletonDoor", "Remove Skeleton Door", "Removes the skeleton door from the infirmary.", Ex.RemoveSkeletonDoor, function(v) Apply("RemoveSkeletonDoor", v) end)
@@ -5138,61 +5141,115 @@ task.spawn(function()
 	end
 end)
 
+-- Auto Interact: razones de salto (para depurar), cache con caducidad (antes un prompt quedaba ignorado para siempre
+-- si su nombre/texto/padre cambiaba), distancia real al prompt y tolerancia de sala
+AI.Reason = setmetatable({}, { __mode = "k" })
+AI.Fired = setmetatable({}, { __mode = "k" })
+local AI_TTL = 2.5
+
 local function AISkip(pp)
-	if Ex.AIExtraSkip and Ex.AIExtraSkip(pp) then return true end
-	if AI_BLACKLIST[pp.Name] or pp:GetAttribute("FakePrompt") or pp:GetAttribute("AutoInteractIgnore") then return true end
+	local function skip(r) AI.Reason[pp] = r return true end
+	if Ex.AIExtraSkip and Ex.AIExtraSkip(pp) then return skip("Ignore List (" .. tostring(Ex.AILastCat and Ex.AILastCat[pp] or "item/type") .. ")") end
+	if AI_BLACKLIST[pp.Name] then return skip("built-in blacklist: " .. pp.Name) end
+	if pp:GetAttribute("FakePrompt") or pp:GetAttribute("AutoInteractIgnore") then return skip("fake / AutoInteractIgnore") end
 	local par = pp.Parent
-	if not par then return true end
-	local st = AI.Static[pp]
-	if st == nil then
-		st = AIStaticSkip(pp) and true or false
-		AI.Static[pp] = st
+	if not par then return skip("no parent") end
+	local now = os.clock()
+	local ent = AI.Static[pp]
+	if ent == nil or now - ent.t > AI_TTL then
+		ent = { v = AIStaticSkip(pp) and true or false, t = now }
+		AI.Static[pp] = ent
 	end
-	if st then return true end
+	if ent.v then return skip("sit / Jeff-shop / junk filter") end
 	local Drops = Workspace:FindFirstChild("Drops")
-	if Drops and pp:IsDescendantOf(Drops) then return true end
+	if Drops and pp:IsDescendantOf(Drops) then return skip("dropped item") end
 	local n = par.Name
 	if n == "GlitchCube" or n == "TrackLever" or n == "Padlock" or n == "MinesAnchor" or n == "ElevatorBreaker"
-		or n == "KeyObtainFake" or n == "TithingPlate" then return true end
-	if par.Parent and (par.Parent.Name == "DoorFake" or par.Parent.Name == "FakeDoor" or par.Parent.Name == "IndustrialGate") then return true end
-	if par:GetAttribute("JeffShop") or par:GetAttribute("Locked") == true then return true end
-	if pp.Name == "ActivateEventPrompt" and pp.ActionText == "Close" then return true end
+		or n == "KeyObtainFake" or n == "TithingPlate" then return skip("special object: " .. n) end
+	if par.Parent and (par.Parent.Name == "DoorFake" or par.Parent.Name == "FakeDoor" or par.Parent.Name == "IndustrialGate") then return skip("fake door / gate") end
+	if par:GetAttribute("JeffShop") then return skip("Jeff shop") end
+	if par:GetAttribute("Locked") == true then return skip("locked") end
+	if pp.Name == "ActivateEventPrompt" and pp.ActionText == "Close" then return skip("close action") end
 	-- no recoger un item que ya tienes (llaves) ni vendas con la vida llena
-	if n == "KeyObtain" and (HasItem("Key") or HasItem("KeyBackdoor")) then return true end
-	if n == "ElectricalKeyObtain" and HasItem("KeyElectrical") then return true end
-	if n == "AlarmClock" and HasItem("AlarmClock") then return true end
+	if n == "KeyObtain" and (HasItem("Key") or HasItem("KeyBackdoor")) then return skip("you already have the key") end
+	if n == "ElectricalKeyObtain" and HasItem("KeyElectrical") then return skip("you already have the key") end
+	if n == "AlarmClock" and HasItem("AlarmClock") then return skip("you already have it") end
 	if n == "Bandage" then
 		local _, hum = GetParts()
-		if hum and hum.Health >= hum.MaxHealth and not HasItem("BandagePack") then return true end
+		if hum and hum.Health >= hum.MaxHealth and not HasItem("BandagePack") then return skip("full health") end
 	end
+	AI.Reason[pp] = nil
 	return false
 end
 
+Ex.AIWhy = function(pp)
+	if not pp.Enabled then return "prompt is disabled by the game" end
+	if AISkip(pp) then return "SKIPPED: " .. tostring(AI.Reason[pp]) end
+	local pr, cur = tonumber(pp:GetAttribute("ParentRoom")), tonumber(LocalPlayer:GetAttribute("CurrentRoom"))
+	if pr and cur and math.abs(pr - cur) > 1 then return "SKIPPED: belongs to room " .. pr .. " (you are in " .. cur .. ")" end
+	return "allowed"
+end
+
+-- distancia real del jugador al prompt (si el padre es un modelo se usa su parte mas cercana, no solo el pivote)
+local function AIDist(pp, rp)
+	local par = pp.Parent
+	if par:IsA("BasePart") then return (par.Position - rp).Magnitude end
+	if par:IsA("Attachment") then return (par.WorldPosition - rp).Magnitude end
+	if par:IsA("Model") then
+		local best = (par:GetPivot().Position - rp).Magnitude
+		if best > 70 then return best end
+		local k = 0
+		for _, c in ipairs(par:GetChildren()) do
+			if c:IsA("BasePart") then
+				local d = (c.Position - rp).Magnitude
+				if d < best then best = d end
+				k = k + 1
+				if k >= 24 then break end
+			end
+		end
+		return best
+	end
+	return math.huge
+end
+
 task.spawn(function()
+	local lastScan = 0
 	while true do
 		task.wait(0.1)
 		if Ex.AutoInteract and fireproximityprompt then
-			local _, _, root = GetParts()
-			if root then
-				local cur = LocalPlayer:GetAttribute("CurrentRoom")
+			pcall(function()
+				local _, _, root = GetParts()
+				if not root then return end
+				local cur = tonumber(LocalPlayer:GetAttribute("CurrentRoom"))
+				local rp = root.Position
+				local now = os.clock()
 				for pp in pairs(AI.Set) do
 					if not pp.Parent then
 						AI.Set[pp] = nil
-					elseif pp.Enabled and not AISkip(pp) then
-						local pr = pp:GetAttribute("ParentRoom")
-						if not (pr and cur and tonumber(pr) ~= tonumber(cur)) then
-							local par = pp.Parent
-							local pos
-							if par:IsA("BasePart") then pos = par.Position
-							elseif par:IsA("Attachment") then pos = par.WorldPosition
-							elseif par:IsA("Model") then pos = par:GetPivot().Position end
-							if pos and (pos - root.Position).Magnitude <= pp.MaxActivationDistance then
+					elseif pp.Enabled and (not AI.Fired[pp] or now - AI.Fired[pp] > 0.25) then
+						-- primero la distancia (barata) y despues los filtros
+						if AIDist(pp, rp) <= pp.MaxActivationDistance + 0.5 and not AISkip(pp) then
+							local pr = tonumber(pp:GetAttribute("ParentRoom"))
+							if not (pr and cur and math.abs(pr - cur) > 1) then
+								AI.Fired[pp] = now
 								pcall(fireproximityprompt, pp)
 							end
 						end
 					end
 				end
-			end
+				-- red de seguridad: si algun prompt se escapo del registro, se vuelve a escanear
+				if now - lastScan > 6 then
+					lastScan = now
+					task.spawn(function()
+						local k = 0
+						for _, d in ipairs(Workspace:GetDescendants()) do
+							if d:IsA("ProximityPrompt") then AI.Set[d] = true end
+							k = k + 1
+							if k % 600 == 0 then task.wait() end
+						end
+					end)
+				end
+			end)
 		end
 	end
 end)
@@ -5628,15 +5685,14 @@ AddToggle(MiscTab, "NoPromptSounds", "Remove Interacting Sounds", "Mutes the sou
 MiscTab:Section({ Title = "Misc" })
 AddToggle(MiscTab, "DisableIdleKick", "Disable Idle Kick", "Prevents the kick for being idle for 20 minutes.", Ex.DisableIdleKick, function(v) Apply("DisableIdleKick", v) end)
 
-FX.StairTab = FX.StairTab or Window:Tab({ Title = "Stairwell", Icon = "stairs" })
-FX.StairTab:Section({ Title = "Meld" })
-FX.StairTab:Paragraph({
+StairwellTab:Section({ Title = "Meld" })
+StairwellTab:Paragraph({
 	Title = "How Meld removal works",
 	Desc = "Both options work by name (anything called 'meld'). Stop Growth only disables Meld's scripts/modules, so its ropes and doors stay untouched. "
 		.. "Remove Meld hides the rest of its parts but always keeps ropes, cables, chains and doors. Turn on Debug Mode to print what was found.",
 })
-AddToggle(FX.StairTab, "MeldStopGrowth", "Stop Meld Growth", "Disables the scripts that make Meld grow. Ropes and doors are not removed.", Ex.MeldStopGrowth, function(v) Apply("MeldStopGrowth", v) end)
-AddToggle(FX.StairTab, "MeldRemove", "Remove Meld (keep ropes & doors)", "Hides Meld and removes its collision/touch, except its ropes and doors.", Ex.MeldRemove, function(v) Apply("MeldRemove", v) end)
+AddToggle(StairwellTab, "MeldStopGrowth", "Stop Meld Growth", "Disables the scripts that make Meld grow. Ropes and doors are not removed.", Ex.MeldStopGrowth, function(v) Apply("MeldStopGrowth", v) end)
+AddToggle(StairwellTab, "MeldRemove", "Remove Meld (keep ropes & doors)", "Hides Meld and removes its collision/touch, except its ropes and doors.", Ex.MeldRemove, function(v) Apply("MeldRemove", v) end)
 end)()
 
 AntiCheatTab:Section({ Title = "Mobile Buttons" })
@@ -5682,11 +5738,13 @@ Ex.AIIgnore = {
 -- Se decide por palabras en el nombre del prompt, sus textos y la cadena de padres (cache por prompt).
 -- ------------------------------------------------------------------------------------------
 local AICache = setmetatable({}, { __mode = "k" })
+local CHAIN_SKIP = { currentrooms = true, assets = true, interactables = true, misc = true, folder = true }
 local function Chain(pp)
 	local parts = { pp.Name, pp.ActionText, pp.ObjectText }
 	local cur, d = pp.Parent, 0
-	while cur and cur ~= Workspace and d < 8 do
-		parts[#parts + 1] = cur.Name
+	while cur and cur ~= Workspace and d < 6 do
+		local n = cur.Name
+		if not (CHAIN_SKIP[n:lower()] or tonumber(n)) then parts[#parts + 1] = n end
 		cur = cur.Parent
 		d = d + 1
 	end
@@ -5713,7 +5771,7 @@ local function Category(pp)
 	if compact:find("unlock", 1, true) or compact:find("skeletonkey", 1, true) or w.shears or w.lockpick or w.lockpicks then return "Locks (Key/Shears/Lockpick)" end
 	if w.chair or w.chairs or w.sofa or w.couch or w.seat or w.armchair then return "Chairs" end
 	if compact:find("shoppingcart", 1, true) then return "Shopping Cart" end
-	if compact:find("archive", 1, true) and (w.box or w.boxes or compact:find("box", 1, true)) then return "Archives Box" end
+	if (compact:find("archive", 1, true) or compact:find("honcho", 1, true)) and (w.box or w.boxes) then return "Archives Box" end
 	if w.cobbler or compact:find("cobbler", 1, true) then return "Cobbler Items" end
 	if w.salvage or w.scrap or w.scrapper then return "Stairwell Items/Salvage" end
 	if compact:find("glitchcube", 1, true) or compact:find("glitchfragment", 1, true) then return "Glitch Fragments" end
@@ -5730,26 +5788,37 @@ local function ItemOf(pp)
 	end
 	return false
 end
+local AICatT = setmetatable({}, { __mode = "k" })
+local AIItemT = setmetatable({}, { __mode = "k" })
+Ex.AILastCat = setmetatable({}, { __mode = "k" })
 Ex.AIExtraSkip = function(pp)
+	local now = os.clock()
 	local c = AICache[pp]
-	if c == nil then
+	if c == nil or now - (AICatT[pp] or 0) > 2.5 then
 		local ok, r = pcall(Category, pp)
 		c = ok and r or false
 		AICache[pp] = c
+		AICatT[pp] = now
 	end
-	if c and Ex.AIIgnore[c] then return true end
+	if c and Ex.AIIgnore[c] then Ex.AILastCat[pp] = c return true end
 	local it = AIItemCache[pp]
-	if it == nil then
+	if it == nil or now - (AIItemT[pp] or 0) > 2.5 then
 		local ok, r = pcall(ItemOf, pp)
 		it = ok and r or false
 		AIItemCache[pp] = it
+		AIItemT[pp] = now
 	end
-	if it and Ex.AIItemIgnore and Ex.AIItemIgnore[it] then return true end
+	if it and Ex.AIItemIgnore and Ex.AIItemIgnore[it] then Ex.AILastCat[pp] = "item: " .. it return true end
 	if Ex.AIIgnore["Dropped Items"] then
 		local Drops = Workspace:FindFirstChild("Drops")
-		if Drops and pp:IsDescendantOf(Drops) then return true end
+		if Drops and pp:IsDescendantOf(Drops) then Ex.AILastCat[pp] = "Dropped Items" return true end
 	end
 	return false
+end
+Ex.AIReset = function()
+	AI.Static = setmetatable({}, { __mode = "k" })
+	AICache = setmetatable({}, { __mode = "k" })
+	AIItemCache = setmetatable({}, { __mode = "k" })
 end
 
 -- ------------------------------------------------------------------------------------------
@@ -6597,8 +6666,8 @@ task.spawn(function()
 			local want = false
 			if Ex.AutoPositionSpoof and RushPresent() then want = true end
 			if Ex.BypassSeek and chase then want = true end
-			if Ex.BypassFigure and Functions.GetNearestFigure then
-				local ok, fig = pcall(Functions.GetNearestFigure)
+			if Ex.BypassFigure and FX.Functions and FX.Functions.GetNearestFigure then
+				local ok, fig = pcall(FX.Functions.GetNearestFigure)
 				if ok and fig then want = true end
 			end
 			if want and not Ex.PositionSpoof then
@@ -7295,218 +7364,365 @@ end)()
 print("[R4NS0M] Loading Batch 8")
 -- ============================================================================================
 -- BATCH 8
---   Stairwell : tab nueva (Meld movido aqui), TP Fire Alarm / Emergency Exit, Bring Noise TV,
---               Bring Stairwell Items, Open Cubby Doors
---   Antis     : No Bash / Scribbles / Forget-Me-Not / Drone damage (CanTouch), Figure Godmode en todos los pisos
+--   Core     : ayudas compartidas (FX.B8), HUD de texto abajo (mismo estilo que el oxigeno)
+--   Antis    : Bypass Drones, Anti Noise, No FMN Damage, Bypass Alma, No Scribbles/Bash Damage,
+--              Figure Godmode en TODOS los pisos
+--   Prompts  : Restore Prompts (boton + tecla)
+--   ESP      : arreglo del cubo Glitch transparente, puertas/items del Stairwell sin ESP
+--   Player   : Infinite Jump en celular (boton de DOORS), mas robusto
+--   Tabs     : Stairwell y Archives (ver partes siguientes)
+-- Nota: las partes de Archives/Stairwell que dependen de nombres internos que no estan confirmados usan
+-- deteccion por nombre/texto y tienen un boton "Dump" para imprimir lo que se encontro.
 -- ============================================================================================
 ;(function()
-local Players = game:GetService("Players")
+local B = {}
+FX.B8 = B
 local RS = game:GetService("ReplicatedStorage")
-local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
-local function RoomsF() return Workspace:FindFirstChild("CurrentRooms") end
+local UIS = game:GetService("UserInputService")
+local PPS = game:GetService("ProximityPromptService")
 
-FX.StairTab = FX.StairTab or Window:Tab({ Title = "Stairwell", Icon = "stairs" })
-local ST = FX.StairTab
+function B.Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
+function B.Rooms() return Workspace:FindFirstChild("CurrentRooms") end
+function B.CurRoom() return tonumber(LocalPlayer:GetAttribute("CurrentRoom")) or 0 end
+function B.FloorName()
+	local gd = RS:FindFirstChild("GameData")
+	local f = gd and gd:FindFirstChild("Floor")
+	return f and f.Value or ""
+end
+function B.Compact(s) return (tostring(s or ""):lower():gsub("[^%a]", "")) end
+function B.Has(s, token) return B.Compact(s):find(token, 1, true) ~= nil end
 
-Ex.NoBashDamage = false
-Ex.NoScribblesDamage = false
-Ex.NoForgetMeNotDamage = false
-Ex.NoDroneDamage = false
-
--- ------------------------------------------------------------------------------------------
--- Utilidades
--- ------------------------------------------------------------------------------------------
-local function PivotOf(inst)
-	if inst:IsA("Model") then return inst:GetPivot() end
-	if inst:IsA("BasePart") then return inst.CFrame end
-	if inst:IsA("Attachment") then return inst.WorldCFrame end
+-- numero de sala (hijo de CurrentRooms) que contiene a inst
+function B.RoomOf(inst)
+	local rooms = B.Rooms()
+	local p = inst
+	while p and p.Parent and p.Parent ~= rooms do p = p.Parent end
+	if rooms and p and p.Parent == rooms then return tonumber(p.Name), p end
+	return nil, nil
 end
 
--- el mas cercano a ti con ese nombre exacto dentro de CurrentRooms
-local function FindNearest(name)
-	local rooms = RoomsF()
-	local _, _, r = GetParts()
-	if not rooms or not r then return nil end
-	local best, bd = nil, math.huge
-	for _, d in ipairs(rooms:GetDescendants()) do
-		if d.Name == name then
-			local cf = PivotOf(d)
-			if cf then
-				local dist = (cf.Position - r.Position).Magnitude
-				if dist < bd then best, bd = d, dist end
+function B.PosOf(inst)
+	if not inst then return nil end
+	if inst:IsA("BasePart") then return inst.Position end
+	if inst:IsA("Attachment") then return inst.WorldPosition end
+	if inst:IsA("Model") then
+		local ok, cf = pcall(inst.GetPivot, inst)
+		if ok and cf then return cf.Position end
+	end
+	local part = GetPart(inst)
+	return part and part.Position or nil
+end
+
+function B.Dist(inst)
+	local _, _, root = GetParts()
+	local p = B.PosOf(inst)
+	if root and p then return (p - root.Position).Magnitude end
+	return math.huge
+end
+
+function B.Teleport(pos)
+	local char, _, root = GetParts()
+	if not (char and root) then return false end
+	local dir = root.Position - pos
+	dir = Vector3.new(dir.X, 0, dir.Z)
+	local off = dir.Magnitude > 0.1 and dir.Unit * 3 or Vector3.new(0, 0, 3)
+	char:PivotTo(CFrame.new(pos + off + Vector3.new(0, 3, 0)))
+	return true
+end
+
+-- Recorre CurrentRooms sin congelar el juego; pred(d) -> true para guardar
+function B.Find(pred, root)
+	local out = {}
+	root = root or B.Rooms()
+	if not root then return out end
+	local n = 0
+	for _, d in ipairs(root:GetDescendants()) do
+		local ok, hit = pcall(pred, d)
+		if ok and hit then out[#out + 1] = d end
+		n = n + 1
+		if n % 600 == 0 then task.wait() end
+	end
+	return out
+end
+
+-- Clic generico a un boton de la interfaz del juego
+function B.Click(btn)
+	if not btn then return false end
+	local done = false
+	pcall(function()
+		if firesignal then
+			firesignal(btn.MouseButton1Click)
+			firesignal(btn.Activated)
+			done = true
+		end
+	end)
+	if not done and getconnections then
+		pcall(function()
+			for _, sig in ipairs({ btn.MouseButton1Click, btn.Activated, btn.MouseButton1Down }) do
+				for _, c in ipairs(getconnections(sig)) do
+					pcall(c.Fire, c)
+					done = true
+				end
 			end
+		end)
+	end
+	return done
+end
+
+-- Texto abajo en pantalla (mismo estilo/tamano que el aviso de oxigeno). y = posicion vertical (0-1)
+local huds = {}
+function B.SetHud(id, y, text)
+	if text and text ~= "" then
+		local h = huds[id]
+		if not (h and h.Label.Parent) then
+			local g = Instance.new("ScreenGui")
+			g.Name = "R4NS0M_Hud_" .. id
+			g.ResetOnSpawn = false
+			g.IgnoreGuiInset = true
+			g.DisplayOrder = 50
+			local l = Instance.new("TextLabel")
+			l.BackgroundTransparency = 1
+			l.AnchorPoint = Vector2.new(0.5, 1)
+			l.Position = UDim2.new(0.5, 0, y, 0)
+			l.Size = UDim2.new(0.8, 0, 0, 34)
+			l.Font = Enum.Font.GothamBold
+			l.TextSize = 24
+			l.TextColor3 = Color3.new(1, 1, 1)
+			l.TextStrokeTransparency = 0.3
+			l.Visible = false
+			l.Parent = g
+			pcall(function() g.Parent = (gethui and gethui()) or game:GetService("CoreGui") end)
+			if not g.Parent then g.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+			h = { Gui = g, Label = l }
+			huds[id] = h
+		end
+		h.Label.Text = text
+		h.Label.Visible = true
+	elseif huds[id] then
+		huds[id].Label.Visible = false
+	end
+end
+
+-- Imprime (y copia) un texto de diagnostico
+function B.Out(title, lines)
+	local text = "[R4NS0M] " .. title .. "\n" .. table.concat(lines, "\n")
+	print(text)
+	pcall(function() if setclipboard then setclipboard(text) end end)
+	B.Toast(title, #lines .. " lines printed to the console" .. (setclipboard and " and copied." or "."))
+end
+
+function B.Describe(inst)
+	local s = inst:GetFullName() .. " [" .. inst.ClassName .. "]"
+	local ok, attrs = pcall(inst.GetAttributes, inst)
+	if ok and attrs then
+		local bits = {}
+		for k, v in pairs(attrs) do bits[#bits + 1] = k .. "=" .. tostring(v) end
+		if #bits > 0 then s = s .. " {" .. table.concat(bits, ", ") .. "}" end
+	end
+	if inst:IsA("TextLabel") or inst:IsA("TextButton") then s = s .. ' text="' .. tostring(inst.Text) .. '"' end
+	if inst:IsA("ValueBase") then s = s .. " value=" .. tostring(inst.Value) end
+	if inst:IsA("ProximityPrompt") then s = s .. ' action="' .. inst.ActionText .. '" object="' .. inst.ObjectText .. '"' end
+	return s
+end
+
+-- categoria de ESP disponible en el modo actual (la primera de la lista que exista)
+function B.PickCat(list)
+	for _, c in ipairs(list) do
+		if Active[c] then return c end
+	end
+	return nil
+end
+
+-- Registra algo en el ESP con una etiqueta; devuelve true si quedo registrado
+function B.Reg(inst, cats, label, key)
+	local cat = B.PickCat(cats)
+	if not cat or Tracked[inst] then return Tracked[inst] ~= nil end
+	local part = GetPart(inst)
+	if not part then return false end
+	Register(inst, cat, label, { Known = key ~= nil, Key = key })
+	return Tracked[inst] ~= nil
+end
+end)()
+
+-- ============================================================================================
+-- ANTIS nuevos: se neutralizan las partes de la entidad (CanTouch / colision) y se anula el ragdoll
+-- ============================================================================================
+;(function()
+local B = FX.B8
+local Players = game:GetService("Players")
+
+Ex.BypassDrones = false
+Ex.AntiNoise = false
+Ex.NoForgetMeNotDamage = false
+Ex.BypassAlma = false
+Ex.NoScribblesDamage = false
+Ex.NoBashDamage = false
+
+-- test recibe el nombre compacto (solo letras, minusculas)
+local KINDS = {
+	{ id = "BypassDrones", name = "Drone", collide = true,
+		test = function(c) return c:find("drone", 1, true) ~= nil end },
+	{ id = "NoForgetMeNotDamage", name = "Forget-Me-Not",
+		test = function(c) return c:find("forgetmenot", 1, true) ~= nil end },
+	{ id = "BypassAlma", name = "Alma", collide = true,
+		test = function(c) return c:find("^alma") ~= nil and not c:find("almanac", 1, true) end },
+	{ id = "NoScribblesDamage", name = "Scribbles", spoof = true,
+		test = function(c) return c:find("^scribbles") ~= nil end },
+	{ id = "NoBashDamage", name = "Bash", spoof = true,
+		test = function(c) return c:find("^bash") ~= nil end },
+	{ id = "AntiNoise", name = "Noise", mute = true, hide = true,
+		test = function(c) return c == "noisemodel" or c == "noise" or c == "tvstand" end },
+}
+
+local Reg = {} -- modelo -> { k = tipo, Orig = { parte -> {touch, collide, transparency} }, Sounds = {}, Conn }
+
+local function HandleObj(e, d, on)
+	local k = e.k
+	if d:IsA("BasePart") then
+		if on then
+			if not e.Orig[d] then e.Orig[d] = { d.CanTouch, d.CanCollide, d.Transparency } end
+			d.CanTouch = false
+			if k.collide then d.CanCollide = false end
+			if k.hide then d.Transparency = 1 end
+		else
+			local o = e.Orig[d]
+			if o and d.Parent then d.CanTouch, d.CanCollide, d.Transparency = o[1], o[2], o[3] end
+			e.Orig[d] = nil
+		end
+	elseif k.mute and d:IsA("Sound") then
+		if on then
+			if e.Sounds[d] == nil then e.Sounds[d] = d.Volume end
+			d.Volume = 0
+		else
+			if e.Sounds[d] ~= nil and d.Parent then d.Volume = e.Sounds[d] end
+			e.Sounds[d] = nil
+		end
+	end
+end
+
+local function ApplyEntry(m, e)
+	local on = Ex[e.k.id] == true
+	pcall(HandleObj, e, m, on)
+	for _, d in ipairs(m:GetDescendants()) do pcall(HandleObj, e, d, on) end
+	if on and not e.Conn then
+		e.Conn = m.DescendantAdded:Connect(function(d)
+			if Ex[e.k.id] then task.defer(pcall, HandleObj, e, d, true) end
+		end)
+	elseif not on and e.Conn then
+		e.Conn:Disconnect()
+		e.Conn = nil
+	end
+end
+
+local function Consider(d)
+	if Reg[d] or not (d:IsA("Model") or (d:IsA("BasePart") and not d.Parent:IsA("Model"))) then return end
+	if #d.Name > 40 then return end
+	local char = LocalPlayer.Character
+	if char and d:IsDescendantOf(char) then return end
+	if Players:GetPlayerFromCharacter(d) then return end
+	local c = B.Compact(d.Name)
+	if c == "" then return end
+	for _, k in ipairs(KINDS) do
+		if k.test(c) then
+			local e = { k = k, Orig = {}, Sounds = {} }
+			Reg[d] = e
+			d.AncestryChanged:Connect(function(_, p) if not p then Reg[d] = nil end end)
+			if Ex[k.id] then ApplyEntry(d, e) end
+			return
+		end
+	end
+end
+
+Workspace.DescendantAdded:Connect(function(d) pcall(Consider, d) end)
+task.spawn(function()
+	local n = 0
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		pcall(Consider, d)
+		n = n + 1
+		if n % 500 == 0 then task.wait() end
+	end
+end)
+
+for _, k in ipairs(KINDS) do
+	Hooks[k.id] = function()
+		for m, e in pairs(Reg) do
+			if e.k == k and m.Parent then pcall(ApplyEntry, m, e) end
+		end
+	end
+end
+
+-- distancia a la entidad registrada mas cercana de un tipo (solo si esta activa)
+local function Nearest(id)
+	local best = math.huge
+	for m, e in pairs(Reg) do
+		if e.k.id == id and m.Parent and m:GetAttribute("Inactive") ~= true then
+			local d = B.Dist(m)
+			if d < best then best = d end
 		end
 	end
 	return best
 end
+B.NearestKind = Nearest
 
-local function TpTo(inst, label)
-	local _, _, root = GetParts()
-	if not root then return end
-	if not inst then Toast(label, "Not found. Be in a Stairwell room first.") return end
-	local cf = PivotOf(inst)
-	if cf then root.CFrame = cf + Vector3.new(0, 4, 0) end
-end
-
--- ------------------------------------------------------------------------------------------
--- Stairwell tab
--- ------------------------------------------------------------------------------------------
-ST:Section({ Title = "Teleports" })
-ST:Button({ Title = "TP to Fire Alarm", Desc = "Teleports to the Fire Alarm lever (Assets.Switches.StairwellFireAlarm).",
-	Callback = function() TpTo(FindNearest("StairwellFireAlarm"), "Fire Alarm") end })
-ST:Button({ Title = "TP to Emergency Exit", Desc = "Teleports to the emergency exit sign (Assets.ExitSignStairwell).",
-	Callback = function() TpTo(FindNearest("ExitSignStairwell"), "Emergency Exit") end })
-
-ST:Section({ Title = "Bring" })
-ST:Button({ Title = "Bring Noise TV", Desc = "Moves the Noise TV (Assets.TV_Stand) in front of you. Client side only.",
-	Callback = function()
-		local tv = FindNearest("TV_Stand")
-		local _, _, root = GetParts()
-		if not tv or not root then Toast("Noise TV", "Not found in the current rooms.") return end
-		local ok = pcall(function()
-			local target = root.CFrame * CFrame.new(0, 0, -6)
-			if tv:IsA("Model") then tv:PivotTo(target) else tv.CFrame = target end
-		end)
-		if not ok then Toast("Noise TV", "Could not move it.") end
-	end })
-
--- Items del Stairwell: prompts de recoger que NO sean Stems, puertas, palancas, escaleras, terminales ni Meld
-local BRING_BAD = { "stem", "door", "lever", "ladder", "meld", "terminal", "cart", "scrapper", "crusher", "plate", "portrait", "gate", "lock" }
-local BRING_GOOD = { "collect", "take", "pick", "grab", "salvage", "loot", "recoger", "agarrar" }
-local function HasAny(str, list)
-	if type(str) ~= "string" then return false end
-	str = str:lower()
-	for _, w in ipairs(list) do if str:find(w, 1, true) then return true end end
-	return false
-end
-ST:Button({ Title = "Bring Stairwell Items", Desc = "Moves loose Stairwell items and Drives to you (never Stems). Matched by prompt text, so tell me any item it misses.",
-	Callback = function()
-		local rooms = RoomsF()
-		local _, _, root = GetParts()
-		if not rooms or not root then return end
-		local moved = 0
-		for _, pp in ipairs(rooms:GetDescendants()) do
-			if pp:IsA("ProximityPrompt") and pp.Enabled then
-				local par = pp.Parent
-				local item = par and (par:IsA("Model") and par or (par.Parent and par.Parent:IsA("Model") and par.Parent ~= rooms and par.Parent) or par)
-				local chainName = (item and item.Name or "") .. "|" .. (par and par.Name or "")
-				local isDrive = chainName:lower():find("drive", 1, true) ~= nil
-				local pickup = HasAny(pp.ActionText, BRING_GOOD) or HasAny(pp.ObjectText, BRING_GOOD) or isDrive
-				if item and pickup and not HasAny(chainName, BRING_BAD) and not HasAny(pp.ObjectText, { "stem" })
-					and not Players:GetPlayerFromCharacter(item) then
-					local ok = pcall(function()
-						local target = root.CFrame * CFrame.new(math.random(-3, 3), 0, -4)
-						if item:IsA("Model") then item:PivotTo(target) elseif item:IsA("BasePart") then item.CFrame = target end
-					end)
-					if ok then moved = moved + 1 end
-				end
-			end
-		end
-		Toast("Bring Items", moved .. " item(s) moved to you.")
-	end })
-
-ST:Section({ Title = "Doors" })
-ST:Button({ Title = "Open all Cubby Doors", Desc = "Fires every enabled prompt whose model/parent is called 'cubby'. Needs to be in range of the prompts.",
-	Callback = function()
-		local rooms = RoomsF()
-		if not rooms or not fireproximityprompt then return end
-		local n = 0
-		for _, pp in ipairs(rooms:GetDescendants()) do
-			if pp:IsA("ProximityPrompt") and pp.Enabled then
-				local cur, hit, depth = pp.Parent, false, 0
-				while cur and cur ~= rooms and depth < 5 do
-					if cur.Name:lower():find("cubby", 1, true) then hit = true break end
-					cur, depth = cur.Parent, depth + 1
-				end
-				if hit and pcall(fireproximityprompt, pp) then n = n + 1 end
-			end
-		end
-		Toast("Cubby Doors", n .. " prompt(s) fired.")
-	end })
-
--- ------------------------------------------------------------------------------------------
--- No Damage (Bash / Scribbles / Forget-Me-Not / Drones)
---   Se quita CanTouch a las partes de esas entidades (mismo metodo que Bypass Jeff / Banana).
---   Experimental: solo sirve si el dano del juego es por toque.
--- ------------------------------------------------------------------------------------------
-local NO_DMG = {
-	NoBashDamage       = { "bash", "bashmoving", "bashrig", "bashmodel", "bashentity", "a60" },
-	NoScribblesDamage  = { "scribbles", "scribblesmoving", "scribblesrig", "a120" },
-	NoForgetMeNotDamage = { "forgetmenot", "forgetmenots", "forgetmenotentity" },
-	NoDroneDamage      = { "drone", "drones", "dronemoving", "dronerig" },
-}
-local touched = setmetatable({}, { __mode = "k" }) -- part -> CanTouch original
-local function MatchFlag(name)
-	local n = name:lower():gsub("[%s_%-]", "")
-	for flag, list in pairs(NO_DMG) do
-		for _, w in ipairs(list) do if n == w then return flag end end
-	end
-end
-local function DisableTouch(model, on)
-	for _, d in ipairs(model:GetDescendants()) do
-		if d:IsA("BasePart") then
-			if on then
-				if touched[d] == nil then touched[d] = d.CanTouch end
-				d.CanTouch = false
-			elseif touched[d] ~= nil then
-				d.CanTouch = touched[d]; touched[d] = nil
-			end
-		end
-	end
-	if model:IsA("BasePart") then
-		if on then if touched[model] == nil then touched[model] = model.CanTouch end model.CanTouch = false
-		elseif touched[model] ~= nil then model.CanTouch = touched[model]; touched[model] = nil end
-	end
-end
-local function ScanAll(flag, on)
-	for _, d in ipairs(Workspace:GetDescendants()) do
-		if (d:IsA("Model") or d:IsA("BasePart")) and MatchFlag(d.Name) == flag then DisableTouch(d, on) end
-	end
-end
-Workspace.DescendantAdded:Connect(function(d)
-	if not (d:IsA("Model") or d:IsA("BasePart")) then return end
-	local flag = MatchFlag(d.Name)
-	if flag and Ex[flag] then task.delay(0.3, function() if d.Parent then DisableTouch(d, true) end end) end
-end)
--- las partes llegan despues que el modelo: reaplicar mientras haya algun toggle activo
+-- anti ragdoll cerca de un Drone + Position Spoof automatico para Bash / Scribbles
+local ragOff, spoofOn = false, false
 task.spawn(function()
 	while true do
-		task.wait(1.5)
-		for flag in pairs(NO_DMG) do
-			if Ex[flag] then pcall(ScanAll, flag, true) end
-		end
+		task.wait(0.12)
+		pcall(function()
+			local char, hum = GetParts()
+			if not (char and hum) then return end
+
+			local near = Ex.BypassDrones and Nearest("BypassDrones") < 45 and not Ex.Fly
+			if near then
+				ragOff = true
+				pcall(hum.SetStateEnabled, hum, Enum.HumanoidStateType.Ragdoll, false)
+				pcall(hum.SetStateEnabled, hum, Enum.HumanoidStateType.FallingDown, false)
+				local s = hum:GetState()
+				if s == Enum.HumanoidStateType.Ragdoll or s == Enum.HumanoidStateType.FallingDown then
+					hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+				end
+				if hum.PlatformStand then hum.PlatformStand = false end
+				for _, a in ipairs({ "Ragdoll", "Ragdolled", "IsRagdoll" }) do
+					if char:GetAttribute(a) == true then char:SetAttribute(a, false) end
+				end
+			elseif ragOff then
+				ragOff = false
+				pcall(hum.SetStateEnabled, hum, Enum.HumanoidStateType.Ragdoll, true)
+				pcall(hum.SetStateEnabled, hum, Enum.HumanoidStateType.FallingDown, true)
+			end
+
+			-- Bash / Scribbles: se baja la posicion (Position Spoof) mientras estan activos y cerca
+			local want = (Ex.NoBashDamage and Nearest("NoBashDamage") < 170)
+				or (Ex.NoScribblesDamage and Nearest("NoScribblesDamage") < 170)
+			if want and not Ex.PositionSpoof then
+				spoofOn = true
+				SetFeature("PositionSpoof", true)
+			elseif not want and spoofOn then
+				spoofOn = false
+				if Ex.PositionSpoof then SetFeature("PositionSpoof", false) end
+			end
+		end)
 	end
 end)
 
-AntisTab:Section({ Title = "No Damage (Archives)" })
-local function Dmg(id, title, desc)
-	AddToggle(AntisTab, id, title, desc, Ex[id], function(v)
-		Ex[id] = v
-		task.spawn(function() pcall(ScanAll, id, v) end)
-	end)
-end
-Dmg("NoBashDamage", "No Bash Damage", "Experimental. Removes touch from Bash (A-60) so it cannot hurt you.")
-Dmg("NoScribblesDamage", "No Scribbles Damage", "Experimental. Removes touch from Scribbles (A-120) so it cannot hurt you.")
-Dmg("NoForgetMeNotDamage", "No Forget-Me-Not Damage", "Experimental. Removes touch from Forget-Me-Not anomalies.")
-Dmg("NoDroneDamage", "No Drone Damage", "Experimental. Removes touch from Drones (damage + ragdoll if it is touch based).")
-
 -- ------------------------------------------------------------------------------------------
--- Figure Godmode en todos los pisos: Position Spoof automatico mientras haya un Figure a menos de 25 studs
--- (Old Hotel / Fools ya lo resuelve el codigo original)
+-- Figure Godmode en TODOS los pisos: en Old Hotel / Fools ya lo hace el bloque del Anticheat;
+-- en el resto se baja la posicion (Position Spoof) mientras haya un Figure cerca
 -- ------------------------------------------------------------------------------------------
 local figSpoof = false
 task.spawn(function()
 	while true do
 		task.wait(0.2)
 		pcall(function()
-			local gd = RS:FindFirstChild("GameData")
-			local fl = gd and gd:FindFirstChild("Floor")
-			local floor = fl and fl.Value or ""
-			local other = floor ~= "Fools" and floor ~= "OldHotel"
+			local floor = B.FloorName()
 			local want = false
-			if Ex.FigureGodmode and other and Functions.GetNearestFigure then
-				local ok, fig = pcall(Functions.GetNearestFigure)
-				want = ok and fig ~= nil
+			if Ex.FigureGodmode and floor ~= "Fools" and floor ~= "OldHotel" then
+				local F = FX.Functions
+				if F and F.GetNearestFigure then
+					local ok, fig = pcall(F.GetNearestFigure)
+					want = ok and fig ~= nil
+				end
 			end
 			if want and not Ex.PositionSpoof then
 				figSpoof = true
@@ -7518,6 +7734,926 @@ task.spawn(function()
 		end)
 	end
 end)
+
+AntisTab:Section({ Title = "Archives / Stairwell" })
+for _, b in ipairs({
+	{ "BypassDrones", "Bypass Drones", "Drones can't hurt or ragdoll you (their hitboxes are disabled and ragdoll is cancelled while one is near)." },
+	{ "BypassAlma", "Bypass Alma", "Disables Alma's hitbox and collision." },
+	{ "NoForgetMeNotDamage", "No Forget-Me-Not Damage", "Disables the touch damage of Forget-Me-Nots." },
+	{ "NoScribblesDamage", "No Scribbles Damage", "Moves you underground (Position Spoof) while Scribbles is active nearby and disables its hitbox." },
+	{ "NoBashDamage", "No Bash Damage", "Moves you underground (Position Spoof) while Bash is active nearby and disables its hitbox." },
+	{ "AntiNoise", "Anti Noise", "Hides Noise (and its TV), mutes its sounds and disables its touch." },
+}) do
+	AddToggle(AntisTab, b[1], b[2], b[3], Ex[b[1]], function(v) Apply(b[1], v) end)
+end
+end)()
+
+-- ------------------------------------------------------------------------------------------
+-- Restore Prompts: si los proximity prompts se bugean (no aparecen), se devuelven a su estado normal
+-- ------------------------------------------------------------------------------------------
+;(function()
+local B = FX.B8
+local PPS = game:GetService("ProximityPromptService")
+local UIS = game:GetService("UserInputService")
+Ex.Key_RestorePrompts = "P"
+local busy = false
+
+function B.RestorePrompts()
+	if busy then return end
+	busy = true
+	task.spawn(function()
+		pcall(function() PPS.Enabled = true end)
+		-- Infinite Items oculta los prompts reales y pone falsos: se devuelven
+		local hadInf = Ex.InfiniteItems
+		if Hooks.InfiniteItems then pcall(Hooks.InfiniteItems, false) end
+
+		local _, _, root = GetParts()
+		local list, n = {}, 0
+		for _, d in ipairs(Workspace:GetDescendants()) do
+			if d:IsA("ProximityPrompt") then
+				if d:GetAttribute("FakePrompt") then
+					pcall(d.Destroy, d)
+				else
+					list[#list + 1] = d
+				end
+			end
+			n = n + 1
+			if n % 500 == 0 then task.wait() end
+		end
+
+		-- reconstruye la interfaz de los prompts cercanos (apagar y encender los activos)
+		local toggled = {}
+		for _, pp in ipairs(list) do
+			if pp.Parent and pp.Enabled and root then
+				local pos = B.PosOf(pp.Parent)
+				if pos and (pos - root.Position).Magnitude < 70 then
+					pp.Enabled = false
+					toggled[#toggled + 1] = pp
+				end
+			end
+		end
+		task.wait(0.2)
+		for _, pp in ipairs(toggled) do
+			if pp.Parent then pp.Enabled = true end
+		end
+
+		-- vuelve a aplicar tus ajustes
+		if hadInf and Hooks.InfiniteItems then pcall(Hooks.InfiniteItems, true) end
+		if Hooks.PromptReach then pcall(Hooks.PromptReach) end
+		if Ex.AIReset then pcall(Ex.AIReset) end
+		B.Toast("Prompts restored", #toggled .. " nearby prompts were refreshed.")
+		busy = false
+	end)
+end
+
+UIS.InputBegan:Connect(function(input, gpe)
+	if gpe or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+	if input.KeyCode.Name == Ex.Key_RestorePrompts then B.RestorePrompts() end
+end)
+
+AutomationTab:Section({ Title = "Prompt Tools" })
+AutomationTab:Button({ Title = "Restore Prompts", Desc = "Use this if proximity prompts stop appearing: restores real prompts, removes leftover fake ones and refreshes the ones near you.", Callback = function() B.RestorePrompts() end })
+AutomationTab:Button({ Title = "Auto Interact: why is it skipping?", Desc = "Prints (and copies) every prompt within 20 studs with the reason Auto Interact skips it, or says it is allowed.", Callback = function()
+	local _, _, root = GetParts()
+	if not root then return end
+	local lines = {}
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("ProximityPrompt") and d.Parent then
+			local pos = B.PosOf(d.Parent)
+			if pos and (pos - root.Position).Magnitude <= 20 then
+				local why = Ex.AIWhy and Ex.AIWhy(d) or "?"
+				lines[#lines + 1] = B.Describe(d) .. "  ->  " .. why
+			end
+		end
+	end
+	B.Out("Auto Interact prompts nearby", lines)
+end })
+end)()
+
+-- ------------------------------------------------------------------------------------------
+-- ESP: cubo Glitch que se queda transparente despues de agarrarlo + puertas/items del Stairwell
+-- ------------------------------------------------------------------------------------------
+;(function()
+local B = FX.B8
+Ex.StairwellExtraESP = true
+
+-- Glitch: cuando el cubo ya no tiene prompt (lo agarraste) o esta en tu personaje, se quita su ESP
+task.spawn(function()
+	while true do
+		task.wait(0.4)
+		pcall(function()
+			local char = LocalPlayer.Character
+			local bp = LocalPlayer:FindFirstChild("Backpack")
+			for inst, e in pairs(Tracked) do
+				if e.Cat == "glitch" or e.Cat == "items" or e.Cat == "lotus" or e.Cat == "scanner" or e.Cat == "stardust" then
+					local mine = (char and inst:IsDescendantOf(char)) or (bp and inst:IsDescendantOf(bp)) or inst:IsA("Tool")
+					local drop = false
+					if e.Cat == "glitch" then
+						local pp = inst:FindFirstChildWhichIsA("ProximityPrompt", true)
+						if pp then e.B8Had = true end
+						drop = e.B8Had and (not pp or not pp.Enabled)
+					end
+					if mine or drop then RemoveEntry(inst) end
+				end
+			end
+		end)
+	end
+end)
+
+-- Stairwell: puertas y items que el escaneo normal no marcaba
+local PROMPT_SKIP = {
+	HidePrompt = true, ClimbPrompt = true, RiftPrompt = true, StarRiftPrompt = true, InteractPrompt = true,
+	EnterPrompt = true, ActivateEventPrompt = true, LootPrompt = true, UnlockPrompt = true, SkullPrompt = true,
+	LockPrompt = true, DonatePrompt = true, DialoguePrompt = true, RevivePrompt = true, AnimatePrompt = true,
+	PropPrompt = true, ModulePrompt = true, HerbPrompt = true,
+}
+local seenExtra = setmetatable({}, { __mode = "k" })
+
+local function Owner(pp)
+	local rooms = B.Rooms()
+	local cur, depth = pp.Parent, 0
+	while cur and cur ~= Workspace and depth < 5 do
+		if cur:IsA("Model") and cur.Parent ~= rooms and cur.Name ~= "Assets" then return cur end
+		cur = cur.Parent
+		depth = depth + 1
+	end
+	return pp.Parent
+end
+
+task.spawn(function()
+	while true do
+		task.wait(2.5)
+		if Ex.StairwellExtraESP and Mode.Name == "Stairwell" then
+			pcall(function()
+				local rooms = B.Rooms()
+				if not rooms then return end
+				local n = 0
+				for _, d in ipairs(rooms:GetDescendants()) do
+					n = n + 1
+					if n % 500 == 0 then task.wait() end
+					if d:IsA("Model") and not Tracked[d] and not seenExtra[d] then
+						local c = B.Compact(d.Name)
+						-- puertas: cualquier modelo "door" que no sea falso ni parte de otro objeto ya marcado
+						if (c == "door" or c:find("stairwelldoor", 1, true) or c:find("cubbydoor", 1, true) or c:find("exitdoor", 1, true))
+							and not c:find("fake", 1, true) and Active.doors and not HasTrackedAncestor(d) then
+							seenExtra[d] = true
+							local num = B.RoomOf(d)
+							local label = c:find("cubby", 1, true) and "Cubby Door" or ("Door" .. (num and (" " .. (num + 1)) or ""))
+							Register(d, "doors", label, { Part = GetPart(d), RoomNum = num })
+						end
+					elseif d:IsA("ProximityPrompt") and d.Enabled and not PROMPT_SKIP[d.Name] and not seenExtra[d] and d.Parent then
+						seenExtra[d] = true
+						local own = Owner(d)
+						local oc = B.Compact(own and own.Name or "")
+						if own and not Tracked[own] and not HasTrackedAncestor(own) and not own:IsA("Seat")
+							and not oc:find("stem", 1, true) and not oc:find("door", 1, true) and not oc:find("ladder", 1, true)
+							and not oc:find("chair", 1, true) and not oc:find("jeff", 1, true) and Active.items then
+							local ok, display = pcall(ResolveItem, { own.Name, d.ObjectText })
+							if ok and display then
+								Register(own, "items", display, { Known = true, Key = display })
+							else
+								local lbl = (d.ObjectText ~= "" and d.ObjectText) or CleanName(own.Name)
+								Register(own, "items", lbl, { Known = false })
+							end
+						end
+					end
+				end
+			end)
+		end
+	end
+end)
+
+AutomationTab:Section({ Title = "ESP fixes" })
+AddToggle(AutomationTab, "StairwellExtraESP", "Stairwell Extra ESP", "Also marks Stairwell doors and items that the normal scan missed (needs ESP Doors / Items on).", Ex.StairwellExtraESP, function(v) Ex.StairwellExtraESP = v end)
+end)()
+
+-- ------------------------------------------------------------------------------------------
+-- Infinite Jump en celular (boton de saltar de DOORS): se engancha segun el tipo de instancia y ademas
+-- se detecta el toque encima del boton, asi funciona aunque no sea un GuiButton
+-- ------------------------------------------------------------------------------------------
+;(function()
+local UIS = game:GetService("UserInputService")
+local lastBtn, lastJump = nil, 0
+local function DoJump()
+	if not Ex.InfJump or os.clock() - lastJump < 0.12 then return end
+	lastJump = os.clock()
+	local _, hum = GetParts()
+	if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+end
+local function JumpButton()
+	local ui = LocalPlayer.PlayerGui:FindFirstChild("MainUI")
+	local mf = ui and ui:FindFirstChild("MainFrame")
+	local mb = mf and mf:FindFirstChild("MobileButtons")
+	return mb and mb:FindFirstChild("JumpButton")
+end
+task.spawn(function()
+	while true do
+		task.wait(1)
+		pcall(function()
+			local jb = JumpButton()
+			if jb and jb ~= lastBtn then
+				lastBtn = jb
+				if jb:IsA("GuiButton") then
+					jb.Activated:Connect(DoJump)
+					jb.MouseButton1Down:Connect(DoJump)
+				end
+				jb.InputBegan:Connect(function(i)
+					if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then DoJump() end
+				end)
+			end
+		end)
+	end
+end)
+UIS.TouchStarted:Connect(function(touch)
+	if not Ex.InfJump then return end
+	local jb = lastBtn
+	if jb and jb.Parent and jb:IsA("GuiObject") and jb.Visible then
+		local p, s, t = jb.AbsolutePosition, jb.AbsoluteSize, touch.Position
+		local sg = jb:FindFirstAncestorOfClass("ScreenGui")
+		local inset = (sg and not sg.IgnoreGuiInset) and game:GetService("GuiService"):GetGuiInset().Y or 0
+		local ty = t.Y - inset
+		if t.X >= p.X and t.X <= p.X + s.X and ty >= p.Y and ty <= p.Y + s.Y then DoJump() end
+	end
+end)
+end)()
+
+-- ============================================================================================
+-- STAIRWELL TAB: teleports, bring items, cubby doors, Noise TV, texto de agresividad de Creak
+-- (Meld se movio aqui desde Antis)
+-- ============================================================================================
+;(function()
+local B = FX.B8
+Ex.CreakText = false
+Ex.CreakRange = 60
+
+-- palabras sueltas de un nombre (separa CamelCase): "StemRig" -> { stem, rig }
+function B.Words(str)
+	local out = {}
+	str = tostring(str or ""):gsub("(%l)(%u)", "%1 %2"):gsub("[^%a]+", " "):lower()
+	for w in str:gmatch("%a+") do out[w] = true end
+	return out
+end
+
+local function NearestOf(list)
+	local best, bd
+	for _, d in ipairs(list) do
+		local dist = B.Dist(d)
+		if not bd or dist < bd then best, bd = d, dist end
+	end
+	return best
+end
+
+local function GoTo(names, label)
+	task.spawn(function()
+		local list = B.Find(function(d)
+			return (d:IsA("Model") or d:IsA("BasePart")) and names[d.Name] == true
+		end)
+		local t = NearestOf(list)
+		local pos = t and B.PosOf(t)
+		if pos and B.Teleport(pos) then
+			B.Toast(label, "Teleported.")
+		else
+			B.Toast(label, "Not found in the loaded rooms. Move closer to the area and try again.")
+		end
+	end)
+end
+
+StairwellTab:Section({ Title = "Teleports" })
+StairwellTab:Button({ Title = "TP to Fire Alarm", Desc = "Teleports you next to the nearest Stairwell fire alarm lever.", Callback = function()
+	GoTo({ StairwellFireAlarm = true }, "Fire Alarm")
+end })
+StairwellTab:Button({ Title = "TP to Emergency Exit", Desc = "Teleports you next to the nearest Emergency Exit sign.", Callback = function()
+	GoTo({ ExitSignStairwell = true }, "Emergency Exit")
+end })
+
+-- ------------------------------------------------------------------------------------------
+-- Items
+-- ------------------------------------------------------------------------------------------
+local ITEM_PROMPTS = { ModulePrompt = true, HerbPrompt = true, PickupPrompt = true, SalvagePrompt = true }
+
+local function StairItems()
+	return B.Find(function(d)
+		if not d:IsA("ProximityPrompt") or not d.Enabled or not d.Parent then return false end
+		local w = B.Words(d.Name .. " " .. d.ObjectText .. " " .. d.Parent.Name .. " " .. (d.Parent.Parent and d.Parent.Parent.Name or ""))
+		if w.stem or w.stems or w.jeff or w.shop or w.fake then return false end
+		if ITEM_PROMPTS[d.Name] then return true end
+		return (w.drive or w.drives or w.salvage or w.scrap) and true or false
+	end)
+end
+
+StairwellTab:Section({ Title = "Items" })
+StairwellTab:Button({ Title = "Bring Stairwell Items", Desc = "Moves every Stairwell item (including Drives, but not Stems) in front of you.", Callback = function()
+	task.spawn(function()
+		local char, _, root = GetParts()
+		if not (char and root) then return end
+		local seen, n = {}, 0
+		for _, pp in ipairs(StairItems()) do
+			local own = nil
+			local okR, r = pcall(ResolveTarget, pp)
+			own = okR and r or pp.Parent
+			while own and not (own:IsA("Model") or own:IsA("BasePart")) do own = own.Parent end
+			if own and not seen[own] and not own:IsDescendantOf(char) then
+				seen[own] = true
+				local cf = root.CFrame * CFrame.new(((n % 6) - 2.5) * 1.6, -1.5, -4 - math.floor(n / 6) * 1.6)
+				if own:IsA("Model") then own:PivotTo(cf) else own.CFrame = cf end
+				n = n + 1
+			end
+		end
+		B.Toast("Bring Stairwell Items", n > 0 and (n .. " items moved to you.") or "No loaded items were found.")
+	end)
+end })
+
+-- ------------------------------------------------------------------------------------------
+-- Cubby doors y Noise TV
+-- ------------------------------------------------------------------------------------------
+StairwellTab:Section({ Title = "Doors & TV" })
+StairwellTab:Button({ Title = "Open all Cubby Doors", Desc = "Triggers the open prompt of every loaded Cubby door.", Callback = function()
+	if not fireproximityprompt then B.Toast("Cubby Doors", "Your executor has no fireproximityprompt.") return end
+	task.spawn(function()
+		local list = B.Find(function(d)
+			if not d:IsA("ProximityPrompt") or not d.Enabled or not d.Parent then return false end
+			local cur, depth, hit = d.Parent, 0, false
+			while cur and cur ~= Workspace and depth < 6 do
+				if B.Has(cur.Name, "cubby") then hit = true break end
+				cur, depth = cur.Parent, depth + 1
+			end
+			if not hit then return false end
+			local at = (d.ActionText or ""):lower()
+			if at:find("close", 1, true) then return false end
+			return at:find("open", 1, true) ~= nil or B.Has(d.Parent.Name, "door") or B.Has(d.Name, "door") or d.Name == "ActivateEventPrompt"
+		end)
+		for _, pp in ipairs(list) do
+			pcall(fireproximityprompt, pp)
+			task.wait(0.06)
+		end
+		B.Toast("Cubby Doors", #list > 0 and (#list .. " prompts triggered.") or "No Cubby doors found in the loaded rooms.")
+	end)
+end })
+StairwellTab:Button({ Title = "Bring Noise TV", Desc = "Moves the nearest Noise TV in front of you.", Callback = function()
+	task.spawn(function()
+		local _, _, root = GetParts()
+		if not root then return end
+		local tv = NearestOf(B.Find(function(d) return d:IsA("Model") and d.Name == "TV_Stand" end))
+		if tv then
+			tv:PivotTo(root.CFrame * CFrame.new(0, 0, -6))
+			B.Toast("Noise TV", "Moved in front of you.")
+		else
+			B.Toast("Noise TV", "No TV found in the loaded rooms.")
+		end
+	end)
+end })
+
+-- ------------------------------------------------------------------------------------------
+-- Creak: porcentaje de agresividad cuando esta cerca (mismo tamano/formato que el texto de oxigeno)
+-- Se busca un atributo o valor numerico cuyo nombre hable de agresividad/enojo en el modelo de Creak.
+-- ------------------------------------------------------------------------------------------
+local AGG = { "aggress", "aggro", "anger", "angry", "agitat", "rage", "hostil", "fury", "wrath" }
+local Creaks = {}
+
+local function IsCreak(d)
+	return d:IsA("Model") and #d.Name < 30 and B.Has(d.Name, "creak")
+end
+Workspace.DescendantAdded:Connect(function(d)
+	if IsCreak(d) then
+		Creaks[d] = true
+		d.AncestryChanged:Connect(function(_, p) if not p then Creaks[d] = nil end end)
+	end
+end)
+task.spawn(function()
+	local n = 0
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if IsCreak(d) then Creaks[d] = true end
+		n = n + 1
+		if n % 500 == 0 then task.wait() end
+	end
+end)
+
+local function ToPercent(v)
+	if v >= 0 and v <= 1 then v = v * 100 end
+	return math.floor(v + 0.5)
+end
+
+local function ReadAggro(m)
+	local function scan(inst)
+		for k, v in pairs(inst:GetAttributes()) do
+			if type(v) == "number" then
+				local lk = k:lower()
+				for _, w in ipairs(AGG) do
+					if lk:find(w, 1, true) then return ToPercent(v) end
+				end
+			end
+		end
+		if (inst:IsA("NumberValue") or inst:IsA("IntValue")) then
+			local lk = inst.Name:lower()
+			for _, w in ipairs(AGG) do
+				if lk:find(w, 1, true) then return ToPercent(inst.Value) end
+			end
+		end
+	end
+	local r = scan(m)
+	if r then return r end
+	local i = 0
+	for _, d in ipairs(m:GetDescendants()) do
+		r = scan(d)
+		if r then return r end
+		i = i + 1
+		if i > 300 then break end
+	end
+	return nil
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.4)
+		pcall(function()
+			if not Ex.CreakText then B.SetHud("creak", 0.70, nil) return end
+			local best, bd
+			for m in pairs(Creaks) do
+				if m.Parent then
+					local d = B.Dist(m)
+					if d <= Ex.CreakRange and (not bd or d < bd) then best, bd = m, d end
+				end
+			end
+			if not best then B.SetHud("creak", 0.70, nil) return end
+			local pct = ReadAggro(best)
+			B.SetHud("creak", 0.70, "Creak aggression: " .. (pct and (pct .. "%") or "??%"))
+		end)
+	end
+end)
+
+StairwellTab:Section({ Title = "Creak" })
+AddToggle(StairwellTab, "CreakText", "Creak Aggression Text", "Shows Creak's aggression percentage at the bottom of the screen while it is near you.", Ex.CreakText, function(v) Ex.CreakText = v end)
+AddSlider(StairwellTab, "CreakRange", "Creak Text Range", "How close (in studs) Creak must be for the text to appear.", 10, 200, Ex.CreakRange, function(v) Ex.CreakRange = v end)
+StairwellTab:Button({ Title = "Dump Creak info", Desc = "Prints (and copies) the attributes and values of the nearest Creak so the aggression field can be confirmed.", Callback = function()
+	local best, bd
+	for m in pairs(Creaks) do
+		if m.Parent then
+			local d = B.Dist(m)
+			if not bd or d < bd then best, bd = m, d end
+		end
+	end
+	if not best then B.Toast("Creak", "No Creak model loaded.") return end
+	local lines = { B.Describe(best) }
+	local i = 0
+	for _, d in ipairs(best:GetDescendants()) do
+		if d:IsA("ValueBase") or next(d:GetAttributes()) ~= nil then
+			lines[#lines + 1] = B.Describe(d)
+			i = i + 1
+			if i > 120 then break end
+		end
+	end
+	B.Out("Creak info", lines)
+end })
+end)()
+
+-- ============================================================================================
+-- ARCHIVES TAB: cajas de Honcho (texto + ESP), Auto Honcho Terminal, anomalias de Forget-Me-Not,
+-- Auto Alma Minigame, numero del Teller
+-- Los nombres internos de Archives no estan confirmados: todo se detecta por nombre / texto /
+-- atributos y el boton "Dump" imprime lo que se encontro para ajustar.
+-- ============================================================================================
+;(function()
+local B = FX.B8
+
+Ex.BoxHud = false
+Ex.BoxESP = false
+Ex.AutoHonchoTerminal = false
+Ex.FMNAnomalyESP = false
+Ex.FMNAnomalyNotify = false
+Ex.AutoAlmaMinigame = false
+Ex.TellerNumber = false
+Ex.TellerNotify = false
+
+-- ------------------------------------------------------------------------------------------
+-- Cajas: codigo de una caja (atributo o texto de 2-4 caracteres con letra y numero, ej: "3A")
+-- ------------------------------------------------------------------------------------------
+local function IsCode(t)
+	if type(t) ~= "string" then return nil end
+	t = t:gsub("%s+", ""):gsub("<[^>]->", "")
+	if #t < 2 or #t > 4 or not t:find("^%w+$") then return nil end
+	if t:find("%d") and t:find("%a") then return t:upper() end
+	return nil
+end
+
+local CODE_ATTRS = { "Code", "ID", "Id", "BoxId", "BoxID", "Label", "Tag", "Number", "Letter" }
+
+local function BoxCode(m)
+	for _, k in ipairs(CODE_ATTRS) do
+		local v = m:GetAttribute(k)
+		if v ~= nil then
+			local c = IsCode(tostring(v))
+			if c then return c end
+		end
+	end
+	local digits, letters, i = nil, nil, 0
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("TextLabel") or d:IsA("TextBox") then
+			local t = tostring(d.Text):gsub("%s+", "")
+			local c = IsCode(t)
+			if c then return c end
+			if t:find("^%d+$") and #t <= 2 then digits = digits or t end
+			if t:find("^%a$") then letters = letters or t:upper() end
+		end
+		i = i + 1
+		if i > 80 then break end
+	end
+	if digits and letters then return digits .. letters end
+	return nil
+end
+
+local function IsBoxModel(m)
+	if not m:IsA("Model") or #m.Name > 40 then return false end
+	local w = B.Words(m.Name)
+	return (w.box or w.boxes or w.crate or w.crates) and true or false
+end
+
+local function LabelDone(lbl)
+	if not lbl.Visible or lbl.TextTransparency > 0.6 then return true end
+	local c = lbl.TextColor3
+	if c.G > c.R * 1.3 and c.G > c.B * 1.3 then return true end
+	local t = lbl.Text
+	return t:find("<s>", 1, true) ~= nil or t:find("\u{2713}") ~= nil or t:find("\u{2714}") ~= nil
+end
+
+-- Codigos que pide la sala actual (texto en la puerta / paneles de requisitos) y cuales ya estan puestos
+local function Needed()
+	local rooms = B.Rooms()
+	local room = rooms and rooms:FindFirstChild(tostring(B.CurRoom()))
+	if not room then return nil end
+	local door = room:FindFirstChild("Door", true)
+	local roots = {}
+	if door then roots[#roots + 1] = door end
+	for _, c in ipairs(room:GetChildren()) do
+		if c ~= door and (B.Has(c.Name, "honcho") or B.Has(c.Name, "requir") or B.Has(c.Name, "manifest")) then roots[#roots + 1] = c end
+	end
+	local req, done, order = {}, {}, {}
+	local function add(code, isDone)
+		if not req[code] then req[code] = true order[#order + 1] = code end
+		if isDone then done[code] = true end
+	end
+	for _, r in ipairs(roots) do
+		for _, k in ipairs(CODE_ATTRS) do
+			local v = r:GetAttribute(k)
+			if type(v) == "string" then
+				for tok in v:gmatch("[^,;%s]+") do
+					local c = IsCode(tok)
+					if c then add(c, false) end
+				end
+			end
+		end
+		local i = 0
+		for _, d in ipairs(r:GetDescendants()) do
+			if d:IsA("TextLabel") then
+				for tok in tostring(d.Text):gmatch("%S+") do
+					local c = IsCode(tok)
+					if c then add(c, LabelDone(d)) end
+				end
+			end
+			i = i + 1
+			if i > 400 then break end
+		end
+	end
+	if #order == 0 then return nil end
+	-- cajas ya colocadas junto a la puerta
+	local doorPos = door and B.PosOf(door)
+	if doorPos then
+		for _, m in ipairs(room:GetDescendants()) do
+			if IsBoxModel(m) then
+				local p = B.PosOf(m)
+				if p and (p - doorPos).Magnitude < 14 then
+					local c = BoxCode(m)
+					if c and req[c] then done[c] = true end
+				end
+			end
+		end
+	end
+	local remaining = {}
+	for _, c in ipairs(order) do
+		if not done[c] then remaining[#remaining + 1] = c end
+	end
+	return remaining, order
+end
+
+task.spawn(function()
+	local lastRoom = -1
+	while true do
+		task.wait(1)
+		pcall(function()
+			if not (Ex.BoxHud or Ex.BoxESP) then B.SetHud("boxes", 0.76, nil) return end
+			local remaining = Needed()
+			if Ex.BoxHud then
+				if remaining and #remaining > 0 then
+					local show = {}
+					for i = 1, math.min(4, #remaining) do show[i] = remaining[i] end
+					B.SetHud("boxes", 0.76, "Boxes: " .. table.concat(show, "   "))
+				else
+					B.SetHud("boxes", 0.76, nil)
+				end
+			else
+				B.SetHud("boxes", 0.76, nil)
+			end
+
+			-- ESP: solo las cajas correctas (las demas con codigo se quitan del ESP)
+			if Ex.BoxESP and remaining then
+				local want = {}
+				for _, c in ipairs(remaining) do want[c] = true end
+				local rooms = B.Rooms()
+				local cur = B.CurRoom()
+				for _, n in ipairs({ cur, cur + 1 }) do
+					local room = rooms and rooms:FindFirstChild(tostring(n))
+					if room then
+						for _, m in ipairs(room:GetDescendants()) do
+							if IsBoxModel(m) then
+								local c = BoxCode(m)
+								if c then
+									if want[c] then
+										B.Reg(m, { "objectives", "items", "interactables" }, "Box " .. c, nil)
+									elseif Tracked[m] then
+										RemoveEntry(m)
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end)
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Auto Honcho Terminal: dispara el prompt de las terminales cercanas y pulsa los botones de confirmar
+-- de su interfaz
+-- ------------------------------------------------------------------------------------------
+local CONFIRM = { "ok", "confirm", "accept", "submit", "next", "continue", "start", "yes", "deliver", "send", "done" }
+local lastFire = setmetatable({}, { __mode = "k" })
+
+local function IsConfirm(btn)
+	local t = (btn:IsA("TextButton") and btn.Text or btn.Name):lower()
+	for _, w in ipairs(CONFIRM) do
+		if t:find(w, 1, true) then return true end
+	end
+	return false
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.4)
+		if Ex.AutoHonchoTerminal then
+			pcall(function()
+				local _, _, root = GetParts()
+				if not root then return end
+				local now = os.clock()
+				local rooms = B.Rooms()
+				if rooms and fireproximityprompt then
+					local cur = B.CurRoom()
+					for _, n in ipairs({ cur, cur + 1 }) do
+						local room = rooms:FindFirstChild(tostring(n))
+						if room then
+							for _, d in ipairs(room:GetDescendants()) do
+								if d:IsA("ProximityPrompt") and d.Enabled and d.Parent and (not lastFire[d] or now - lastFire[d] > 1.5) then
+									local par, hit, depth = d.Parent, false, 0
+									while par and par ~= room and depth < 5 do
+										local w = B.Words(par.Name)
+										if w.terminal or w.terminals then hit = true break end
+										par, depth = par.Parent, depth + 1
+									end
+									if hit then
+										local pos = B.PosOf(d.Parent)
+										if pos and (pos - root.Position).Magnitude <= d.MaxActivationDistance + 1 then
+											lastFire[d] = now
+											pcall(fireproximityprompt, d)
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+				-- interfaz de la terminal
+				local pg = LocalPlayer:FindFirstChild("PlayerGui")
+				if pg then
+					for _, g in ipairs(pg:GetChildren()) do
+						if g:IsA("ScreenGui") and g.Enabled and (B.Has(g.Name, "terminal") or B.Has(g.Name, "honcho")) then
+							for _, b in ipairs(g:GetDescendants()) do
+								if b:IsA("GuiButton") and b.Visible and IsConfirm(b) and (not lastFire[b] or now - lastFire[b] > 0.6) then
+									lastFire[b] = now
+									B.Click(b)
+								end
+							end
+						end
+					end
+				end
+			end)
+		end
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Forget-Me-Not: anomalias (ESP + aviso de ir atras o adelante)
+-- ------------------------------------------------------------------------------------------
+local fmnSeen = setmetatable({}, { __mode = "k" })
+task.spawn(function()
+	while true do
+		task.wait(1.2)
+		if Ex.FMNAnomalyESP or Ex.FMNAnomalyNotify then
+			pcall(function()
+				local rooms = B.Rooms()
+				if not rooms then return end
+				local cur = B.CurRoom()
+				for _, n in ipairs({ cur - 2, cur - 1, cur, cur + 1, cur + 2 }) do
+					local room = rooms:FindFirstChild(tostring(n))
+					if room then
+						for _, d in ipairs(room:GetDescendants()) do
+							if (d:IsA("Model") or d:IsA("BasePart")) and (d:GetAttribute("Anomaly") == true or (#d.Name < 40 and B.Has(d.Name, "anomal"))) then
+								if Ex.FMNAnomalyESP then
+									B.Reg(d, { "entities", "objectives", "interactables" }, "FMN Anomaly", "Forget-Me-Nots")
+								end
+								if Ex.FMNAnomalyNotify and not fmnSeen[d] then
+									fmnSeen[d] = true
+									local r = B.RoomOf(d) or n
+									local diff = r - B.CurRoom()
+									local msg
+									if diff < 0 then msg = "Go back " .. -diff .. " room" .. (diff == -1 and "" or "s")
+									elseif diff > 0 then msg = "Go forward " .. diff .. " room" .. (diff == 1 and "" or "s")
+									else msg = "It is in this room." end
+									B.Toast("Forget-Me-Not anomaly", msg)
+								end
+							end
+						end
+					end
+				end
+			end)
+		end
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Auto Alma Minigame: pulsa los botones de la interfaz del minijuego (best effort)
+-- ------------------------------------------------------------------------------------------
+local STOP = { "close", "exit", "cancel", "quit", "leave", "back" }
+task.spawn(function()
+	while true do
+		task.wait(0.25)
+		if Ex.AutoAlmaMinigame then
+			pcall(function()
+				local pg = LocalPlayer:FindFirstChild("PlayerGui")
+				if not pg then return end
+				local now = os.clock()
+				for _, g in ipairs(pg:GetDescendants()) do
+					if (g:IsA("ScreenGui") or g:IsA("Frame")) and B.Has(g.Name, "alma") and (g:IsA("Frame") and g.Visible or g:IsA("ScreenGui") and g.Enabled) then
+						for _, b in ipairs(g:GetDescendants()) do
+							if b:IsA("GuiButton") and b.Visible and (not lastFire[b] or now - lastFire[b] > 0.35) then
+								local t = (b:IsA("TextButton") and b.Text or b.Name):lower()
+								local skip = false
+								for _, w in ipairs(STOP) do
+									if t:find(w, 1, true) then skip = true break end
+								end
+								if not skip then
+									lastFire[b] = now
+									B.Click(b)
+								end
+							end
+						end
+					end
+				end
+			end)
+		end
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Teller: [numero actual / tu ticket] en su ESP y aviso cuando esta en tu numero
+-- ------------------------------------------------------------------------------------------
+local TICKET_ATTRS = { "Number", "Current", "Serving", "CurrentNumber", "Ticket", "Count", "TicketNumber" }
+
+local function MyTicket()
+	local function look(container)
+		if not container then return nil end
+		for _, t in ipairs(container:GetChildren()) do
+			if t:IsA("Tool") and B.Has(t.Name, "ticket") then
+				for _, k in ipairs(TICKET_ATTRS) do
+					local v = t:GetAttribute(k)
+					if type(v) == "number" then return v end
+					if type(v) == "string" and tonumber(v) then return tonumber(v) end
+				end
+				local num = t.Name:match("%d+")
+				if num then return tonumber(num) end
+				local i = 0
+				for _, d in ipairs(t:GetDescendants()) do
+					if d:IsA("TextLabel") then
+						local n = tostring(d.Text):match("%d+")
+						if n then return tonumber(n) end
+					end
+					i = i + 1
+					if i > 60 then break end
+				end
+			end
+		end
+		return nil
+	end
+	return look(LocalPlayer.Character) or look(LocalPlayer:FindFirstChild("Backpack"))
+end
+
+local function TellerNow(m)
+	for _, k in ipairs(TICKET_ATTRS) do
+		local v = m:GetAttribute(k)
+		if type(v) == "number" then return v end
+	end
+	local i = 0
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("NumberValue") or d:IsA("IntValue") then
+			local lk = d.Name:lower()
+			if lk:find("number", 1, true) or lk:find("current", 1, true) or lk:find("serving", 1, true) or lk:find("ticket", 1, true) then return d.Value end
+		elseif d:IsA("TextLabel") then
+			local t = tostring(d.Text)
+			if t:find("^%s*%d+%s*$") then return tonumber(t) end
+		end
+		i = i + 1
+		if i > 150 then break end
+	end
+	return nil
+end
+
+local lastNow = setmetatable({}, { __mode = "k" })
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		pcall(function()
+			for inst, e in pairs(Tracked) do
+				if e.Cat == "entities" and #inst.Name < 30 and B.Has(inst.Name, "teller") then
+					if Ex.TellerNumber or Ex.TellerNotify then
+						e.B8Label = e.B8Label or e.Label
+						local now, mine = TellerNow(inst), MyTicket()
+						if Ex.TellerNumber then
+							e.Label = (e.B8Label or "Teller") .. " [" .. (now and tostring(now) or "?") .. "/" .. (mine and tostring(mine) or "?") .. "]"
+						end
+						if Ex.TellerNotify and now and mine and now == mine and lastNow[inst] ~= now then
+							B.Toast("Teller", "Teller is on YOUR ticket (" .. mine .. ").")
+						end
+						lastNow[inst] = now
+					end
+					if not Ex.TellerNumber and e.B8Label then e.Label = e.B8Label end
+				end
+			end
+		end)
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Interfaz
+-- ------------------------------------------------------------------------------------------
+ArchivesTab:Section({ Title = "Honcho" })
+AddToggle(ArchivesTab, "BoxHud", "Needed Boxes Text", "Shows at the bottom of the screen the codes of the boxes the room still needs (up to 4 per line). Boxes already placed on the door are removed.", Ex.BoxHud, function(v) Ex.BoxHud = v end)
+AddToggle(ArchivesTab, "BoxESP", "Needed Boxes ESP", "Only marks the boxes the room still needs; other coded boxes are removed from the ESP.", Ex.BoxESP, function(v) Ex.BoxESP = v end)
+AddToggle(ArchivesTab, "AutoHonchoTerminal", "Auto Honcho Terminal", "Triggers nearby terminal prompts and presses the confirm buttons of the terminal screen.", Ex.AutoHonchoTerminal, function(v) Ex.AutoHonchoTerminal = v end)
+
+ArchivesTab:Section({ Title = "Forget-Me-Not" })
+AddToggle(ArchivesTab, "FMNAnomalyESP", "Anomaly ESP", "Marks Forget-Me-Not anomalies (needs ESP Entities on).", Ex.FMNAnomalyESP, function(v) Ex.FMNAnomalyESP = v end)
+AddToggle(ArchivesTab, "FMNAnomalyNotify", "Anomaly Notification", "Tells you whether to go back or forward (and how many rooms) when an anomaly is found.", Ex.FMNAnomalyNotify, function(v) Ex.FMNAnomalyNotify = v end)
+
+ArchivesTab:Section({ Title = "Alma" })
+AddToggle(ArchivesTab, "AutoAlmaMinigame", "Auto Alma Minigame", "Presses the buttons of the Alma minigame screen automatically (best effort).", Ex.AutoAlmaMinigame, function(v) Ex.AutoAlmaMinigame = v end)
+
+ArchivesTab:Section({ Title = "Teller" })
+AddToggle(ArchivesTab, "TellerNumber", "Teller Number ESP", "Adds [current/your ticket] to the Teller ESP, e.g. [2/37].", Ex.TellerNumber, function(v) Ex.TellerNumber = v end)
+AddToggle(ArchivesTab, "TellerNotify", "Notify Teller On My Ticket", "Notifies when the Teller reaches your ticket number.", Ex.TellerNotify, function(v) Ex.TellerNotify = v end)
+
+ArchivesTab:Section({ Title = "Debug" })
+ArchivesTab:Button({ Title = "Dump Archives info", Desc = "Prints (and copies) boxes, required codes, terminals, anomalies, Teller, Alma and ticket data found around you. Send it if something does not detect correctly.", Callback = function()
+	task.spawn(function()
+		local lines = {}
+		local remaining, order = Needed()
+		lines[#lines + 1] = "Room " .. B.CurRoom() .. " | required: " .. (order and table.concat(order, ",") or "none") .. " | remaining: " .. (remaining and table.concat(remaining, ",") or "none")
+		lines[#lines + 1] = "My ticket: " .. tostring(MyTicket())
+		local rooms = B.Rooms()
+		local cur = B.CurRoom()
+		for _, n in ipairs({ cur, cur + 1 }) do
+			local room = rooms and rooms:FindFirstChild(tostring(n))
+			if room then
+				local i = 0
+				for _, d in ipairs(room:GetDescendants()) do
+					local isBox = IsBoxModel(d)
+					local w = B.Words(d.Name)
+					if isBox or w.terminal or w.teller or w.honcho or w.alma or B.Has(d.Name, "anomal") then
+						lines[#lines + 1] = B.Describe(d) .. (isBox and ("  code=" .. tostring(BoxCode(d))) or "") .. (w.teller and ("  now=" .. tostring(TellerNow(d))) or "")
+						i = i + 1
+						if i > 80 then break end
+					end
+				end
+			end
+		end
+		local pg = LocalPlayer:FindFirstChild("PlayerGui")
+		if pg then
+			for _, g in ipairs(pg:GetChildren()) do
+				if g:IsA("ScreenGui") and (B.Has(g.Name, "alma") or B.Has(g.Name, "terminal") or B.Has(g.Name, "honcho")) then
+					lines[#lines + 1] = "GUI: " .. B.Describe(g)
+				end
+			end
+		end
+		B.Out("Archives dump", lines)
+	end)
+end })
 end)()
 
 print("[R4NS0M] Loaded more UI")
@@ -7538,6 +8674,7 @@ AddKeybind(KeybindsTab, "Key_TimerStop", "Timer: Stop", "Finishes the speedrun t
 AddKeybind(KeybindsTab, "Key_TimerReset", "Timer: Reset", "Resets the speedrun timer.", Ex.Key_TimerReset)
 AddKeybind(KeybindsTab, "Key_Slide", "Slide", "Does a slide (Slide must be enabled in the Player tab).", Ex.Key_Slide)
 AddKeybind(KeybindsTab, "Key_PosSpoof", "Position Spoof", "Turns Position Spoof on or off.", Ex.Key_PosSpoof)
+AddKeybind(KeybindsTab, "Key_RestorePrompts", "Restore Prompts", "Restores proximity prompts that stopped appearing.", Ex.Key_RestorePrompts)
 
 -- Diagnostico de movimiento (para Jump / Slide nativos)
 MiscTab:Section({ Title = "Movement Diagnostics" })
@@ -7591,7 +8728,9 @@ local EXTRA_KEYS = {
     "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "NotifyLibraryCode", "GuessLibraryCode", "AutoSteerMinecart", "BypassSeek", "BypassFigure", "NotifyRansom", "TimerShow", "TimerPosition", "TimerScale", "TimerOpacity", "TimerSplits", "TimerButtons", "TimerAutoStart", "TimerAutoSplit", "TimerStopRoom", "AutoPositionSpoof", "NotifyDespawn", "PerfMode", "AutoPerf", "ShowSeekPath", "ShowEyestalkPath", "PathMode", "NotifyItems", "NotifyUnlistedItems", "BtnSpeedHack", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "VoidGuard", "AutoBreakerBox", "InfiniteItems", "InfiniteItemsList", "AutoInteract", "PromptReach", "PromptClip", "DisableIdleKick", "MeldStopGrowth", "MeldRemove", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "NotifyOxygen", "NotifyHaste", "NoClosetDelay", "NoAcceleration", "DoorReach", "NoFootsteps", "NoPromptSounds",
-    "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_SpeedHack", "Key_TimerToggle", "Key_TimerStop", "Key_TimerReset", "Key_Slide", "Key_Hub",
+    "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_SpeedHack", "Key_TimerToggle", "Key_TimerStop", "Key_TimerReset", "Key_Slide", "Key_Hub", "Key_RestorePrompts",
+    "BypassDrones", "AntiNoise", "NoForgetMeNotDamage", "BypassAlma", "NoScribblesDamage", "NoBashDamage", "StairwellExtraESP",
+    "CreakText", "CreakRange", "BoxHud", "BoxESP", "AutoHonchoTerminal", "FMNAnomalyESP", "FMNAnomalyNotify", "AutoAlmaMinigame", "TellerNumber", "TellerNotify",
 }
 
 ExtraSerialize = function()
