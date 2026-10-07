@@ -5628,14 +5628,15 @@ AddToggle(MiscTab, "NoPromptSounds", "Remove Interacting Sounds", "Mutes the sou
 MiscTab:Section({ Title = "Misc" })
 AddToggle(MiscTab, "DisableIdleKick", "Disable Idle Kick", "Prevents the kick for being idle for 20 minutes.", Ex.DisableIdleKick, function(v) Apply("DisableIdleKick", v) end)
 
-AntisTab:Section({ Title = "Meld (The Stairwell)" })
-AntisTab:Paragraph({
+FX.StairTab = FX.StairTab or Window:Tab({ Title = "Stairwell", Icon = "stairs" })
+FX.StairTab:Section({ Title = "Meld" })
+FX.StairTab:Paragraph({
 	Title = "How Meld removal works",
 	Desc = "Both options work by name (anything called 'meld'). Stop Growth only disables Meld's scripts/modules, so its ropes and doors stay untouched. "
 		.. "Remove Meld hides the rest of its parts but always keeps ropes, cables, chains and doors. Turn on Debug Mode to print what was found.",
 })
-AddToggle(AntisTab, "MeldStopGrowth", "Stop Meld Growth", "Disables the scripts that make Meld grow. Ropes and doors are not removed.", Ex.MeldStopGrowth, function(v) Apply("MeldStopGrowth", v) end)
-AddToggle(AntisTab, "MeldRemove", "Remove Meld (keep ropes & doors)", "Hides Meld and removes its collision/touch, except its ropes and doors.", Ex.MeldRemove, function(v) Apply("MeldRemove", v) end)
+AddToggle(FX.StairTab, "MeldStopGrowth", "Stop Meld Growth", "Disables the scripts that make Meld grow. Ropes and doors are not removed.", Ex.MeldStopGrowth, function(v) Apply("MeldStopGrowth", v) end)
+AddToggle(FX.StairTab, "MeldRemove", "Remove Meld (keep ropes & doors)", "Hides Meld and removes its collision/touch, except its ropes and doors.", Ex.MeldRemove, function(v) Apply("MeldRemove", v) end)
 end)()
 
 AntiCheatTab:Section({ Title = "Mobile Buttons" })
@@ -7291,6 +7292,234 @@ AddToggle(MiscTab, "TimerAutoSplit", "Auto Split Rooms", "Records a split each t
 AddSlider(MiscTab, "TimerStopRoom", "Auto Stop At Room", "Finishes the run when you reach this room (0 = off).", 0, 300, Ex.TimerStopRoom, function(v) Ex.TimerStopRoom = v end)
 end)()
 
+print("[R4NS0M] Loading Batch 8")
+-- ============================================================================================
+-- BATCH 8
+--   Stairwell : tab nueva (Meld movido aqui), TP Fire Alarm / Emergency Exit, Bring Noise TV,
+--               Bring Stairwell Items, Open Cubby Doors
+--   Antis     : No Bash / Scribbles / Forget-Me-Not / Drone damage (CanTouch), Figure Godmode en todos los pisos
+-- ============================================================================================
+;(function()
+local Players = game:GetService("Players")
+local RS = game:GetService("ReplicatedStorage")
+local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
+local function RoomsF() return Workspace:FindFirstChild("CurrentRooms") end
+
+FX.StairTab = FX.StairTab or Window:Tab({ Title = "Stairwell", Icon = "stairs" })
+local ST = FX.StairTab
+
+Ex.NoBashDamage = false
+Ex.NoScribblesDamage = false
+Ex.NoForgetMeNotDamage = false
+Ex.NoDroneDamage = false
+
+-- ------------------------------------------------------------------------------------------
+-- Utilidades
+-- ------------------------------------------------------------------------------------------
+local function PivotOf(inst)
+	if inst:IsA("Model") then return inst:GetPivot() end
+	if inst:IsA("BasePart") then return inst.CFrame end
+	if inst:IsA("Attachment") then return inst.WorldCFrame end
+end
+
+-- el mas cercano a ti con ese nombre exacto dentro de CurrentRooms
+local function FindNearest(name)
+	local rooms = RoomsF()
+	local _, _, r = GetParts()
+	if not rooms or not r then return nil end
+	local best, bd = nil, math.huge
+	for _, d in ipairs(rooms:GetDescendants()) do
+		if d.Name == name then
+			local cf = PivotOf(d)
+			if cf then
+				local dist = (cf.Position - r.Position).Magnitude
+				if dist < bd then best, bd = d, dist end
+			end
+		end
+	end
+	return best
+end
+
+local function TpTo(inst, label)
+	local _, _, root = GetParts()
+	if not root then return end
+	if not inst then Toast(label, "Not found. Be in a Stairwell room first.") return end
+	local cf = PivotOf(inst)
+	if cf then root.CFrame = cf + Vector3.new(0, 4, 0) end
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Stairwell tab
+-- ------------------------------------------------------------------------------------------
+ST:Section({ Title = "Teleports" })
+ST:Button({ Title = "TP to Fire Alarm", Desc = "Teleports to the Fire Alarm lever (Assets.Switches.StairwellFireAlarm).",
+	Callback = function() TpTo(FindNearest("StairwellFireAlarm"), "Fire Alarm") end })
+ST:Button({ Title = "TP to Emergency Exit", Desc = "Teleports to the emergency exit sign (Assets.ExitSignStairwell).",
+	Callback = function() TpTo(FindNearest("ExitSignStairwell"), "Emergency Exit") end })
+
+ST:Section({ Title = "Bring" })
+ST:Button({ Title = "Bring Noise TV", Desc = "Moves the Noise TV (Assets.TV_Stand) in front of you. Client side only.",
+	Callback = function()
+		local tv = FindNearest("TV_Stand")
+		local _, _, root = GetParts()
+		if not tv or not root then Toast("Noise TV", "Not found in the current rooms.") return end
+		local ok = pcall(function()
+			local target = root.CFrame * CFrame.new(0, 0, -6)
+			if tv:IsA("Model") then tv:PivotTo(target) else tv.CFrame = target end
+		end)
+		if not ok then Toast("Noise TV", "Could not move it.") end
+	end })
+
+-- Items del Stairwell: prompts de recoger que NO sean Stems, puertas, palancas, escaleras, terminales ni Meld
+local BRING_BAD = { "stem", "door", "lever", "ladder", "meld", "terminal", "cart", "scrapper", "crusher", "plate", "portrait", "gate", "lock" }
+local BRING_GOOD = { "collect", "take", "pick", "grab", "salvage", "loot", "recoger", "agarrar" }
+local function HasAny(str, list)
+	if type(str) ~= "string" then return false end
+	str = str:lower()
+	for _, w in ipairs(list) do if str:find(w, 1, true) then return true end end
+	return false
+end
+ST:Button({ Title = "Bring Stairwell Items", Desc = "Moves loose Stairwell items and Drives to you (never Stems). Matched by prompt text, so tell me any item it misses.",
+	Callback = function()
+		local rooms = RoomsF()
+		local _, _, root = GetParts()
+		if not rooms or not root then return end
+		local moved = 0
+		for _, pp in ipairs(rooms:GetDescendants()) do
+			if pp:IsA("ProximityPrompt") and pp.Enabled then
+				local par = pp.Parent
+				local item = par and (par:IsA("Model") and par or (par.Parent and par.Parent:IsA("Model") and par.Parent ~= rooms and par.Parent) or par)
+				local chainName = (item and item.Name or "") .. "|" .. (par and par.Name or "")
+				local isDrive = chainName:lower():find("drive", 1, true) ~= nil
+				local pickup = HasAny(pp.ActionText, BRING_GOOD) or HasAny(pp.ObjectText, BRING_GOOD) or isDrive
+				if item and pickup and not HasAny(chainName, BRING_BAD) and not HasAny(pp.ObjectText, { "stem" })
+					and not Players:GetPlayerFromCharacter(item) then
+					local ok = pcall(function()
+						local target = root.CFrame * CFrame.new(math.random(-3, 3), 0, -4)
+						if item:IsA("Model") then item:PivotTo(target) elseif item:IsA("BasePart") then item.CFrame = target end
+					end)
+					if ok then moved = moved + 1 end
+				end
+			end
+		end
+		Toast("Bring Items", moved .. " item(s) moved to you.")
+	end })
+
+ST:Section({ Title = "Doors" })
+ST:Button({ Title = "Open all Cubby Doors", Desc = "Fires every enabled prompt whose model/parent is called 'cubby'. Needs to be in range of the prompts.",
+	Callback = function()
+		local rooms = RoomsF()
+		if not rooms or not fireproximityprompt then return end
+		local n = 0
+		for _, pp in ipairs(rooms:GetDescendants()) do
+			if pp:IsA("ProximityPrompt") and pp.Enabled then
+				local cur, hit, depth = pp.Parent, false, 0
+				while cur and cur ~= rooms and depth < 5 do
+					if cur.Name:lower():find("cubby", 1, true) then hit = true break end
+					cur, depth = cur.Parent, depth + 1
+				end
+				if hit and pcall(fireproximityprompt, pp) then n = n + 1 end
+			end
+		end
+		Toast("Cubby Doors", n .. " prompt(s) fired.")
+	end })
+
+-- ------------------------------------------------------------------------------------------
+-- No Damage (Bash / Scribbles / Forget-Me-Not / Drones)
+--   Se quita CanTouch a las partes de esas entidades (mismo metodo que Bypass Jeff / Banana).
+--   Experimental: solo sirve si el dano del juego es por toque.
+-- ------------------------------------------------------------------------------------------
+local NO_DMG = {
+	NoBashDamage       = { "bash", "bashmoving", "bashrig", "bashmodel", "bashentity", "a60" },
+	NoScribblesDamage  = { "scribbles", "scribblesmoving", "scribblesrig", "a120" },
+	NoForgetMeNotDamage = { "forgetmenot", "forgetmenots", "forgetmenotentity" },
+	NoDroneDamage      = { "drone", "drones", "dronemoving", "dronerig" },
+}
+local touched = setmetatable({}, { __mode = "k" }) -- part -> CanTouch original
+local function MatchFlag(name)
+	local n = name:lower():gsub("[%s_%-]", "")
+	for flag, list in pairs(NO_DMG) do
+		for _, w in ipairs(list) do if n == w then return flag end end
+	end
+end
+local function DisableTouch(model, on)
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") then
+			if on then
+				if touched[d] == nil then touched[d] = d.CanTouch end
+				d.CanTouch = false
+			elseif touched[d] ~= nil then
+				d.CanTouch = touched[d]; touched[d] = nil
+			end
+		end
+	end
+	if model:IsA("BasePart") then
+		if on then if touched[model] == nil then touched[model] = model.CanTouch end model.CanTouch = false
+		elseif touched[model] ~= nil then model.CanTouch = touched[model]; touched[model] = nil end
+	end
+end
+local function ScanAll(flag, on)
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if (d:IsA("Model") or d:IsA("BasePart")) and MatchFlag(d.Name) == flag then DisableTouch(d, on) end
+	end
+end
+Workspace.DescendantAdded:Connect(function(d)
+	if not (d:IsA("Model") or d:IsA("BasePart")) then return end
+	local flag = MatchFlag(d.Name)
+	if flag and Ex[flag] then task.delay(0.3, function() if d.Parent then DisableTouch(d, true) end end) end
+end)
+-- las partes llegan despues que el modelo: reaplicar mientras haya algun toggle activo
+task.spawn(function()
+	while true do
+		task.wait(1.5)
+		for flag in pairs(NO_DMG) do
+			if Ex[flag] then pcall(ScanAll, flag, true) end
+		end
+	end
+end)
+
+AntisTab:Section({ Title = "No Damage (Archives)" })
+local function Dmg(id, title, desc)
+	AddToggle(AntisTab, id, title, desc, Ex[id], function(v)
+		Ex[id] = v
+		task.spawn(function() pcall(ScanAll, id, v) end)
+	end)
+end
+Dmg("NoBashDamage", "No Bash Damage", "Experimental. Removes touch from Bash (A-60) so it cannot hurt you.")
+Dmg("NoScribblesDamage", "No Scribbles Damage", "Experimental. Removes touch from Scribbles (A-120) so it cannot hurt you.")
+Dmg("NoForgetMeNotDamage", "No Forget-Me-Not Damage", "Experimental. Removes touch from Forget-Me-Not anomalies.")
+Dmg("NoDroneDamage", "No Drone Damage", "Experimental. Removes touch from Drones (damage + ragdoll if it is touch based).")
+
+-- ------------------------------------------------------------------------------------------
+-- Figure Godmode en todos los pisos: Position Spoof automatico mientras haya un Figure a menos de 25 studs
+-- (Old Hotel / Fools ya lo resuelve el codigo original)
+-- ------------------------------------------------------------------------------------------
+local figSpoof = false
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		pcall(function()
+			local gd = RS:FindFirstChild("GameData")
+			local fl = gd and gd:FindFirstChild("Floor")
+			local floor = fl and fl.Value or ""
+			local other = floor ~= "Fools" and floor ~= "OldHotel"
+			local want = false
+			if Ex.FigureGodmode and other and Functions.GetNearestFigure then
+				local ok, fig = pcall(Functions.GetNearestFigure)
+				want = ok and fig ~= nil
+			end
+			if want and not Ex.PositionSpoof then
+				figSpoof = true
+				SetFeature("PositionSpoof", true)
+			elseif not want and figSpoof then
+				figSpoof = false
+				if Ex.PositionSpoof then SetFeature("PositionSpoof", false) end
+			end
+		end)
+	end
+end)
+end)()
+
 print("[R4NS0M] Loaded more UI")
 print("[R4NS0M] Loading Keybinds Tab")
 ----------------------------------------------------
@@ -7711,4 +7940,3 @@ ConfigsTab:Button({
 Window:SelectTab(1)
 print("[R4NS0M] Loaded Config System")
 warn("--- [R4NS0M] RUNNING SCRIPT ---")
-
