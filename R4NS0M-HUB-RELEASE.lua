@@ -2747,7 +2747,7 @@ local Ex = {
     Jump = false, JumpPower = 50, InfJump = false,
     Slide = false, SlideSpeed = 55,
     Fly = false, FlySpeed = 40,
-    Noclip = false, Fullbright = false,
+    Noclip = false, Fullbright = false, FBBrightness = 2, FBAmbient = 70, NoFog = false,
     -- Anticheat Manipulator
     ACM = false, VoidGuard = true, -- ACM ahora usa el metodo Velocity Manipulation
     FloatButtons = UserInputService.TouchEnabled, BtnACM = true, BtnFly = true, BtnSpeedHack = true,
@@ -3176,14 +3176,31 @@ Hooks.Fullbright = function(v)
     if v then
         if not St.Light then
             St.Light = {
-                Brightness = Lighting.Brightness, ClockTime = Lighting.ClockTime, FogEnd = Lighting.FogEnd,
-                FogStart = Lighting.FogStart, GlobalShadows = Lighting.GlobalShadows,
+                Brightness = Lighting.Brightness, ClockTime = Lighting.ClockTime, GlobalShadows = Lighting.GlobalShadows,
                 Ambient = Lighting.Ambient, OutdoorAmbient = Lighting.OutdoorAmbient,
             }
         end
     elseif St.Light then
         for k, val in pairs(St.Light) do pcall(function() Lighting[k] = val end) end
         St.Light = nil
+    end
+end
+
+-- Quitar niebla: independiente de Fullbright (guarda y devuelve el fog y las Atmosphere)
+St.AtmoOrig = setmetatable({}, { __mode = "k" })
+Hooks.NoFog = function(v)
+    if v then
+        if not St.Fog then St.Fog = { FogEnd = Lighting.FogEnd, FogStart = Lighting.FogStart } end
+        St.LastLight = 0
+    else
+        if St.Fog then
+            for k, val in pairs(St.Fog) do pcall(function() Lighting[k] = val end) end
+            St.Fog = nil
+        end
+        for a, o in pairs(St.AtmoOrig) do
+            if a.Parent then pcall(function() a.Density, a.Haze = o[1], o[2] end) end
+            St.AtmoOrig[a] = nil
+        end
     end
 end
 
@@ -3310,17 +3327,29 @@ end)
 RunService.Heartbeat:Connect(function(dt)
     local now = os.clock()
 
-    -- Fullbright (el juego cambia la iluminacion por cuarto, asi que se reaplica)
-    if Ex.Fullbright and now - St.LastLight > 0.2 then
+    -- Fullbright ajustable + quitar niebla (el juego cambia la iluminacion por cuarto, asi que se reaplica)
+    if (Ex.Fullbright or Ex.NoFog) and now - St.LastLight > 0.2 then
         St.LastLight = now
         pcall(function()
-            Lighting.Brightness = 2
-            Lighting.ClockTime = 14
-            Lighting.FogEnd = 100000
-            Lighting.FogStart = 100000
-            Lighting.GlobalShadows = false
-            Lighting.Ambient = Color3.fromRGB(178, 178, 178)
-            Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
+            if Ex.Fullbright then
+                local amb = math.floor(math.clamp(Ex.FBAmbient or 70, 0, 100) / 100 * 255 + 0.5)
+                local c = Color3.fromRGB(amb, amb, amb)
+                Lighting.Brightness = math.clamp(Ex.FBBrightness or 2, 0, 10)
+                Lighting.ClockTime = 14
+                Lighting.GlobalShadows = false
+                Lighting.Ambient = c
+                Lighting.OutdoorAmbient = c
+            end
+            if Ex.NoFog then
+                Lighting.FogEnd = 100000
+                Lighting.FogStart = 100000
+                for _, a in ipairs(Lighting:GetChildren()) do
+                    if a:IsA("Atmosphere") then
+                        if not St.AtmoOrig[a] then St.AtmoOrig[a] = { a.Density, a.Haze } end
+                        a.Density, a.Haze = 0, 0
+                    end
+                end
+            end
         end)
     end
 
@@ -3679,7 +3708,10 @@ AddSlider(PlayerTab, "FlySpeed", "Fly Speed", "Flight speed in studs per second.
 AddToggle(PlayerTab, "Noclip", "Noclip", "Walk through walls and objects. Simple version: for the careful one, use the Anticheat Manipulator.", Ex.Noclip, function(v) Apply("Noclip", v) end)
 
 PlayerTab:Section({ Title = "Lighting" })
-AddToggle(PlayerTab, "Fullbright", "Fullbright", "Removes darkness and fog so you can see everything.", Ex.Fullbright, function(v) Apply("Fullbright", v) end)
+AddToggle(PlayerTab, "Fullbright", "Fullbright", "Removes darkness so you can see everything. Brightness and ambient light are adjustable below.", Ex.Fullbright, function(v) Apply("Fullbright", v) end)
+AddSlider(PlayerTab, "FBBrightness", "Fullbright Brightness", "Lighting brightness while Fullbright is on (0 = dark, 10 = very bright). The game's default is about 2.", 0, 10, Ex.FBBrightness, function(v) Ex.FBBrightness = v St.LastLight = 0 end)
+AddSlider(PlayerTab, "FBAmbient", "Fullbright Ambient (%)", "How strong the flat ambient light is. Lower it for a darker, more natural look; raise it to see everything.", 0, 100, Ex.FBAmbient, function(v) Ex.FBAmbient = v St.LastLight = 0 end)
+AddToggle(PlayerTab, "NoFog", "Remove Fog", "Removes the fog and the atmosphere haze. Works with or without Fullbright.", Ex.NoFog, function(v) Apply("NoFog", v) end)
 
 print("[R4NS0M] Loaded Player Tab")
 print("[R4NS0M] Loading Automation Tab")
@@ -7341,6 +7373,89 @@ Place(Ex.TimerPosition)
 Layout()
 
 -- ------------------------------------------------------------------------------------------
+-- Parada automatica cuando el juego termina (cinematica final, pantalla de fin, muerte o regreso al lobby)
+-- ------------------------------------------------------------------------------------------
+Ex.TimerAutoEnd = true
+Ex.TimerStopOnDeath = true
+do
+	local FINAL_ROOM = { Hotel = 100, Mines = 200 }
+	local END_WORDS = { "ending", "finale", "final", "credits", "outro", "escape", "tobecontinued", "theend", "gameend" }
+	local END_UI = { "statistic", "credit", "tobecontinued", "continued", "victory", "endscreen" }
+	local function Cmp(s) return (tostring(s or ""):lower():gsub("[^%a]", "")) end
+
+	local function AutoFinish(reason)
+		if not Ex.TimerAutoEnd then return end
+		if T.state ~= "running" and T.state ~= "paused" then return end
+		if Elapsed() < 20 then return end -- evita falsas alarmas al principio
+		print("[R4NS0M] Speedrun timer stopped: " .. reason)
+		Finish()
+	end
+
+	-- 1) cinematicas: la final de cada piso (Hotel puerta 100, Mines puerta 200) y cualquiera con nombre de final
+	task.spawn(function()
+		local rf = RS:WaitForChild("RemotesFolder", 30) or RS:FindFirstChild("EntityInfo") or RS:FindFirstChild("Bricks")
+		local cs = rf and rf:WaitForChild("Cutscene", 20)
+		if not cs then return end
+		cs.OnClientEvent:Connect(function(name)
+			print("[R4NS0M] Cutscene: " .. tostring(name)) -- util para confirmar nombres de finales
+			local fin = FINAL_ROOM[FloorName()]
+			if fin and CurRoom() >= fin then AutoFinish("final cutscene (" .. tostring(name) .. ")") return end
+			local c = Cmp(name)
+			for _, w in ipairs(END_WORDS) do
+				if c:find(w, 1, true) then AutoFinish("end cutscene (" .. tostring(name) .. ")") return end
+			end
+		end)
+	end)
+
+	-- 2) el juego te saca de la partida (fin de run / volver al lobby)
+	pcall(function()
+		LocalPlayer.OnTeleport:Connect(function(state)
+			if state == Enum.TeleportState.Started or state == Enum.TeleportState.InProgress then
+				AutoFinish("leaving the run")
+			end
+		end)
+	end)
+
+	-- 3) pantalla de fin (estadisticas / creditos / to be continued) y muerte
+	task.spawn(function()
+		local deadSince
+		while true do
+			task.wait(0.5)
+			if T.state == "running" or T.state == "paused" then
+				if Ex.TimerStopOnDeath and LocalPlayer:GetAttribute("Alive") == false then
+					deadSince = deadSince or os.clock()
+					if os.clock() - deadSince > 3 then deadSince = nil AutoFinish("death") end
+				else
+					deadSince = nil
+				end
+				if Ex.TimerAutoEnd then
+					pcall(function()
+						local pg = LocalPlayer:FindFirstChild("PlayerGui")
+						if not pg then return end
+						local ui = pg:FindFirstChild("MainUI")
+						for _, root in ipairs({ pg, ui, ui and ui:FindFirstChild("MainFrame") }) do
+							if root then
+								for _, c in ipairs(root:GetChildren()) do
+									local nm = Cmp(c.Name)
+									for _, w in ipairs(END_UI) do
+										if nm:find(w, 1, true) then
+											local vis = (c:IsA("ScreenGui") and c.Enabled) or (c:IsA("GuiObject") and c.Visible and c.AbsoluteSize.X > 0)
+											if vis then AutoFinish("end screen (" .. c.Name .. ")") return end
+										end
+									end
+								end
+							end
+						end
+					end)
+				end
+			else
+				deadSince = nil
+			end
+		end
+	end)
+end
+
+-- ------------------------------------------------------------------------------------------
 -- Opciones en el hub (Misc)
 -- ------------------------------------------------------------------------------------------
 MiscTab:Section({ Title = "Speedrun Timer" })
@@ -7358,6 +7473,8 @@ AddToggle(MiscTab, "TimerSplits", "Show Splits", "Shows the last room splits wit
 AddToggle(MiscTab, "TimerButtons", "Show Buttons", "Shows the Start / Stop / Reset buttons on the timer (useful on mobile).", Ex.TimerButtons, function(v) Ex.TimerButtons = v Layout() end)
 AddToggle(MiscTab, "TimerAutoStart", "Auto Start On Move", "Starts by itself the first time you move: joystick, WASD / arrows, jump, crouch or Anticheat Manipulation. Moving the camera does not count.", Ex.TimerAutoStart, function(v) Ex.TimerAutoStart = v end)
 AddToggle(MiscTab, "TimerAutoSplit", "Auto Split Rooms", "Records a split each time you enter a new room.", Ex.TimerAutoSplit, function(v) Ex.TimerAutoSplit = v end)
+AddToggle(MiscTab, "TimerAutoEnd", "Auto Stop At End Of Game", "Stops the timer by itself when the game ends: final cutscene (Hotel door 100, Mines door 200), end screen or when the game sends you back to the lobby.", Ex.TimerAutoEnd, function(v) Ex.TimerAutoEnd = v end)
+AddToggle(MiscTab, "TimerStopOnDeath", "Stop On Death", "Also stops the timer if you stay dead for 3 seconds (a revive keeps it running).", Ex.TimerStopOnDeath, function(v) Ex.TimerStopOnDeath = v end)
 AddSlider(MiscTab, "TimerStopRoom", "Auto Stop At Room", "Finishes the run when you reach this room (0 = off).", 0, 300, Ex.TimerStopRoom, function(v) Ex.TimerStopRoom = v end)
 end)()
 
@@ -7404,6 +7521,8 @@ do
 	end
 end
 function B.Has(s, token) return B.Compact(s):find(token, 1, true) ~= nil end
+-- true si el modo coincide, o si el modo no se pudo detectar (Unknown / Test), para que las funciones no queden muertas
+function B.InMode(name) return Mode.Name == name or (Mode.All and Mode.All()) or false end
 
 -- numero de sala (hijo de CurrentRooms) que contiene a inst
 function B.RoomOf(inst)
@@ -7916,7 +8035,7 @@ end
 task.spawn(function()
 	while true do
 		task.wait(4)
-		if Ex.StairwellExtraESP and Mode.Name == "Stairwell"
+		if Ex.StairwellExtraESP and B.InMode("Stairwell")
 			and ((Cfg.Categories.doors.Enabled and Active.doors) or (Cfg.Categories.items.Enabled and Active.items)) then
 			pcall(function()
 				local rooms = B.Rooms()
@@ -8051,7 +8170,7 @@ end
 local function GoTo(names, label)
 	task.spawn(function()
 		local list = B.Find(function(d)
-			return (d:IsA("Model") or d:IsA("BasePart")) and names[d.Name] == true
+			return (d:IsA("Model") or d:IsA("BasePart")) and (names[d.Name] == true or (names.__fuzzy and B.Has(d.Name, names.__fuzzy)) or false)
 		end)
 		local t = NearestOf(list)
 		local pos = t and B.PosOf(t)
@@ -8065,10 +8184,10 @@ end
 
 StairwellTab:Section({ Title = "Teleports" })
 StairwellTab:Button({ Title = "TP to Fire Alarm", Desc = "Teleports you next to the nearest Stairwell fire alarm lever.", Callback = function()
-	GoTo({ StairwellFireAlarm = true }, "Fire Alarm")
+	GoTo({ StairwellFireAlarm = true, __fuzzy = "firealarm" }, "Fire Alarm")
 end })
 StairwellTab:Button({ Title = "TP to Emergency Exit", Desc = "Teleports you next to the nearest Emergency Exit sign.", Callback = function()
-	GoTo({ ExitSignStairwell = true }, "Emergency Exit")
+	GoTo({ ExitSignStairwell = true, __fuzzy = "exitsign" }, "Emergency Exit")
 end })
 
 -- ------------------------------------------------------------------------------------------
@@ -8392,7 +8511,7 @@ task.spawn(function()
 	while true do
 		task.wait(2)
 		pcall(function()
-			if not (Ex.BoxHud or Ex.BoxESP) or Mode.Name ~= "Archives" then B.SetHud("boxes", 0.76, nil) return end
+			if not (Ex.BoxHud or Ex.BoxESP) or not B.InMode("Archives") then B.SetHud("boxes", 0.76, nil) return end
 			local remaining = Needed()
 			if Ex.BoxHud then
 				if remaining and #remaining > 0 then
@@ -8509,7 +8628,7 @@ local fmnSeen = setmetatable({}, { __mode = "k" })
 task.spawn(function()
 	while true do
 		task.wait(2.5)
-		if (Ex.FMNAnomalyESP or Ex.FMNAnomalyNotify) and Mode.Name == "Archives" then
+		if (Ex.FMNAnomalyESP or Ex.FMNAnomalyNotify) and B.InMode("Archives") then
 			pcall(function()
 				local rooms = B.Rooms()
 				if not rooms then return end
@@ -8709,6 +8828,329 @@ ArchivesTab:Button({ Title = "Dump Archives info", Desc = "Prints (and copies) b
 end })
 end)()
 
+-- ============================================================================================
+-- BATCH 9
+--   Anti Lag (no borra texturas: pausa sombras de luces y particulas LEJANAS y las devuelve al acercarte)
+--   Antis de Archives / Stairwell: modulo de la entidad + remote falso + hitbox (se suma a lo anterior)
+--   Diagnostico: Dump de modulos y remotes del juego
+-- ============================================================================================
+;(function()
+local Lighting = game:GetService("Lighting")
+local B = FX.B8
+
+-- ------------------------------------------------------------------------------------------
+-- ANTI LAG
+-- ------------------------------------------------------------------------------------------
+Ex.AntiLag = false
+Ex.AntiLagLevel = "Balanced"
+
+local LEVEL = {
+	Balanced = { shadow = 45, fx = 90, extra = false, quality = nil },
+	Strong   = { shadow = 25, fx = 50, extra = true,  quality = 6 },
+}
+local function Lv() return LEVEL[Ex.AntiLagLevel] or LEVEL.Balanced end
+
+local Items = {}                                   -- instancia -> "light" | "fx" | "extra"
+local Off = setmetatable({}, { __mode = "k" })     -- instancias que YO apague (para devolverlas igual)
+local PostOff = setmetatable({}, { __mode = "k" })
+local origQuality, conn = nil, nil
+local gen = 0
+
+local function Classify(d)
+	if d:IsA("Light") then return "light" end
+	if d:IsA("ParticleEmitter") then return "fx" end
+	if d:IsA("Trail") or d:IsA("Beam") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") then return "extra" end
+	return nil
+end
+
+local function Track(d)
+	local k = Classify(d)
+	if not k then return end
+	local ch = LocalPlayer.Character
+	if ch and d:IsDescendantOf(ch) then return end -- la linterna y los efectos tuyos no se tocan
+	Items[d] = k
+end
+
+local function PosOf(d)
+	local p = d.Parent
+	if not p then return nil end
+	if p:IsA("BasePart") then return p.Position end
+	if p:IsA("Attachment") then return p.WorldPosition end
+	if p:IsA("Model") then
+		local ok, cf = pcall(p.GetPivot, p)
+		if ok and cf then return cf.Position end
+	end
+	return nil
+end
+
+local function SetFar(d, k, far)
+	local prop = (k == "light") and "Shadows" or "Enabled"
+	if far then
+		if d[prop] then Off[d] = true d[prop] = false end
+	elseif Off[d] then
+		Off[d] = nil
+		d[prop] = true
+	end
+end
+
+local function SetPost(on)
+	for _, p in ipairs(Lighting:GetChildren()) do
+		if p:IsA("SunRaysEffect") or p:IsA("DepthOfFieldEffect") then
+			if on then
+				if p.Enabled then PostOff[p] = true p.Enabled = false end
+			elseif PostOff[p] then
+				PostOff[p] = nil
+				p.Enabled = true
+			end
+		end
+	end
+end
+
+local function SetQuality(on)
+	pcall(function()
+		local r = settings().Rendering
+		local q = on and Lv().quality
+		if q then
+			if origQuality == nil then origQuality = r.QualityLevel end
+			r.QualityLevel = Enum.QualityLevel["Level0" .. q]
+		elseif origQuality ~= nil then
+			r.QualityLevel = origQuality
+			origQuality = nil
+		end
+	end)
+end
+
+local function Cycle()
+	local cam = Workspace.CurrentCamera
+	if not cam then return end
+	local cp = cam.CFrame.Position
+	local L = Lv()
+	SetPost(L.extra)
+	local arr = {}
+	for d in pairs(Items) do arr[#arr + 1] = d end
+	for i, d in ipairs(arr) do
+		if not Ex.AntiLag then return end
+		local k = Items[d]
+		if not d.Parent then
+			Items[d] = nil
+			Off[d] = nil
+		else
+			local pos = PosOf(d)
+			if pos then
+				local limit = (k == "light") and L.shadow or L.fx
+				if k == "extra" and not L.extra then limit = math.huge end
+				SetFar(d, k, (pos - cp).Magnitude > limit)
+			end
+		end
+		if i % 200 == 0 then task.wait() end
+	end
+end
+
+local function ApplyLevel()
+	if not Ex.AntiLag then return end
+	SetQuality(true)
+	SetPost(Lv().extra)
+end
+
+Hooks.AntiLag = function(v)
+	gen = gen + 1
+	local my = gen
+	if v then
+		task.spawn(function()
+			local n = 0
+			for _, d in ipairs(Workspace:GetDescendants()) do
+				if gen ~= my then return end
+				Track(d)
+				n = n + 1
+				if n % 600 == 0 then task.wait() end
+			end
+		end)
+		if not conn then
+			conn = Workspace.DescendantAdded:Connect(function(d) if Ex.AntiLag then Track(d) end end)
+		end
+		ApplyLevel()
+		task.spawn(function()
+			while gen == my and Ex.AntiLag do
+				pcall(Cycle)
+				task.wait(0.4)
+			end
+		end)
+	else
+		if conn then conn:Disconnect() conn = nil end
+		local snap = {}
+		for d in pairs(Off) do snap[#snap + 1] = d end
+		for _, d in ipairs(snap) do
+			if d.Parent then
+				pcall(function()
+					if d:IsA("Light") then d.Shadows = true else d.Enabled = true end
+				end)
+			end
+			Off[d] = nil
+		end
+		Items = {}
+		SetPost(false)
+		SetQuality(false)
+	end
+end
+
+MiscTab:Section({ Title = "Performance" })
+AddToggle(MiscTab, "AntiLag", "Anti Lag", "Raises FPS without deleting textures or changing how the game looks up close: shadows of far lights and far particles are paused and come back as you get close. Turning it off restores everything.", Ex.AntiLag, function(v) Apply("AntiLag", v) end)
+AddDropdown(MiscTab, "AntiLagLevel", "Anti Lag Level", "Balanced: only far shadows and particles. Strong: closer limits, also pauses far trails/beams/smoke, turns off sun rays and depth of field and lowers the render quality a bit.", { "Balanced", "Strong" }, Ex.AntiLagLevel, function(v)
+	if type(v) == "table" then v = v[1] end
+	if v and LEVEL[v] then Ex.AntiLagLevel = v ApplyLevel() end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- ANTIS de Archives / Stairwell: se agregan DOS capas mas a lo que ya hacia Batch 8 (hitbox):
+--   1) modulo de la entidad en EntityModules (se renombra a *_Disabled, igual que Remove Halt)
+--   2) remote que reporta el golpe (se cambia por uno falso, igual que No Screech Damage)
+-- Los nombres se buscan en el juego en vivo, asi que no dependen de que los adivine.
+-- ------------------------------------------------------------------------------------------
+local RS = game:GetService("ReplicatedStorage")
+local ANTI = {
+	BypassDrones        = { tokens = { "drone" },              module = true },
+	BypassAlma          = { tokens = { "alma" },               module = false },
+	NoForgetMeNotDamage = { tokens = { "forgetmenot", "fmn" }, module = false },
+	NoScribblesDamage   = { tokens = { "scribbles", "a120" },  module = true },
+	NoBashDamage        = { tokens = { "bash", "a60" },        module = true },
+	AntiNoise           = { tokens = { "noise" },              module = true },
+}
+local function Cmp(s) return (tostring(s or ""):lower():gsub("[^%w]", "")) end
+local function Match(name, tokens)
+	local c = Cmp(name)
+	for _, t in ipairs(tokens) do
+		if c:find(t, 1, true) then return true end
+	end
+	return false
+end
+local function ModulesFolder()
+	local cm = RS:FindFirstChild("ModulesClient") or RS:FindFirstChild("ClientModules")
+	return cm and cm:FindFirstChild("EntityModules")
+end
+local function Rem() return RS:FindFirstChild("RemotesFolder") or RS:FindFirstChild("EntityInfo") or RS:FindFirstChild("Bricks") end
+
+local Saved = {}
+local function Engage(id, on)
+	local cfg = ANTI[id]
+	local s = Saved[id]
+	if not s then s = { mods = {}, rems = {} } Saved[id] = s end
+	if on then
+		if cfg.module then
+			local f = ModulesFolder()
+			if f then
+				for _, m in ipairs(f:GetChildren()) do
+					if not s.mods[m] and not m.Name:find("_Disabled", 1, true) and Match(m.Name, cfg.tokens) then
+						s.mods[m] = m.Name
+						m.Name = m.Name .. "_Disabled"
+					end
+				end
+			end
+		end
+		local rf = Rem()
+		if rf then
+			for _, r in ipairs(rf:GetChildren()) do
+				if (r:IsA("RemoteEvent") or r:IsA("RemoteFunction")) and not s.rems[r] and Match(r.Name, cfg.tokens) then
+					local fake = Instance.new(r.ClassName)
+					fake.Name = r.Name
+					s.rems[r] = fake
+					fake.Parent = rf
+					r.Parent = nil
+				end
+			end
+		end
+	else
+		for m, orig in pairs(s.mods) do
+			if m.Parent then m.Name = orig end
+			s.mods[m] = nil
+		end
+		for r, fake in pairs(s.rems) do
+			r.Parent = fake.Parent or Rem()
+			fake:Destroy()
+			s.rems[r] = nil
+		end
+	end
+end
+
+for id in pairs(ANTI) do
+	local prev = Hooks[id]
+	Hooks[id] = function(v)
+		if prev then pcall(prev, v) end
+		pcall(Engage, id, v == true)
+	end
+end
+-- los modulos/remotes pueden aparecer despues de activar el interruptor: se reintenta cada 3 s
+task.spawn(function()
+	while true do
+		task.wait(3)
+		for id in pairs(ANTI) do
+			if Ex[id] then pcall(Engage, id, true) end
+		end
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Diagnostico
+-- ------------------------------------------------------------------------------------------
+AntisTab:Section({ Title = "Diagnostics" })
+AntisTab:Button({ Title = "Dump Game Structure", Desc = "Prints (and copies) the game's entity modules, remotes, loaded rooms and UI names. Use it inside Archives / Stairwell and send it if an anti or a tab feature does not work.", Callback = function()
+	local lines = {}
+	local function add(s) lines[#lines + 1] = s end
+	add("Mode: " .. tostring(Mode.Name) .. "  Raw: " .. tostring(Mode.Raw) .. "  Room: " .. B.CurRoom())
+	add("== EntityModules ==")
+	local f = ModulesFolder()
+	if f then
+		for _, m in ipairs(f:GetChildren()) do add(m.Name .. " [" .. m.ClassName .. "]") end
+	else
+		add("(folder not found)")
+	end
+	add("== Remotes ==")
+	local rf = Rem()
+	if rf then
+		for _, r in ipairs(rf:GetChildren()) do add(r.Name .. " [" .. r.ClassName .. "]") end
+	else
+		add("(folder not found)")
+	end
+	add("== CurrentRooms ==")
+	local rooms = B.Rooms()
+	if rooms then
+		local names = {}
+		for _, r in ipairs(rooms:GetChildren()) do names[#names + 1] = r.Name end
+		add(table.concat(names, ", "))
+		local cur = rooms:FindFirstChild(tostring(B.CurRoom()))
+		if cur then
+			add("== Current room children ==")
+			for i, c in ipairs(cur:GetChildren()) do
+				if i > 60 then break end
+				add(c.Name .. " [" .. c.ClassName .. "]")
+			end
+			local assets = cur:FindFirstChild("Assets")
+			if assets then
+				add("== Current room Assets ==")
+				for i, c in ipairs(assets:GetChildren()) do
+					if i > 80 then break end
+					add(c.Name .. " [" .. c.ClassName .. "]")
+				end
+			end
+		end
+	end
+	add("== Workspace ==")
+	for i, c in ipairs(Workspace:GetChildren()) do
+		if i > 60 then break end
+		add(c.Name .. " [" .. c.ClassName .. "]")
+	end
+	add("== MainUI ==")
+	local ui = LocalPlayer.PlayerGui:FindFirstChild("MainUI")
+	if ui then
+		for _, c in ipairs(ui:GetChildren()) do add(c.Name .. " [" .. c.ClassName .. "]") end
+		local mf = ui:FindFirstChild("MainFrame")
+		if mf then
+			for _, c in ipairs(mf:GetChildren()) do add("MainFrame." .. c.Name .. " [" .. c.ClassName .. "]") end
+		end
+	end
+	B.Out("Game structure", lines)
+end })
+end)()
+
 print("[R4NS0M] Loaded more UI")
 print("[R4NS0M] Loading Keybinds Tab")
 ----------------------------------------------------
@@ -8783,6 +9225,7 @@ local EXTRA_KEYS = {
     "NotifyOxygen", "NotifyHaste", "NoClosetDelay", "NoAcceleration", "DoorReach", "NoFootsteps", "NoPromptSounds",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_SpeedHack", "Key_TimerToggle", "Key_TimerStop", "Key_TimerReset", "Key_Slide", "Key_Hub", "Key_RestorePrompts",
     "BypassDrones", "AntiNoise", "NoForgetMeNotDamage", "BypassAlma", "NoScribblesDamage", "NoBashDamage", "StairwellExtraESP",
+    "FBBrightness", "FBAmbient", "NoFog", "AntiLag", "AntiLagLevel", "TimerAutoEnd", "TimerStopOnDeath",
     "CreakText", "CreakRange", "BoxHud", "BoxESP", "AutoHonchoTerminal", "FMNAnomalyESP", "FMNAnomalyNotify", "AutoAlmaMinigame", "TellerNumber", "TellerNotify",
 }
 
