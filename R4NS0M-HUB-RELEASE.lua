@@ -703,11 +703,11 @@ print("[R4NS0M] Loading ESP Config (3/4)")
 local GOLD_NAMES = { GoldPile = "Gold" }
 local HIDE_NAMES = { Wardrobe = "Closet", Bed = "Bed", Toolshed = "Tool Shed", Locker = "Locker" }
 
-local MAX_HIGHLIGHTS = 20 -- Roblox solo renderiza ~31 Highlights a la vez; menos = menos lag (el resto usa cajas)
+local MAX_HIGHLIGHTS = 10 -- Roblox solo renderiza ~31 Highlights a la vez; menos = menos lag (el resto usa cajas)
 
 local Cfg = {
     MaxDistance = 400,
-    MaxObjects = 120, -- tope de objetos dibujados a la vez (los mas cercanos); evita lag en mapas grandes
+    MaxObjects = 70, -- tope de objetos dibujados a la vez (los mas cercanos); evita lag en mapas grandes
     TextSize = 22,
     Font = "Oswald",
     PlayerNames = "Display Name",
@@ -5238,7 +5238,7 @@ task.spawn(function()
 					end
 				end
 				-- red de seguridad: si algun prompt se escapo del registro, se vuelve a escanear
-				if now - lastScan > 6 then
+				if now - lastScan > 20 then
 					lastScan = now
 					task.spawn(function()
 						local k = 0
@@ -5588,7 +5588,7 @@ local function MeldRefresh()
 			Meld.Loop = true
 			task.spawn(function() -- el juego puede recrear / re-encender cosas: se repasa cada 3s
 				while Ex.MeldStopGrowth or Ex.MeldRemove do
-					task.wait(3)
+					task.wait(10)
 					MeldScanAll()
 				end
 				Meld.Loop = false
@@ -7389,7 +7389,20 @@ function B.FloorName()
 	local f = gd and gd:FindFirstChild("Floor")
 	return f and f.Value or ""
 end
-function B.Compact(s) return (tostring(s or ""):lower():gsub("[^%a]", "")) end
+do
+	local cache, n = {}, 0
+	function B.Compact(s)
+		s = tostring(s or "")
+		local v = cache[s]
+		if v == nil then
+			if n > 6000 then cache, n = {}, 0 end
+			v = s:lower():gsub("[^%a]", "")
+			cache[s] = v
+			n = n + 1
+		end
+		return v
+	end
+end
 function B.Has(s, token) return B.Compact(s):find(token, 1, true) ~= nil end
 
 -- numero de sala (hijo de CurrentRooms) que contiene a inst
@@ -7614,16 +7627,36 @@ local function ApplyEntry(m, e)
 	end
 end
 
+local KindByName, KindN = {}, 0
+local function KindOf(name)
+	local v = KindByName[name]
+	if v == nil then
+		if KindN > 6000 then KindByName, KindN = {}, 0 end
+		v = false
+		if #name <= 40 then
+			local c = B.Compact(name)
+			if c ~= "" then
+				for _, k in ipairs(KINDS) do
+					if k.test(c) then v = k break end
+				end
+			end
+		end
+		KindByName[name] = v
+		KindN = KindN + 1
+	end
+	return v
+end
+
 local function Consider(d)
-	if Reg[d] or not (d:IsA("Model") or (d:IsA("BasePart") and not d.Parent:IsA("Model"))) then return end
-	if #d.Name > 40 then return end
+	if Reg[d] then return end
+	local k = KindOf(d.Name) -- barato: una vez por nombre; casi todo (arboles, partes...) sale aqui
+	if not k then return end
+	if not (d:IsA("Model") or (d:IsA("BasePart") and not d.Parent:IsA("Model"))) then return end
 	local char = LocalPlayer.Character
 	if char and d:IsDescendantOf(char) then return end
 	if Players:GetPlayerFromCharacter(d) then return end
-	local c = B.Compact(d.Name)
-	if c == "" then return end
-	for _, k in ipairs(KINDS) do
-		if k.test(c) then
+	do
+		if true then
 			local e = { k = k, Orig = {}, Sounds = {} }
 			Reg[d] = e
 			d.AncestryChanged:Connect(function(_, p) if not p then Reg[d] = nil end end)
@@ -7882,15 +7915,27 @@ end
 
 task.spawn(function()
 	while true do
-		task.wait(2.5)
-		if Ex.StairwellExtraESP and Mode.Name == "Stairwell" then
+		task.wait(4)
+		if Ex.StairwellExtraESP and Mode.Name == "Stairwell"
+			and ((Cfg.Categories.doors.Enabled and Active.doors) or (Cfg.Categories.items.Enabled and Active.items)) then
 			pcall(function()
 				local rooms = B.Rooms()
 				if not rooms then return end
-				local n = 0
-				for _, d in ipairs(rooms:GetDescendants()) do
+				local n, t0 = 0, os.clock()
+				local cur = B.CurRoom()
+				local scan = {}
+				for _, r in ipairs({ cur - 1, cur, cur + 1, cur + 2 }) do
+					local room = rooms:FindFirstChild(tostring(r))
+					if room then scan[#scan + 1] = room end
+				end
+				local all = {}
+				for _, room in ipairs(scan) do
+					for _, d in ipairs(room:GetDescendants()) do all[#all + 1] = d end
+				end
+				for _, d in ipairs(all) do
 					n = n + 1
-					if n % 500 == 0 then task.wait() end
+					if n % 100 == 0 and os.clock() - t0 > 0.004 then task.wait() t0 = os.clock() end
+					if not d.Parent then continue end
 					if d:IsA("Model") and not Tracked[d] and not seenExtra[d] then
 						local c = B.Compact(d.Name)
 						-- puertas: cualquier modelo "door" que no sea falso ni parte de otro objeto ya marcado
@@ -8110,8 +8155,16 @@ end })
 local AGG = { "aggress", "aggro", "anger", "angry", "agitat", "rage", "hostil", "fury", "wrath" }
 local Creaks = {}
 
+local CreakName = {}
 local function IsCreak(d)
-	return d:IsA("Model") and #d.Name < 30 and B.Has(d.Name, "creak")
+	if not d:IsA("Model") then return false end
+	local nm = d.Name
+	local v = CreakName[nm]
+	if v == nil then
+		v = #nm < 30 and B.Has(nm, "creak") or false
+		CreakName[nm] = v
+	end
+	return v
 end
 Workspace.DescendantAdded:Connect(function(d)
 	if IsCreak(d) then
@@ -8337,9 +8390,9 @@ end
 task.spawn(function()
 	local lastRoom = -1
 	while true do
-		task.wait(1)
+		task.wait(2)
 		pcall(function()
-			if not (Ex.BoxHud or Ex.BoxESP) then B.SetHud("boxes", 0.76, nil) return end
+			if not (Ex.BoxHud or Ex.BoxESP) or Mode.Name ~= "Archives" then B.SetHud("boxes", 0.76, nil) return end
 			local remaining = Needed()
 			if Ex.BoxHud then
 				if remaining and #remaining > 0 then
@@ -8455,13 +8508,13 @@ end)
 local fmnSeen = setmetatable({}, { __mode = "k" })
 task.spawn(function()
 	while true do
-		task.wait(1.2)
-		if Ex.FMNAnomalyESP or Ex.FMNAnomalyNotify then
+		task.wait(2.5)
+		if (Ex.FMNAnomalyESP or Ex.FMNAnomalyNotify) and Mode.Name == "Archives" then
 			pcall(function()
 				local rooms = B.Rooms()
 				if not rooms then return end
 				local cur = B.CurRoom()
-				for _, n in ipairs({ cur - 2, cur - 1, cur, cur + 1, cur + 2 }) do
+				for _, n in ipairs({ cur - 1, cur, cur + 1 }) do
 					local room = rooms:FindFirstChild(tostring(n))
 					if room then
 						for _, d in ipairs(room:GetDescendants()) do
