@@ -1,4 +1,5 @@
 warn("--- [R4NS0M] EXECUTING SCRIPT ---")
+pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "R4NS0M", Text = "Script iniciado, cargando UI...", Duration = 6 }) end)
 --[[
   R4NS0M CD-1  |  Team CHX
   Version 1.0.0
@@ -87,7 +88,19 @@ local function GetIconAsset()
     return FALLBACK_ICON
 end
 
-local IconAsset = GetIconAsset()
+local IconAsset = FALLBACK_ICON
+pcall(function()
+    -- Solo usa el PNG ya cacheado (instantaneo). Nunca espera a la red.
+    if isfile and readfile and getcustomasset and isfile(ICON_FILE) then
+        local data = readfile(ICON_FILE)
+        if IsPng(data) then
+            local asset = getcustomasset(ICON_FILE)
+            if asset then IconAsset = asset end
+        end
+    end
+end)
+-- Descarga/cachea el icono en segundo plano para la proxima ejecucion
+task.spawn(function() pcall(GetIconAsset) end)
 
 print("[R4NS0M] Icon loaded")
 print("[R4NS0M] Loading Execution Count")
@@ -165,7 +178,20 @@ local WindUI, Window = (function()
         "https://github.com/Footagesus/WindUI/releases/download/1.6.41/main.lua",
     }
 
-    local function tryLoad(url)
+    local function withTimeout(seconds, fn)
+        local done, result = false, nil
+        task.spawn(function()
+            local ok, r = pcall(fn)
+            if ok then result = r end
+            done = true
+        end)
+        local t0 = os.clock()
+        while not done and os.clock() - t0 < seconds do task.wait(0.1) end
+        if not done then warn("[R4NS0M] Timeout esperando WindUI") end
+        return result
+    end
+
+    local function tryLoadRaw(url)
         local okGet, src = pcall(function() return game:HttpGet(url) end)
         if not okGet or type(src) ~= "string" or #src < 1000 then
             warn("[R4NS0M] HttpGet fallo: " .. url .. " -> " .. tostring(src))
@@ -203,7 +229,7 @@ local WindUI, Window = (function()
 
     local lib, win
     for _, url in ipairs(sources) do
-        local candidate = tryLoad(url)
+        local candidate = withTimeout(25, function() return tryLoadRaw(url) end)
         if candidate then
             -- Intenta con la config completa, luego con otro icono, luego minima
             local ok, w = makeWindow(candidate, IconAsset, true)
