@@ -2408,7 +2408,7 @@ for _, c in ipairs(CATEGORY_UI) do EnsureCategoryUI(c.id) end
 
 VisualsTab:Section({ Title = "Display" })
 AddSlider(VisualsTab, "MaxDistance", "Max Distance",
-    "Objects farther than this many studs are hidden. Entities are always shown, except the ones in the "Entities with distance limit" list.",
+    "Objects farther than this many studs are hidden. Entities are always shown, except the ones in the \"Entities with distance limit\" list.",
     50, 2000, Cfg.MaxDistance, function(v) Cfg.MaxDistance = v end)
 AddSlider(VisualsTab, "MaxObjects", "Max ESP Objects",
     "Most objects drawn at once (the closest ones win; entities always have priority). Lower it if the game lags, mainly in The Outdoors.",
