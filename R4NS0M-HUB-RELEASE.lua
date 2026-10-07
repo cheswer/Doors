@@ -176,9 +176,10 @@ local avatarUrl = string.format(
 InfoTab:Paragraph({
     Title = "User Profile",
     Desc = string.format(
-        "Username: %s\nDisplay Name: %s\nExecutor: %s\nExecutions: %d",
+        "Username: %s\nDisplay Name: %s\nUser ID: %d\nExecutor: %s\nExecutions: %d",
         LocalPlayer.Name,
         LocalPlayer.DisplayName,
+        LocalPlayer.UserId,
         currentExecutor,
         executionCount
     ),
@@ -186,11 +187,60 @@ InfoTab:Paragraph({
     ImageSize = 48
 })
 
+InfoTab:Section({ Title = "Live Session" })
+local sessionPara = InfoTab:Paragraph({ Title = "Session", Desc = "Reading game data..." })
+task.spawn(function()
+    local RunSvc = game:GetService("RunService")
+    local frames, last = 0, os.clock()
+    RunSvc.RenderStepped:Connect(function() frames = frames + 1 end)
+    local started = os.clock()
+    while true do
+        task.wait(1)
+        local now = os.clock()
+        local fps = math.floor(frames / math.max(now - last, 0.001) + 0.5)
+        frames, last = 0, now
+        local floorName, room, ping, playersN = "Lobby", "-", "?", #game:GetService("Players"):GetPlayers()
+        pcall(function()
+            local gd = game:GetService("ReplicatedStorage"):FindFirstChild("GameData")
+            local f = gd and gd:FindFirstChild("Floor")
+            if f then floorName = tostring(f.Value) end
+        end)
+        pcall(function() room = tostring(LocalPlayer:GetAttribute("CurrentRoom") or "-") end)
+        pcall(function() ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()) .. " ms" end)
+        local mins = math.floor((now - started) / 60)
+        local txt = string.format(
+            "Floor: %s\nCurrent Room: %s\nPlayers: %d\nFPS: %d\nPing: %s\nTime with the script: %d min",
+            floorName, room, playersN, fps, ping, mins
+        )
+        pcall(function() sessionPara:SetDesc(txt) end)
+    end
+end)
+
 InfoTab:Section({ Title = "Script Information" })
 
 InfoTab:Paragraph({
     Title = "About R4NS0M CD-1",
     Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.0"
+})
+
+InfoTab:Paragraph({
+    Title = "Where to find things",
+    Desc = "Visuals: ESP, chase paths (Seek / Eyestalk) and lighting.\n"
+        .. "Player: movement, speed, jump, fly, noclip.\n"
+        .. "Automation: Auto Interact (with ignore list), library code, minecart, Dam Seek, Cringle.\n"
+        .. "Anticheat: position / crouch spoof and manipulation.\n"
+        .. "Antis: entity bypasses and the Seek / Figure combos.\n"
+        .. "Alerts: entity, item, library code and Ransom notifications.\n"
+        .. "Misc: revive and utilities.\n"
+        .. "Keybinds: every key and floating button can be rebound.\n"
+        .. "Configs: save and load your setup."
+})
+
+InfoTab:Paragraph({
+    Title = "Good to know",
+    Desc = "Features marked experimental may fail on some floors: check the console if something does not respond.\n"
+        .. "On mobile, the floating buttons can be shown or hidden from the Keybinds tab.\n"
+        .. "Changing game mode while playing reconfigures the script and adds the new options at the bottom of Visuals."
 })
 
 print("[R4NS0M] Info tab loaded")
@@ -969,7 +1019,7 @@ local PRIORITY = {
 -- cerca de ti (la que te ataca). Las madrigueras (estaticas) nunca se marcan.
 -- Todo vive en la tabla Watch para no gastar variables locales.
 ----------------------------------------------------
-local Watch = { M = {}, Loop = false, Gold = setmetatable({}, { __mode = "k" }) }
+local Watch = { Limited = { Stem = true, Drone = true, Drones = true }, M = {}, Loop = false, Gold = setmetatable({}, { __mode = "k" }) }
 
 local BURROW_WORDS = { "burrow", "hole", "den", "mound", "nest", "tunnel", "lair", "pit", "dirt", "hill", "spawn", "madriguera" }
 function Watch.IsBurrowName(name)
@@ -1827,7 +1877,7 @@ local function Refresh()
             if ok then
                 local d = (part.Position - camPos).Magnitude
                 e.Dist = d
-                ok = (cat == "entities" and e.Label ~= "Stem" and e.Label ~= "Drone" and e.Label ~= "Drones") or d <= maxDist
+                ok = (cat == "entities" and not (Watch.Limited[e.Key] or Watch.Limited[e.Label])) or d <= maxDist
             end
             if ok then
                 n = n + 1
@@ -1839,8 +1889,9 @@ local function Refresh()
     end
 
     -- Orden (entidades primero, luego por distancia) solo si hace falta: limite de Highlights o de objetos
-    local cap = Cfg.MaxObjects or 120
-    if n > MAX_HIGHLIGHTS or n > cap then
+    local maxHL = Watch.MaxHL or MAX_HIGHLIGHTS
+    local cap = math.min(Cfg.MaxObjects or 120, Watch.PerfCap or math.huge)
+    if n > maxHL or n > cap then
         table.sort(list, Mode.Sort)
         for i = cap + 1, n do
             HideEntry(list[i])
@@ -1880,7 +1931,7 @@ local function Refresh()
             e.GeoT = now
             e.NoGeo = not HasVisibleGeometry(e.Inst)
         end
-        local useBox = e.NoGeo or i > MAX_HIGHLIGHTS
+        local useBox = e.NoGeo or i > maxHL
 
         local hl, box, bb, tl = e.HL, e.Box, e.BB, e.TL
 
@@ -1963,7 +2014,7 @@ end
 task.spawn(function()
     while true do
         pcall(Refresh)
-        task.wait(0.25)
+        task.wait(math.max(1 / math.max(Cfg.RefreshRate or 4, 1), Watch.PerfInterval or 0))
     end
 end)
 
@@ -2234,7 +2285,7 @@ for _, c in ipairs(CATEGORY_UI) do EnsureCategoryUI(c.id) end
 
 VisualsTab:Section({ Title = "Display" })
 AddSlider(VisualsTab, "MaxDistance", "Max Distance",
-    "Objects farther than this many studs are hidden. Entities are always shown, whatever the distance.",
+    "Objects farther than this many studs are hidden. Entities are always shown, except the ones in the "Entities with distance limit" list.",
     50, 2000, Cfg.MaxDistance, function(v) Cfg.MaxDistance = v end)
 AddSlider(VisualsTab, "MaxObjects", "Max ESP Objects",
     "Most objects drawn at once (the closest ones win; entities always have priority). Lower it if the game lags, mainly in The Outdoors.",
@@ -4571,7 +4622,7 @@ AddToggle(AntiCheatTab, "DisableAnticheat", "Anticheat Bypass",
 	"Completely disables the anticheat, after interacting with a ladder. It comes back after a cutscene, a Halt room, Void or Glitch: use a ladder again.",
 	Ex.DisableAnticheat, function(v) Apply("DisableAnticheat", v) end)
 AddToggle(AntiCheatTab, "PositionSpoof", "Position Spoof",
-	"Makes your character appear underground on the server, protecting you from rush-like entities.",
+	"Moves your real position underground while your body stays visible at floor level for other players, so they see you standing normally. Protects you from rush-like entities.",
 	Ex.PositionSpoof, function(v) Apply("PositionSpoof", v) end)
 AddToggle(AntiCheatTab, "CrouchSpoof", "Crouch Spoof",
 	"Makes the game think you are always crouching.",
@@ -5544,6 +5595,17 @@ local function Category(pp)
 	if compact:find("glitchcube", 1, true) or compact:find("glitchfragment", 1, true) then return "Glitch Fragments" end
 	return false
 end
+local AIItemCache = setmetatable({}, { __mode = "k" })
+local function ItemOf(pp)
+	local cands = { pp.ObjectText, pp.Parent and pp.Parent.Name, pp.Parent and pp.Parent.Parent and pp.Parent.Parent.Name }
+	for _, c in ipairs(cands) do
+		if type(c) == "string" and c ~= "" then
+			local canon = ITEM_LOOKUP[Norm(c)]
+			if canon then return canon end
+		end
+	end
+	return false
+end
 Ex.AIExtraSkip = function(pp)
 	local c = AICache[pp]
 	if c == nil then
@@ -5552,6 +5614,13 @@ Ex.AIExtraSkip = function(pp)
 		AICache[pp] = c
 	end
 	if c and Ex.AIIgnore[c] then return true end
+	local it = AIItemCache[pp]
+	if it == nil then
+		local ok, r = pcall(ItemOf, pp)
+		it = ok and r or false
+		AIItemCache[pp] = it
+	end
+	if it and Ex.AIItemIgnore and Ex.AIItemIgnore[it] then return true end
 	if Ex.AIIgnore["Dropped Items"] then
 		local Drops = Workspace:FindFirstChild("Drops")
 		if Drops and pp:IsDescendantOf(Drops) then return true end
@@ -5882,13 +5951,13 @@ do
 	local names = {}
 	for k in pairs(Ex.AIIgnore) do names[#names + 1] = k end
 	table.sort(names)
-	local defaults = {}
-	for _, k in ipairs(names) do defaults[#defaults + 1] = k end
-	AutomationTab:Dropdown({
+	local all = {}
+	for _, k in ipairs(names) do all[#all + 1] = k end
+	local dd = AutomationTab:Dropdown({
 		Title = "Ignore List",
-		Desc = "Things Auto Interact will NOT touch. Detection is by name/text, so enable Debug Mode if something slips through.",
+		Desc = "Types of objects Auto Interact will NOT touch (all selected by default). Detection is by name/text. Specific items have their own list below.",
 		Values = names,
-		Value = defaults,
+		Value = all,
 		Multi = true,
 		AllowNone = true,
 		Callback = function(selected)
@@ -5897,6 +5966,16 @@ do
 			Ex.AIIgnore = set
 		end,
 	})
+	local function SetAll(on)
+		local set, list = {}, {}
+		if on then
+			for _, n in ipairs(names) do set[n] = true list[#list + 1] = n end
+		end
+		Ex.AIIgnore = set
+		pcall(function() dd:Select(list) end)
+	end
+	AutomationTab:Button({ Title = "Ignore everything", Desc = "Selects every entry of the ignore list.", Callback = function() SetAll(true) end })
+	AutomationTab:Button({ Title = "Ignore nothing", Desc = "Clears the ignore list: Auto Interact will touch everything.", Callback = function() SetAll(false) end })
 end
 
 AlertsTab:Section({ Title = "Library" })
@@ -5924,7 +6003,9 @@ Ex.PathMode = "Lines"
 Ex.NotifyItems = false
 Ex.NotifyUnlistedItems = false
 Ex.NotifyItemFilter = {}
-for _, n in ipairs(ITEM_NAMES) do Ex.NotifyItemFilter[n] = true end
+-- por defecto solo lo importante/roto; la lista completa sigue disponible en el dropdown
+local ESSENTIAL_ITEMS = { "Crucifix", "Gold Gun", "Lockpicks", "Skeleton Key", "Holy Hand Grenade", "Shears", "Multitool", "Big Bomb", "Knockbomb", "Laser Pointer" }
+for _, n in ipairs(ESSENTIAL_ITEMS) do Ex.NotifyItemFilter[n] = true end
 
 -- ------------------------------------------------------------------------------------------
 -- Infinite Jump en celular: el boton de saltar de DOORS no dispara JumpRequest
@@ -6194,13 +6275,11 @@ AlertsTab:Section({ Title = "Items" })
 AddToggle(AlertsTab, "NotifyItems", "Notify Items", "Shows a notification when a selected item appears in the level.", Ex.NotifyItems, function(v) Ex.NotifyItems = v end)
 AddToggle(AlertsTab, "NotifyUnlistedItems", "Notify Unlisted Items", "Also notifies pickups that are not in the list below.", Ex.NotifyUnlistedItems, function(v) Ex.NotifyUnlistedItems = v end)
 do
-	local defaults = {}
-	for _, n in ipairs(ITEM_NAMES) do defaults[#defaults + 1] = n end
-	AlertsTab:Dropdown({
+	local ddItems = AlertsTab:Dropdown({
 		Title = "Items to notify",
-		Desc = "Pick which items trigger a notification.",
+		Desc = "Every item is in the list, but only the important ones are selected by default (Crucifix, Gold Gun, Lockpicks, Skeleton Key...).",
 		Values = ITEM_NAMES,
-		Value = defaults,
+		Value = ESSENTIAL_ITEMS,
 		Multi = true,
 		AllowNone = true,
 		Callback = function(selected)
@@ -6209,6 +6288,19 @@ do
 			Ex.NotifyItemFilter = map
 		end,
 	})
+	local function SetItems(list)
+		local map = {}
+		for _, n in ipairs(list) do map[n] = true end
+		Ex.NotifyItemFilter = map
+		pcall(function() ddItems:Select(list) end)
+	end
+	AlertsTab:Button({ Title = "Notify all items", Desc = "Selects every item in the list.", Callback = function()
+		local all = {}
+		for _, n in ipairs(ITEM_NAMES) do all[#all + 1] = n end
+		SetItems(all)
+	end })
+	AlertsTab:Button({ Title = "Notify only essentials", Desc = "Back to the default selection.", Callback = function() SetItems(ESSENTIAL_ITEMS) end })
+	AlertsTab:Button({ Title = "Notify nothing", Desc = "Clears the selection.", Callback = function() SetItems({}) end })
 end
 end)()
 
@@ -6267,6 +6359,815 @@ Workspace.DescendantAdded:Connect(function(d)
 end)
 end)()
 
+print("[R4NS0M] Loading Batch 5")
+-- ============================================================================================
+-- BATCH 5
+--   Antis  : Bypass Seek, Bypass Figure
+--   Alerts : Notify Ransom (aparece en Workspace antes del jumpscare)
+-- ============================================================================================
+;(function()
+local RS = game:GetService("ReplicatedStorage")
+local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
+
+Ex.BypassSeek = false
+Ex.BypassFigure = false
+Ex.NotifyRansom = true
+Ex.AutoPositionSpoof = false
+
+-- entidades tipo Rush: mientras exista una activa en el Workspace hace falta el spoof
+local RUSHLIKE = { "RushMoving", "AmbushMoving", "A60", "A120", "GlitchRush", "GlitchAmbush", "BackdoorRush", "FrozenAmbush" }
+local function RushPresent()
+	for _, name in ipairs(RUSHLIKE) do
+		local m = Workspace:FindFirstChild(name)
+		if m and m:GetAttribute("Inactive") ~= true then return true end
+	end
+	return false
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Notify Ransom: el modelo entra al Workspace antes de que el cliente muestre el jumpscare
+-- ------------------------------------------------------------------------------------------
+local ransomSeen = setmetatable({}, { __mode = "k" })
+local function CheckRansom(c)
+	if not Ex.NotifyRansom or ransomSeen[c] then return end
+	local n = c.Name:lower()
+	if n:find("ransom", 1, true) or n == "a90" or n == "a-90" then
+		ransomSeen[c] = true
+		Toast("Ransom has spawned", "It appeared in the Workspace. Get ready before it reaches you.")
+	end
+end
+Workspace.ChildAdded:Connect(CheckRansom)
+
+-- ------------------------------------------------------------------------------------------
+-- Combos: se activan/restauran los toggles que ya existen, sin pisar lo que ya tenias encendido
+-- ------------------------------------------------------------------------------------------
+local savedState = {}
+local function Combo(tag, ids, on)
+	for _, id in ipairs(ids) do
+		local key = tag .. id
+		if on then
+			if savedState[key] == nil then savedState[key] = Ex[id] and true or false end
+			if not Ex[id] then SetFeature(id, true) end
+		else
+			if savedState[key] == false then SetFeature(id, false) end
+			savedState[key] = nil
+		end
+	end
+end
+
+-- Jumpscare del Seek: se desactivan los modulos del jumpscare mientras el bypass este activo
+local function SeekJumpscareModules(on)
+	local roots = {}
+	local fr = RS:FindFirstChild("FloorReplicated")
+	if fr then roots[#roots + 1] = fr end
+	pcall(function()
+		local rl = LocalPlayer.PlayerGui.MainUI.Initiator.Main_Game.RemoteListener
+		roots[#roots + 1] = rl
+	end)
+	for _, r in ipairs(roots) do
+		for _, d in ipairs(r:GetDescendants()) do
+			if d:IsA("ModuleScript") then
+				local l = d.Name:lower()
+				if on then
+					if l:find("seek", 1, true) and l:find("jumpscare", 1, true) and not l:find("_disabled", 1, true) then
+						d:SetAttribute("R4NOrig", d.Name)
+						d.Name = d.Name .. "_Disabled"
+					end
+				elseif d:GetAttribute("R4NOrig") then
+					d.Name = d:GetAttribute("R4NOrig")
+					d:SetAttribute("R4NOrig", nil)
+				end
+			end
+		end
+	end
+end
+do
+	local fr = RS:FindFirstChild("FloorReplicated")
+	if fr then
+		fr.DescendantAdded:Connect(function(d)
+			if Ex.BypassSeek and d:IsA("ModuleScript") then
+				task.defer(SeekJumpscareModules, true)
+			end
+		end)
+	end
+end
+
+local SEEK_IDS = { "BypassSeekObstructions", "RemoveSeekTrigger" }
+local FIGURE_IDS = { "CrouchSpoof", "AutoHeartbeatMinigame", "FigureGodmode" }
+
+-- Persecucion de Seek en curso
+local chase = false
+Workspace.DescendantAdded:Connect(function(d)
+	if d.Name == "SeekMovingNewClone" or d.Name == "SeekMoving" then
+		chase = true
+		d.Destroying:Once(function() task.delay(1, function() chase = false end) end)
+	end
+end)
+
+-- Position Spoof automatico: solo mientras el Seek persigue o hay un Figure cerca
+local autoSpoof = false
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		pcall(function()
+			local want = false
+			if Ex.AutoPositionSpoof and RushPresent() then want = true end
+			if Ex.BypassSeek and chase then want = true end
+			if Ex.BypassFigure and Functions.GetNearestFigure then
+				local ok, fig = pcall(Functions.GetNearestFigure)
+				if ok and fig then want = true end
+			end
+			if want and not Ex.PositionSpoof then
+				autoSpoof = true
+				SetFeature("PositionSpoof", true)
+			elseif not want and autoSpoof then
+				autoSpoof = false
+				if Ex.PositionSpoof then SetFeature("PositionSpoof", false) end
+			end
+		end)
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Interfaz
+-- ------------------------------------------------------------------------------------------
+AntisTab:Section({ Title = "Bypass Combos" })
+AddToggle(AntisTab, "BypassSeek", "Bypass Seek",
+	"Experimental. Disables the Seek jumpscare, bypasses its obstacles, deletes the trigger where supported (Old Hotel / Fools) and moves you underground automatically while the chase is running.",
+	Ex.BypassSeek, function(v)
+		Ex.BypassSeek = v
+		Combo("seek:", SEEK_IDS, v)
+		SeekJumpscareModules(v)
+	end)
+AddToggle(AntisTab, "BypassFigure", "Bypass Figure",
+	"Experimental. Crouch Spoof + Auto Heartbeat Minigame + Figure Godmode, and moves you underground automatically while a Figure is near.",
+	Ex.BypassFigure, function(v)
+		Ex.BypassFigure = v
+		Combo("fig:", FIGURE_IDS, v)
+	end)
+
+AddToggle(AntiCheatTab, "AutoPositionSpoof", "Auto Position Spoof",
+	"Turns Position Spoof on only while a Rush-like entity (Rush, Ambush, A-60, A-120, Glitch...) exists, and returns you to normal as soon as it despawns. Leave the manual Position Spoof off to use it.",
+	Ex.AutoPositionSpoof, function(v) Ex.AutoPositionSpoof = v end)
+
+AlertsTab:Section({ Title = "Entities" })
+AddToggle(AlertsTab, "NotifyRansom", "Notify Ransom", "Notifies as soon as Ransom enters the Workspace, before its jumpscare reaches you.", Ex.NotifyRansom, function(v) Ex.NotifyRansom = v end)
+end)()
+
+print("[R4NS0M] Loading Batch 6")
+-- ============================================================================================
+-- BATCH 6
+--   Visuals : rendimiento del ESP (modo ligero + deteccion de lag) y lista de entidades con limite de distancia
+--   Alerts  : aviso cuando una entidad desaparece
+--   Automation : lista de items ignorados del Auto Interact
+-- ============================================================================================
+;(function()
+local Players = game:GetService("Players")
+local RunSvc = game:GetService("RunService")
+local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
+
+Ex.PerfMode = false
+Ex.AutoPerf = true
+Ex.NotifyDespawn = false
+Cfg.RefreshRate = Cfg.RefreshRate or 4
+
+-- ------------------------------------------------------------------------------------------
+-- Rendimiento del ESP
+--   nivel 0: normal | 1-3: menos Highlights (se usan cajas, mas baratas), menos objetos y refresco mas lento
+-- ------------------------------------------------------------------------------------------
+local MAXHL    = { 20, 12, 8, 4 }
+local INTERVAL = { 0, 0.15, 0.3, 0.6 }
+local CAP      = { math.huge, 100, 60, 35 }
+local perfLevel = 0
+local function ApplyPerf()
+	local eff = perfLevel
+	if Ex.PerfMode then eff = math.max(eff, 2) end
+	Watch.MaxHL = MAXHL[eff + 1]
+	Watch.PerfInterval = INTERVAL[eff + 1]
+	Watch.PerfCap = CAP[eff + 1]
+end
+ApplyPerf()
+do
+	local frames, last = 0, os.clock()
+	RunSvc.RenderStepped:Connect(function() frames = frames + 1 end)
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			local now = os.clock()
+			local fps = frames / math.max(now - last, 0.001)
+			frames, last = 0, now
+			if Ex.AutoPerf then
+				-- histeresis amplia para no oscilar (en celulares con tope de 30 FPS no baja de nivel)
+				if fps < 22 and perfLevel < 3 then perfLevel = perfLevel + 1
+				elseif fps > 40 and perfLevel > 0 then perfLevel = perfLevel - 1 end
+			elseif perfLevel ~= 0 then
+				perfLevel = 0
+			end
+			ApplyPerf()
+		end
+	end)
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Aviso de despawn: solo para entidades que antes se vieron aparecer y que estan en tu lista de avisos
+-- ------------------------------------------------------------------------------------------
+local live = setmetatable({}, { __mode = "k" })
+local function Track(m)
+	if not m:IsA("Model") or Players:GetPlayerFromCharacter(m) then return end
+	local ok, label = pcall(EntityLabel, m.Name, false)
+	if ok and label and label ~= "Mandrake" then live[m] = label end
+end
+for _, c in ipairs(Workspace:GetChildren()) do Track(c) end
+Workspace.ChildAdded:Connect(Track)
+local lastDespawn = {}
+Workspace.ChildRemoved:Connect(function(m)
+	local label = live[m]
+	if not label then return end
+	live[m] = nil
+	if not Ex.NotifyDespawn then return end
+	if not (Ex.NotifyFilter and Ex.NotifyFilter[label]) then return end
+	local now = os.clock()
+	if lastDespawn[label] and now - lastDespawn[label] < 3 then return end
+	lastDespawn[label] = now
+	Toast(label .. " has despawned", "You are safe from it now.")
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Interfaz
+-- ------------------------------------------------------------------------------------------
+VisualsTab:Section({ Title = "ESP Performance" })
+AddToggle(VisualsTab, "PerfMode", "ESP Performance Mode", "Draws fewer Highlights (cheaper boxes instead), fewer objects and refreshes slower. Use it if the game lags.", Ex.PerfMode, function(v) Ex.PerfMode = v ApplyPerf() end)
+AddToggle(VisualsTab, "AutoPerf", "Auto Performance", "Lightens the ESP by itself when your FPS drops, and restores it when they recover.", Ex.AutoPerf, function(v) Ex.AutoPerf = v end)
+AddSlider(VisualsTab, "RefreshRate", "ESP Refresh Rate", "How many times per second the ESP updates (lower = less lag).", 2, 10, Cfg.RefreshRate, function(v) Cfg.RefreshRate = v end)
+
+VisualsTab:Section({ Title = "Entity Distance Limit" })
+do
+	local names = {}
+	for k in pairs(ENTITY_MODES) do names[#names + 1] = k end
+	table.sort(names)
+	local sel = {}
+	for k in pairs(Watch.Limited) do sel[#sel + 1] = k end
+	table.sort(sel)
+	VisualsTab:Dropdown({
+		Title = "Entities with distance limit",
+		Desc = "These entities obey Max Distance and disappear when far away. Remove one from the list to go back to the normal behavior (always shown).",
+		Values = names,
+		Value = sel,
+		Multi = true,
+		AllowNone = true,
+		Callback = function(selected)
+			local set = {}
+			for _, n in ipairs(selected or {}) do set[n] = true end
+			Watch.Limited = set
+		end,
+	})
+end
+
+AlertsTab:Section({ Title = "Entity Despawn" })
+AddToggle(AlertsTab, "NotifyDespawn", "Notify Despawn", "Tells you when an entity you were notified about is gone. Uses the same entity selection as the spawn alerts.", Ex.NotifyDespawn, function(v) Ex.NotifyDespawn = v end)
+
+-- ------------------------------------------------------------------------------------------
+-- Auto Interact: items ignorados
+-- ------------------------------------------------------------------------------------------
+local JUNK = { "Paper Plane", "Fih Flakes", "Fih Food", "Paper Cup", "Mug", "Honcho Mug", "Lunch Box", "Leftovers", "Broken Monitor", "Broken Lamp", "Bottle Crate", "Coin Roll", "Large Screw", "Briefcase", "Nanner Peel", "Tip Jar", "Honey Pot" }
+local function ToSet(list) local s = {} for _, n in ipairs(list) do s[n] = true end return s end
+Ex.AIItemIgnore = ToSet(JUNK)
+
+AutomationTab:Section({ Title = "Auto Interact Ignored Items" })
+do
+	local dd = AutomationTab:Dropdown({
+		Title = "Ignored Items",
+		Desc = "Auto Interact will not pick these up. Default: Paper Plane, Fih Flakes and other useless items.",
+		Values = ITEM_NAMES,
+		Value = JUNK,
+		Multi = true,
+		AllowNone = true,
+		Callback = function(selected) Ex.AIItemIgnore = ToSet(selected or {}) end,
+	})
+	local function SetItems(list)
+		Ex.AIItemIgnore = ToSet(list)
+		pcall(function() dd:Select(list) end)
+	end
+	AutomationTab:Button({ Title = "Ignore all items", Desc = "Auto Interact will not pick up any item.", Callback = function()
+		local all = {}
+		for _, n in ipairs(ITEM_NAMES) do all[#all + 1] = n end
+		SetItems(all)
+	end })
+	AutomationTab:Button({ Title = "Ignore no items", Desc = "Auto Interact will pick up every item.", Callback = function() SetItems({}) end })
+	AutomationTab:Button({ Title = "Restore default ignored items", Desc = "Back to the useless items list.", Callback = function() SetItems(JUNK) end })
+end
+end)()
+
+print("[R4NS0M] Loading Batch 7")
+-- ============================================================================================
+-- BATCH 7: SPEEDRUN TIMER
+--   Estilo timer de speedrun: digitos grandes, estados por color, splits por sala con delta contra tu PB.
+--   Arranca solo al moverte (joystick, WASD/flechas, saltar, agacharse, Anticheat Manipulation); la camara no cuenta.
+-- ============================================================================================
+;(function()
+local UIS = game:GetService("UserInputService")
+local RunSvc = game:GetService("RunService")
+local HttpSvc = game:GetService("HttpService")
+local RS = game:GetService("ReplicatedStorage")
+local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
+
+Ex.TimerShow = true
+Ex.TimerPosition = "Top Right"
+Ex.TimerScale = 100
+Ex.TimerOpacity = 80
+Ex.TimerSplits = true
+Ex.TimerButtons = true
+Ex.TimerAutoStart = true
+Ex.TimerAutoSplit = true
+Ex.TimerStopRoom = 0
+Ex.Key_TimerToggle = "K"
+Ex.Key_TimerStop = "O"
+Ex.Key_TimerReset = "L"
+
+-- ------------------------------------------------------------------------------------------
+-- Estado y PB (guardado por piso)
+-- ------------------------------------------------------------------------------------------
+local FILE = "R4NS0M_Speedrun.json"
+local PB = {}
+pcall(function()
+	if isfile and isfile(FILE) then PB = HttpSvc:JSONDecode(readfile(FILE)) end
+end)
+local function SavePB() pcall(function() if writefile then writefile(FILE, HttpSvc:JSONEncode(PB)) end end) end
+
+local T = { state = "ready", acc = 0, t0 = 0, list = {}, highest = 0, delta = nil, newPB = false }
+local function Elapsed() return T.state == "running" and (T.acc + os.clock() - T.t0) or T.acc end
+local function CurRoom() return tonumber(LocalPlayer:GetAttribute("CurrentRoom")) or 0 end
+local function FloorName()
+	local gd = RS:FindFirstChild("GameData")
+	local f = gd and gd:FindFirstChild("Floor")
+	local v = f and tostring(f.Value) or ""
+	return v ~= "" and v or "Lobby"
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Formato
+-- ------------------------------------------------------------------------------------------
+local function Fmt(t)
+	if t < 0 then t = 0 end
+	local ms = math.floor((t % 1) * 1000)
+	local total = math.floor(t)
+	local s, m, h = total % 60, math.floor(total / 60) % 60, math.floor(total / 3600)
+	local main = h > 0 and string.format("%d:%02d:%02d", h, m, s) or string.format("%02d:%02d", m, s)
+	return main, string.format(".%03d", ms)
+end
+local function FmtFull(t) local a, b = Fmt(t) return a .. b end
+local function FmtDelta(d)
+	local sign = d < 0 and "-" or "+"
+	d = math.abs(d)
+	if d >= 60 then return sign .. string.format("%d:%04.1f", math.floor(d / 60), d % 60) end
+	return sign .. string.format("%.2f", d)
+end
+
+local C = {
+	ready = Color3.fromRGB(170, 170, 180), run = Color3.fromRGB(80, 255, 120), behind = Color3.fromRGB(255, 90, 90),
+	pause = Color3.fromRGB(255, 210, 80), done = Color3.fromRGB(110, 175, 255), gold = Color3.fromRGB(255, 215, 0),
+	dim = Color3.fromRGB(150, 150, 160), text = Color3.fromRGB(230, 230, 235),
+}
+
+-- ------------------------------------------------------------------------------------------
+-- Interfaz del timer
+-- ------------------------------------------------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "R4NS0M_Timer"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.DisplayOrder = 60
+pcall(function() gui.Parent = (gethui and gethui()) or game:GetService("CoreGui") end)
+if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local W = 230
+local function S(n) return math.max(1, math.floor(n * (Ex.TimerScale or 100) / 100 + 0.5)) end
+
+local function Label(parent, name)
+	local l = Instance.new("TextLabel")
+	l.Name = name
+	l.BackgroundTransparency = 1
+	l.TextColor3 = C.text
+	l.Font = Enum.Font.GothamBold
+	l.TextStrokeTransparency = 0.6
+	l.Parent = parent
+	return l
+end
+
+local panel = Instance.new("Frame")
+panel.Name = "Panel"
+panel.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
+panel.BorderSizePixel = 0
+panel.AutomaticSize = Enum.AutomaticSize.Y
+panel.Parent = gui
+local corner = Instance.new("UICorner", panel)
+local stroke = Instance.new("UIStroke", panel)
+stroke.Color = Color3.fromRGB(70, 70, 82)
+stroke.Thickness = 1
+local pad = Instance.new("UIPadding", panel)
+local list = Instance.new("UIListLayout", panel)
+list.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- cabecera (se arrastra desde aqui)
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.BackgroundTransparency = 1
+header.LayoutOrder = 1
+header.Parent = panel
+local title = Label(header, "Title")
+title.Text = "R4NS0M  SPEEDRUN"
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextColor3 = C.dim
+title.Size = UDim2.fromScale(0.6, 1)
+local info = Label(header, "Info")
+info.Font = Enum.Font.Gotham
+info.TextXAlignment = Enum.TextXAlignment.Right
+info.TextColor3 = C.dim
+info.Position = UDim2.fromScale(0.5, 0)
+info.Size = UDim2.fromScale(0.5, 1)
+
+-- splits
+local splitsFrame = Instance.new("Frame")
+splitsFrame.Name = "Splits"
+splitsFrame.BackgroundTransparency = 1
+splitsFrame.AutomaticSize = Enum.AutomaticSize.Y
+splitsFrame.LayoutOrder = 2
+splitsFrame.Parent = panel
+local sl = Instance.new("UIListLayout", splitsFrame)
+sl.SortOrder = Enum.SortOrder.LayoutOrder
+local rows = {}
+for i = 1, 5 do
+	local f = Instance.new("Frame")
+	f.BackgroundTransparency = 1
+	f.LayoutOrder = i
+	f.Visible = false
+	f.Parent = splitsFrame
+	local n = Label(f, "N") n.TextXAlignment = Enum.TextXAlignment.Left n.Size = UDim2.fromScale(0.34, 1) n.TextColor3 = C.dim
+	local d = Label(f, "D") d.Font = Enum.Font.RobotoMono d.TextXAlignment = Enum.TextXAlignment.Right d.Position = UDim2.fromScale(0.34, 0) d.Size = UDim2.fromScale(0.28, 1)
+	local t = Label(f, "T") t.Font = Enum.Font.RobotoMono t.TextXAlignment = Enum.TextXAlignment.Right t.Position = UDim2.fromScale(0.62, 0) t.Size = UDim2.fromScale(0.38, 1)
+	rows[i] = { f = f, n = n, d = d, t = t }
+end
+
+-- digitos grandes
+local timerFrame = Instance.new("Frame")
+timerFrame.Name = "TimerFrame"
+timerFrame.BackgroundTransparency = 1
+timerFrame.LayoutOrder = 3
+timerFrame.Parent = panel
+local big = Label(timerFrame, "Big")
+big.Font = Enum.Font.RobotoMono
+big.RichText = true
+big.TextXAlignment = Enum.TextXAlignment.Right
+big.Size = UDim2.fromScale(1, 1)
+
+-- PB y delta
+local sub = Instance.new("Frame")
+sub.Name = "Sub"
+sub.BackgroundTransparency = 1
+sub.LayoutOrder = 4
+sub.Parent = panel
+local pbLabel = Label(sub, "PB") pbLabel.Font = Enum.Font.RobotoMono pbLabel.TextXAlignment = Enum.TextXAlignment.Left pbLabel.TextColor3 = C.dim pbLabel.Size = UDim2.fromScale(0.6, 1)
+local deltaLabel = Label(sub, "Delta") deltaLabel.Font = Enum.Font.RobotoMono deltaLabel.TextXAlignment = Enum.TextXAlignment.Right deltaLabel.Position = UDim2.fromScale(0.5, 0) deltaLabel.Size = UDim2.fromScale(0.5, 1)
+
+-- botones
+local btnFrame = Instance.new("Frame")
+btnFrame.Name = "Buttons"
+btnFrame.BackgroundTransparency = 1
+btnFrame.LayoutOrder = 5
+btnFrame.Parent = panel
+local bl = Instance.new("UIListLayout", btnFrame)
+bl.FillDirection = Enum.FillDirection.Horizontal
+bl.SortOrder = Enum.SortOrder.LayoutOrder
+local function Button(text, order)
+	local b = Instance.new("TextButton")
+	b.LayoutOrder = order
+	b.Text = text
+	b.Font = Enum.Font.GothamBold
+	b.AutoButtonColor = true
+	b.BackgroundColor3 = Color3.fromRGB(38, 38, 46)
+	b.TextColor3 = C.text
+	b.BorderSizePixel = 0
+	b.Parent = btnFrame
+	Instance.new("UICorner", b)
+	return b
+end
+local btnMain = Button("Start", 1)
+local btnStop = Button("Stop", 2)
+local btnReset = Button("Reset", 3)
+
+-- ------------------------------------------------------------------------------------------
+-- Tamano / posicion / opacidad
+-- ------------------------------------------------------------------------------------------
+local PRESETS = {
+	["Top Left"]      = { Vector2.new(0, 0),   UDim2.new(0, 12, 0, 64) },
+	["Top Center"]    = { Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 64) },
+	["Top Right"]     = { Vector2.new(1, 0),   UDim2.new(1, -12, 0, 64) },
+	["Middle Left"]   = { Vector2.new(0, 0.5), UDim2.new(0, 12, 0.5, 0) },
+	["Middle Right"]  = { Vector2.new(1, 0.5), UDim2.new(1, -12, 0.5, 0) },
+	["Bottom Left"]   = { Vector2.new(0, 1),   UDim2.new(0, 12, 1, -16) },
+	["Bottom Center"] = { Vector2.new(0.5, 1), UDim2.new(0.5, 0, 1, -16) },
+	["Bottom Right"]  = { Vector2.new(1, 1),   UDim2.new(1, -12, 1, -16) },
+}
+local PRESET_NAMES = { "Top Left", "Top Center", "Top Right", "Middle Left", "Middle Right", "Bottom Left", "Bottom Center", "Bottom Right" }
+local function Place(name)
+	local p = PRESETS[name]
+	if not p then return end
+	panel.AnchorPoint, panel.Position = p[1], p[2]
+end
+
+local RenderAll -- forward
+local function Layout()
+	local inner = S(W) - S(12)
+	panel.Size = UDim2.fromOffset(S(W), 0)
+	corner.CornerRadius = UDim.new(0, S(6))
+	pad.PaddingTop, pad.PaddingBottom = UDim.new(0, S(5)), UDim.new(0, S(6))
+	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, S(6)), UDim.new(0, S(6))
+	list.Padding = UDim.new(0, S(2))
+	panel.BackgroundTransparency = 1 - (Ex.TimerOpacity or 80) / 100
+	stroke.Transparency = math.clamp(panel.BackgroundTransparency + 0.2, 0, 1)
+
+	header.Size = UDim2.fromOffset(inner, S(16))
+	title.TextSize, info.TextSize = S(10), S(10)
+	splitsFrame.Size = UDim2.fromOffset(inner, 0)
+	splitsFrame.Visible = Ex.TimerSplits
+	for _, r in ipairs(rows) do
+		r.f.Size = UDim2.fromOffset(inner, S(16))
+		r.n.TextSize, r.d.TextSize, r.t.TextSize = S(11), S(11), S(11)
+	end
+	timerFrame.Size = UDim2.fromOffset(inner, S(46))
+	big.TextSize = S(38)
+	sub.Size = UDim2.fromOffset(inner, S(16))
+	pbLabel.TextSize, deltaLabel.TextSize = S(11), S(11)
+	btnFrame.Visible = Ex.TimerButtons
+	btnFrame.Size = UDim2.fromOffset(inner, S(26))
+	bl.Padding = UDim.new(0, S(4))
+	for _, b in ipairs({ btnMain, btnStop, btnReset }) do
+		b.Size = UDim2.new(1 / 3, -S(3), 1, 0)
+		b.TextSize = S(11)
+	end
+	gui.Enabled = Ex.TimerShow
+	if RenderAll then RenderAll() end
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Dibujo del estado
+-- ------------------------------------------------------------------------------------------
+local lastBig = ""
+local function Colour()
+	if T.state == "ready" then return C.ready end
+	if T.state == "paused" then return C.pause end
+	if T.state == "finished" then return T.newPB and C.gold or C.done end
+	if T.delta and T.delta > 0 then return C.behind end
+	return C.run
+end
+local function DrawBig()
+	local main, ms = Fmt(Elapsed())
+	local txt = string.format('%s<font size="%d">%s</font>', main, S(22), ms)
+	if txt ~= lastBig then lastBig = txt big.Text = txt end
+	big.TextColor3 = Colour()
+end
+local function DrawInfo()
+	local fl = FloorName()
+	info.Text = fl .. "  -  Room " .. CurRoom()
+	local pb = PB[fl]
+	pbLabel.Text = pb and ("PB " .. FmtFull(pb.pb)) or "PB --:--.---"
+	if T.delta then
+		deltaLabel.Text = FmtDelta(T.delta)
+		deltaLabel.TextColor3 = T.delta > 0 and C.behind or C.run
+	else
+		deltaLabel.Text = ""
+	end
+	local labels = { ready = "Start", running = "Pause", paused = "Resume", finished = "Restart" }
+	btnMain.Text = labels[T.state]
+end
+local function DrawSplits()
+	local n = #T.list
+	local first = math.max(1, n - 4)
+	for i = 1, 5 do
+		local rec, r = T.list[first + i - 1], rows[i]
+		if rec then
+			r.f.Visible = true
+			r.n.Text = "Room " .. rec.room
+			r.t.Text = FmtFull(rec.t)
+			if rec.delta then
+				r.d.Text = FmtDelta(rec.delta)
+				r.d.TextColor3 = rec.delta > 0 and C.behind or C.run
+			else
+				r.d.Text = "-"
+				r.d.TextColor3 = C.dim
+			end
+		else
+			r.f.Visible = false
+		end
+	end
+end
+RenderAll = function() DrawBig() DrawInfo() DrawSplits() end
+
+-- ------------------------------------------------------------------------------------------
+-- Control del timer
+-- ------------------------------------------------------------------------------------------
+local function Reset()
+	T.state, T.acc, T.t0, T.list, T.highest, T.delta, T.newPB = "ready", 0, 0, {}, 0, nil, false
+	RenderAll()
+end
+local function Start()
+	if T.state ~= "ready" then return end
+	T.acc, T.t0, T.list, T.highest, T.delta, T.newPB = 0, os.clock(), {}, CurRoom(), nil, false
+	T.state = "running"
+	RenderAll()
+end
+local function Pause()
+	if T.state ~= "running" then return end
+	T.acc = Elapsed()
+	T.state = "paused"
+	RenderAll()
+end
+local function Resume()
+	if T.state ~= "paused" then return end
+	T.t0 = os.clock()
+	T.state = "running"
+	RenderAll()
+end
+local function Finish()
+	if T.state ~= "running" and T.state ~= "paused" then return end
+	T.acc = Elapsed()
+	T.state = "finished"
+	local fl = FloorName()
+	-- solo cuenta como PB si llegaste al menos a 10 salas (evita guardar paradas accidentales)
+	if fl ~= "Lobby" and #T.list >= 10 and (not PB[fl] or T.acc < PB[fl].pb) then
+		local splits = {}
+		for _, rec in ipairs(T.list) do splits[tostring(rec.room)] = rec.t end
+		PB[fl] = { pb = T.acc, splits = splits }
+		SavePB()
+		T.newPB = true
+		Toast("New personal best!", FmtFull(T.acc) .. "  -  " .. fl)
+	else
+		Toast("Run finished", FmtFull(T.acc))
+	end
+	RenderAll()
+end
+local function Toggle()
+	if T.state == "ready" then Start()
+	elseif T.state == "running" then Pause()
+	elseif T.state == "paused" then Resume()
+	else Reset() Start() end
+end
+Ex.TimerToggle, Ex.TimerFinish, Ex.TimerReset = Toggle, Finish, Reset
+
+btnMain.Activated:Connect(Toggle)
+btnStop.Activated:Connect(Finish)
+btnReset.Activated:Connect(Reset)
+
+-- split automatico al entrar a una sala nueva
+LocalPlayer:GetAttributeChangedSignal("CurrentRoom"):Connect(function()
+	local room = CurRoom()
+	if T.state == "running" and Ex.TimerAutoSplit and room > T.highest then
+		T.highest = room
+		local t = Elapsed()
+		local pb = PB[FloorName()]
+		local ref = pb and pb.splits and pb.splits[tostring(room)]
+		local delta = ref and (t - ref) or nil
+		T.list[#T.list + 1] = { room = room, t = t, delta = delta }
+		T.delta = delta or T.delta
+		if Ex.TimerStopRoom and Ex.TimerStopRoom > 0 and room >= Ex.TimerStopRoom then
+			Finish()
+			return
+		end
+	end
+	RenderAll()
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Arranque automatico: joystick, WASD/flechas, saltar, agacharse y Anticheat Manipulation (la camara no cuenta)
+-- ------------------------------------------------------------------------------------------
+local START_KEYS = {
+	W = true, A = true, S = true, D = true, Up = true, Down = true, Left = true, Right = true,
+	Space = true, LeftControl = true, C = true, ButtonA = true, ButtonB = true,
+}
+local function AutoStart() if Ex.TimerAutoStart and T.state == "ready" then Start() end end
+
+UIS.InputBegan:Connect(function(input)
+	if UIS:GetFocusedTextBox() then return end
+	local name = input.KeyCode.Name
+	if name == Ex.Key_TimerToggle then Toggle() return end
+	if name == Ex.Key_TimerStop then Finish() return end
+	if name == Ex.Key_TimerReset then Reset() return end
+	if START_KEYS[name] then AutoStart() end
+end)
+UIS.InputChanged:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.Thumbstick1 and input.Position.Magnitude > 0.25 then AutoStart() end
+end)
+
+-- botones de saltar / agacharse del movil
+do
+	local hooked = setmetatable({}, { __mode = "k" })
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			pcall(function()
+				local ui = LocalPlayer.PlayerGui:FindFirstChild("MainUI")
+				local mf = ui and ui:FindFirstChild("MainFrame")
+				local mb = mf and mf:FindFirstChild("MobileButtons")
+				if not mb then return end
+				for _, b in ipairs(mb:GetChildren()) do
+					local n = b.Name:lower()
+					if b:IsA("GuiButton") and not hooked[b] and (n:find("jump", 1, true) or n:find("crouch", 1, true) or n:find("duck", 1, true)) then
+						hooked[b] = true
+						b.MouseButton1Down:Connect(AutoStart)
+					end
+				end
+			end)
+		end
+	end)
+end
+
+-- movimiento real del personaje (joystick del movil/consola o teclado) y Anticheat Manipulation
+task.spawn(function()
+	while true do
+		task.wait(0.1)
+		if T.state == "ready" and Ex.TimerAutoStart then
+			pcall(function()
+				local _, hum = GetParts()
+				if (hum and hum.MoveDirection.Magnitude > 0.1) or Ex.ACM then Start() end
+			end)
+		end
+	end
+end)
+
+-- refresco de los digitos (30 veces por segundo, solo mientras corre)
+do
+	local acc = 0
+	RunSvc.RenderStepped:Connect(function(dt)
+		if T.state ~= "running" or not Ex.TimerShow then return end
+		acc = acc + dt
+		if acc >= 1 / 30 then
+			acc = 0
+			DrawBig()
+		end
+	end)
+end
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if Ex.TimerShow then pcall(DrawInfo) end
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Arrastrar la ventana (cambia la posicion a libre)
+-- ------------------------------------------------------------------------------------------
+do
+	local dragging, dragStart, startPos
+	header.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = Vector2.new(i.Position.X, i.Position.Y)
+			local ap = panel.AbsolutePosition
+			panel.AnchorPoint = Vector2.zero
+			panel.Position = UDim2.fromOffset(ap.X, ap.Y)
+			startPos = Vector2.new(ap.X, ap.Y)
+			i.Changed:Connect(function()
+				if i.UserInputState == Enum.UserInputState.End then dragging = false end
+			end)
+		end
+	end)
+	UIS.InputChanged:Connect(function(i)
+		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+			local d = Vector2.new(i.Position.X, i.Position.Y) - dragStart
+			local vp = gui.AbsoluteSize
+			local sz = panel.AbsoluteSize
+			panel.Position = UDim2.fromOffset(
+				math.clamp(startPos.X + d.X, 0, math.max(vp.X - sz.X, 0)),
+				math.clamp(startPos.Y + d.Y, 0, math.max(vp.Y - sz.Y, 0))
+			)
+		end
+	end)
+end
+
+Place(Ex.TimerPosition)
+Layout()
+
+-- ------------------------------------------------------------------------------------------
+-- Opciones en el hub (Misc)
+-- ------------------------------------------------------------------------------------------
+MiscTab:Section({ Title = "Speedrun Timer" })
+AddToggle(MiscTab, "TimerShow", "Show Speedrun Timer", "Shows the timer on screen. Drag its title bar to move it anywhere.", Ex.TimerShow, function(v) Ex.TimerShow = v Layout() end)
+MiscTab:Button({ Title = "Start / Pause / Resume", Desc = "Starts the timer, pauses it, or resumes it (Restart after a finished run).", Callback = Toggle })
+MiscTab:Button({ Title = "Stop (finish run)", Desc = "Ends the run. If you reached at least 10 rooms and it is faster than your best, it is saved as your personal best for that floor.", Callback = Finish })
+MiscTab:Button({ Title = "Reset", Desc = "Clears the timer and the splits so it can start again.", Callback = Reset })
+AddDropdown(MiscTab, "TimerPosition", "Timer Position", "Preset corners and edges. Dragging the title bar overrides it.", PRESET_NAMES, Ex.TimerPosition, function(v)
+	if type(v) == "table" then v = v[1] end
+	if v then Ex.TimerPosition = v Place(v) end
+end)
+AddSlider(MiscTab, "TimerScale", "Timer Size (%)", "Scales the whole timer.", 50, 150, Ex.TimerScale, function(v) Ex.TimerScale = v Layout() end)
+AddSlider(MiscTab, "TimerOpacity", "Timer Background (%)", "How solid the timer background is.", 0, 100, Ex.TimerOpacity, function(v) Ex.TimerOpacity = v Layout() end)
+AddToggle(MiscTab, "TimerSplits", "Show Splits", "Shows the last room splits with their difference against your personal best.", Ex.TimerSplits, function(v) Ex.TimerSplits = v Layout() end)
+AddToggle(MiscTab, "TimerButtons", "Show Buttons", "Shows the Start / Stop / Reset buttons on the timer (useful on mobile).", Ex.TimerButtons, function(v) Ex.TimerButtons = v Layout() end)
+AddToggle(MiscTab, "TimerAutoStart", "Auto Start On Move", "Starts by itself the first time you move: joystick, WASD / arrows, jump, crouch or Anticheat Manipulation. Moving the camera does not count.", Ex.TimerAutoStart, function(v) Ex.TimerAutoStart = v end)
+AddToggle(MiscTab, "TimerAutoSplit", "Auto Split Rooms", "Records a split each time you enter a new room.", Ex.TimerAutoSplit, function(v) Ex.TimerAutoSplit = v end)
+AddSlider(MiscTab, "TimerStopRoom", "Auto Stop At Room", "Finishes the run when you reach this room (0 = off).", 0, 300, Ex.TimerStopRoom, function(v) Ex.TimerStopRoom = v end)
+end)()
+
 print("[R4NS0M] Loaded more UI")
 print("[R4NS0M] Loading Keybinds Tab")
 ----------------------------------------------------
@@ -6280,6 +7181,9 @@ AddKeybind(KeybindsTab, "Key_Noclip", "Noclip", "Turns Noclip on or off.", Ex.Ke
 AddKeybind(KeybindsTab, "Key_Fly", "Fly", "Turns Fly on or off.", Ex.Key_Fly)
 AddKeybind(KeybindsTab, "Key_Speed", "Speed Boost", "Turns Speed Boost on or off.", Ex.Key_Speed)
 AddKeybind(KeybindsTab, "Key_SpeedHack", "Speed Hack", "Turns Speed Hack (real walk speed) on or off. On mobile there is a floating SPD button.", Ex.Key_SpeedHack)
+AddKeybind(KeybindsTab, "Key_TimerToggle", "Timer: Start / Pause", "Starts, pauses or resumes the speedrun timer.", Ex.Key_TimerToggle)
+AddKeybind(KeybindsTab, "Key_TimerStop", "Timer: Stop", "Finishes the speedrun timer run.", Ex.Key_TimerStop)
+AddKeybind(KeybindsTab, "Key_TimerReset", "Timer: Reset", "Resets the speedrun timer.", Ex.Key_TimerReset)
 AddKeybind(KeybindsTab, "Key_Slide", "Slide", "Does a slide (Slide must be enabled in the Player tab).", Ex.Key_Slide)
 AddKeybind(KeybindsTab, "Key_PosSpoof", "Position Spoof", "Turns Position Spoof on or off.", Ex.Key_PosSpoof)
 
@@ -6332,10 +7236,10 @@ print("[R4NS0M] Loading Config presets")
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "NotifyLibraryCode", "GuessLibraryCode", "AutoSteerMinecart", "ShowSeekPath", "ShowEyestalkPath", "PathMode", "NotifyItems", "NotifyUnlistedItems", "BtnSpeedHack", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "NotifyLibraryCode", "GuessLibraryCode", "AutoSteerMinecart", "BypassSeek", "BypassFigure", "NotifyRansom", "TimerShow", "TimerPosition", "TimerScale", "TimerOpacity", "TimerSplits", "TimerButtons", "TimerAutoStart", "TimerAutoSplit", "TimerStopRoom", "AutoPositionSpoof", "NotifyDespawn", "PerfMode", "AutoPerf", "ShowSeekPath", "ShowEyestalkPath", "PathMode", "NotifyItems", "NotifyUnlistedItems", "BtnSpeedHack", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "VoidGuard", "AutoBreakerBox", "InfiniteItems", "InfiniteItemsList", "AutoInteract", "PromptReach", "PromptClip", "DisableIdleKick", "MeldStopGrowth", "MeldRemove", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "NotifyOxygen", "NotifyHaste", "NoClosetDelay", "NoAcceleration", "DoorReach", "NoFootsteps", "NoPromptSounds",
-    "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_SpeedHack", "Key_Slide", "Key_Hub",
+    "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_SpeedHack", "Key_TimerToggle", "Key_TimerStop", "Key_TimerReset", "Key_Slide", "Key_Hub",
 }
 
 ExtraSerialize = function()
@@ -6367,7 +7271,7 @@ end
 -- Guardar / cargar config de Visuals
 ----------------------------------------------------
 local SCALAR_KEYS = {
-    "MaxDistance", "MaxObjects", "TextSize", "Font", "ShowName", "ShowDistance", "Unit",
+    "MaxDistance", "MaxObjects", "RefreshRate", "TextSize", "Font", "ShowName", "ShowDistance", "Unit",
     "TracerOrigin", "TracerThickness", "PlayerNames", "UnlistedItems", "UnlistedEntities", "RoomEntities", "HideLooted", "AutoPreset",
 }
 
