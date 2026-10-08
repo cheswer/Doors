@@ -9864,6 +9864,7 @@ task.spawn(function()
 		end
 	end
 end)
+
 end)()
 
 
@@ -10342,6 +10343,7 @@ local EXTRA_KEYS = {
     "NotifyOxygen", "NotifyHaste", "NoClosetDelay", "NoAcceleration", "DoorReach", "NoFootsteps", "NoPromptSounds",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_SpeedHack", "Key_TimerToggle", "Key_TimerStop", "Key_TimerReset", "Key_Slide", "Key_Hub", "Key_RestorePrompts",
     "BypassDrones", "AntiNoise", "BypassAlma", "NoScribblesDamage", "StairwellExtraESP", "CustomFOV", "FOVValue", "ThirdPerson", "TPOffsetX", "TPOffsetY", "TPOffsetZ", "NoCamShake", "NoCamBob", "TransHide", "TransHideValue", "NoHideVignette", "NoGlitchJumpscare", "NoTimothyJumpscare", "NoVoidJumpscare", "NoJamMusic", "NoPromptSounds",
+    "SkipSeekHotel", "SkipSeekMines", "AutoLibrary", "AutoBreakerRoom", "AutoHotel", "AutoHotelIgnoreEntities", "AutoHotelRoomProcess", "KnobFarm", "AutoClosetToggle", "SpectateEntityToggle", "SpecateEntityMode", "AutoSolveAnchors", "AutoUnlockPadlockToggle", "AutoUnlockPadlockSlider", "RoomsAutoWalk", "RoomsAutoWalkIgnoreA60", "RoomsAutoWalkShowPathToggle", "RoomsAutoWalkSpoofFootsteps", "RoomsAutoWalkPathfindTimeout", "AntiScribbles", "ViewmodelOffsetToggle", "ViewmodelOffsetX", "ViewmodelOffsetY", "ViewmodelOffsetZ",
     "FBBrightness", "FBAmbient", "NoFog", "AntiLag", "AntiLagLevel", "TimerAutoEnd", "TimerStopOnDeath",
     "CreakText", "CreakRange", "HonchoESP", "HonchoAutoDeposit", "TimeShower", "StopTimeStampede", "AntiRansom", "AntiClosetTrash", "DropCounter", "DropIntervalSecs", "OrbitHeight", "OrbitDistance", "OrbitSpeed", "CrusherOff", "MeldWallRemove", "NoiseTVBreaker", "FMNAnomalyESP", "FMNAnomalyNotify", "AutoAlmaMinigame", "TellerNumber", "TellerNotify",
 }
@@ -10689,248 +10691,324 @@ ConfigsTab:Button({
     end
 })
 
--- ============================================================================================
--- BATCH 13: funciones portadas del Main (Infinite Crucifix, Kill All with Cart, selector de carritos,
--- Skip Seek Hotel / Mines). Va dentro de una funcion para no gastar locales del chunk principal.
--- ============================================================================================
-print("[R4NS0M] Loading Batch 13")
-;(function()
-local Players = game:GetService("Players")
-local RS = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local B = FX.B8
 
-local Gen = {}
-local function Loop(flag, fn, interval)
-	Gen[flag] = (Gen[flag] or 0) + 1
-	local my = Gen[flag]
+print("[R4NS0M] Loading Main Port (bypass / automation)")
+-- ============================================================================================
+-- PORT DEL SCRIPT MAIN: Skip Seek (Hotel / Mines), Auto Library, Auto Breaker Room, Auto Hotel,
+-- Knob Farm, Auto Closet (+ Spectate), Auto Solve Anchors, Auto Unlock Padlock, Auto Rooms,
+-- Anti Scribbles, Viewmodel Offset y botones Debug. Todo dentro de una funcion propia para no
+-- gastar variables locales del script.
+-- ============================================================================================
+;(function()
+local Env = {
+	fireproximityprompt = fireproximityprompt, replicatesignal = replicatesignal,
+	hookmetamethod = hookmetamethod, newcclosure = newcclosure, getnamecallmethod = getnamecallmethod,
+	cloneref = cloneref, require = require,
+}
+local function CloneReference(Object)
+	if Env.cloneref then return Env.cloneref(Object) end
+	return Object
+end
+local Services = setmetatable({}, {
+	__index = function(_, Name) return CloneReference(game:GetService(Name)) end
+})
+local Workspace = Services.Workspace
+local LocalPlayer = Services.Players.LocalPlayer
+
+local Globals, Connections, Functions, Objects = {}, {}, {}, { HidingSpots = {} }
+local Floor = "Hotel"
+local Character, Humanoid, RootPart, Collision, CollisionPart
+local RemotesFolder = Services.ReplicatedStorage:FindFirstChild("RemotesFolder")
+local CurrentRooms = Workspace:FindFirstChild("CurrentRooms")
+local LatestRoom = { Value = 0 }
+
+Functions.CheckCompatability = function(Array)
+	for _, Name in ipairs(Array) do
+		if not Env[Name] then return false end
+	end
+	return true
+end
+Functions.Notify = function(Data)
+	NotifyUI(Data.Title or "", Data.Body or "")
+end
+
+local function SetChar(NewCharacter)
 	task.spawn(function()
-		while Ex[flag] and Gen[flag] == my do
-			pcall(fn)
-			task.wait(interval)
-		end
+		local Hum = NewCharacter:WaitForChild("Humanoid", 15)
+		local Root = NewCharacter:WaitForChild("HumanoidRootPart", 15)
+		if not Hum or not Root then return end
+		Character, Humanoid, RootPart = NewCharacter, Hum, Root
+		Collision = NewCharacter:FindFirstChild("Collision")
+		CollisionPart = NewCharacter:FindFirstChild("CollisionPart") or Collision
 	end)
 end
+if LocalPlayer.Character then SetChar(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(SetChar)
 
-local function Char() return LocalPlayer.Character end
-
-local function Carts()
-	local out = {}
-	local misc = Workspace:FindFirstChild("Misc")
-	if misc then
-		for _, m in ipairs(misc:GetChildren()) do
-			if m.Name == "ShoppingCart" and m:IsA("Model") then out[#out + 1] = m end
-		end
+task.spawn(function()
+	local GameData = Services.ReplicatedStorage:WaitForChild("GameData", 30)
+	if not GameData then return end
+	local FloorValue = GameData:WaitForChild("Floor", 10)
+	local LatestValue = GameData:WaitForChild("LatestRoom", 10)
+	if LatestValue then LatestRoom = LatestValue end
+	RemotesFolder = RemotesFolder or Services.ReplicatedStorage:FindFirstChild("EntityInfo") or Services.ReplicatedStorage:FindFirstChild("Bricks")
+	if FloorValue then
+		Floor = FloorValue.Value
+		if Floor == "Hotel" and RemotesFolder and RemotesFolder.Name == "Bricks" then Floor = "OldHotel" end
 	end
-	return out
-end
-
--- ------------------------------------------------------------------------------------------
--- Stairwell: Kill All (carritos) + selector de jugador para los carritos
--- ------------------------------------------------------------------------------------------
-Ex.KillAllWithCart = false
-Ex.CartTarget = LocalPlayer.Name
-
-StairwellTab:Section({ Title = "Carts (Main)" })
-
-local killIndex = 1
-AddToggle(StairwellTab, "KillAllWithCart", "Kill All (Requires >=1 Cart)", "Moves every shopping cart onto each other player in turn.", Ex.KillAllWithCart, function(v)
-	Ex.KillAllWithCart = v
-	if v then
-		killIndex = 1
-		Loop("KillAllWithCart", function()
-			local carts = Carts()
-			local alive = {}
-			for _, p in ipairs(Players:GetPlayers()) do
-				if p ~= LocalPlayer and p.Character then
-					local hum = p.Character:FindFirstChildOfClass("Humanoid")
-					if hum and hum.Health > 0 then alive[#alive + 1] = p end
-				end
-			end
-			if #carts > 0 and #alive > 0 then
-				if killIndex > #alive then killIndex = 1 end
-				local target = alive[killIndex]
-				local cf = target.Character:GetPivot()
-				for i = 1, #carts do carts[i]:PivotTo(cf) end
-				killIndex = killIndex + 1
-			end
-		end, 0.10)
-	end
+	CurrentRooms = CurrentRooms or Workspace:WaitForChild("CurrentRooms", 20)
 end)
 
-local function PlayerNames()
-	local names = {}
-	for _, p in ipairs(Players:GetPlayers()) do names[#names + 1] = p.Name end
-	return names
-end
-
-local cartDropdown
-do
-	local ok, el = pcall(function()
-		return StairwellTab:Dropdown({
-			Title = "Shopping Cart Target",
-			Desc = "Player the shopping carts are sent to.",
-			Values = PlayerNames(),
-			Value = LocalPlayer.Name,
-			Callback = function(v)
-				if type(v) == "table" then v = v.Title or v[1] end
-				Ex.CartTarget = v
-			end
-		})
+-- --------------------------------------------------------------------------------------------
+-- Toggles / Options: mismo estilo que el main (.Value, :OnChanged, :SetValue) pero guardados en Ex
+-- --------------------------------------------------------------------------------------------
+local Listeners = {}
+local Toggles, Options = {}, {}
+local function MakeObj(id, default)
+	if Ex[id] == nil then Ex[id] = default end
+	local o = setmetatable({}, { __index = function(_, k) if k == "Value" then return Ex[id] end end })
+	rawset(o, "OnChanged", function(_, f)
+		Listeners[id] = Listeners[id] or {}
+		Listeners[id][#Listeners[id] + 1] = f
 	end)
-	if ok then cartDropdown = el end
-end
-StairwellTab:Button({ Title = "Refresh Players", Desc = "Updates the Shopping Cart Target list.", Callback = function()
-	if not cartDropdown then return end
-	local names = PlayerNames()
-	local done = pcall(function() cartDropdown:Refresh(names) end)
-	if not done then pcall(function() cartDropdown:SetValues(names) end) end
-end })
-StairwellTab:Button({ Title = "TP Shopping Carts To Player", Desc = "Sends every cart to the selected player. Carts are physical: everyone sees them move.", Callback = function()
-	local target = Players:FindFirstChild(tostring(Ex.CartTarget))
-	if not target or not target.Character then
-		B.Toast("Carts", "Target player not found.")
-		return
+	rawset(o, "SetValue", function(_, v) SetFeature(id, v) end)
+	local prev = Hooks[id]
+	Hooks[id] = function(v)
+		if prev then pcall(prev, v) end
+		for _, f in ipairs(Listeners[id] or {}) do task.spawn(f, v) end
 	end
-	local cf = target.Character:GetPivot()
-	local n = 0
-	for _, c in ipairs(Carts()) do c:PivotTo(cf) n = n + 1 end
-	B.Toast("Carts", n > 0 and (n .. " carts moved.") or "No shopping carts are loaded.")
-end })
+	return o
+end
+local function Tog(id, default) Toggles[id] = MakeObj(id, default or false) end
+local function Opt(id, default) Options[id] = MakeObj(id, default) end
 
--- ------------------------------------------------------------------------------------------
--- Infinite Crucifix: suelta y recoge el Crucifix cuando una entidad se acerca
--- ------------------------------------------------------------------------------------------
-Ex.InfCrucifix = false
-local CRUCIFIX_DISTANCE = {
-	RushMoving = 54, AmbushMoving = 67, A60 = 70,
-	GlitchRush = 120, GlitchAmbush = 155, A120 = 75,
+for _, id in ipairs({
+	"SkipSeekHotel", "SkipSeekMines", "AutoLibrary", "AutoBreakerRoom", "AutoHotel", "AutoHotelIgnoreEntities",
+	"KnobFarm", "AutoClosetToggle", "SpectateEntityToggle", "AutoSolveAnchors", "AutoUnlockPadlockToggle",
+	"RoomsAutoWalk", "RoomsAutoWalkIgnoreA60", "RoomsAutoWalkShowPathToggle", "RoomsAutoWalkSpoofFootsteps",
+	"AntiScribbles", "ViewmodelOffsetToggle",
+}) do Tog(id) end
+Toggles.PositionSpoof = MakeObj("PositionSpoof", false)
+Opt("AutoClosetEntityList", {})
+Opt("SpecateEntityMode", "Player to Entity")
+Opt("RoomsAutoWalkPathfindTimeout", 1)
+Opt("AutoHotelRoomProcess", 0.5)
+Opt("AutoUnlockPadlockSlider", 10)
+Opt("ViewmodelOffsetX", 0)
+Opt("ViewmodelOffsetY", 0)
+Opt("ViewmodelOffsetZ", 0)
+Options.RoomsAutoWalkShowPathColor = { Value = Color3.fromRGB(0, 255, 0), OnChanged = function() end }
+
+-- --------------------------------------------------------------------------------------------
+-- Entidades (Auto Closet) y escondites
+-- --------------------------------------------------------------------------------------------
+local EntityDistances = {
+	["RushMoving"] = 85, ["Scribbles"] = 100, ["BashMoving"] = 150, ["DronesStampede"] = 100,
+	["AmbushMoving"] = 150, ["A60"] = 125, ["A120"] = 85, ["GlitchRush"] = 90,
+	["GlitchAmbush"] = 175, ["BackdoorRush"] = 85, ["CustomEntity"] = 85,
 }
-local crucifixConn
-AntisTab:Section({ Title = "Crucifix" })
-AddToggle(AntisTab, "InfCrucifix", "Infinite Crucifix", "Risky! You can die or lose the Crucifix. Recommended: low ping and stable FPS.", Ex.InfCrucifix, function(v)
-	Ex.InfCrucifix = v
-	if crucifixConn then crucifixConn:Disconnect() crucifixConn = nil end
-	if not v then return end
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local busyUntil = 0
-	crucifixConn = RunService.RenderStepped:Connect(function()
-		if not Ex.InfCrucifix then
-			if crucifixConn then crucifixConn:Disconnect() crucifixConn = nil end
-			return
-		end
-		if os.clock() < busyUntil then return end
-		local ch = Char()
-		if not ch then return end
-		local col = ch:FindFirstChild("CollisionPart") or ch:FindFirstChild("HumanoidRootPart")
-		if not col then return end
-		params.FilterDescendantsInstances = { ch }
-		for _, ent in ipairs(Workspace:GetChildren()) do
-			local maxDist = CRUCIFIX_DISTANCE[ent.Name]
-			local pp = maxDist and ent:IsA("Model") and ent.PrimaryPart
-			if pp then
-				pp.CanCollide = true
-				pp.CanQuery = true
-				local origin = col.Position
-				local hit = Workspace:Raycast(origin, pp.Position - origin, params)
-				if hit and hit.Instance:IsDescendantOf(ent) and (origin - pp.Position).Magnitude < maxDist then
-					local tool = ch:FindFirstChildOfClass("Tool")
-					if tool and tool.Name == "Crucifix" then
-						busyUntil = os.clock() + 0.6
-						task.spawn(function()
-							local rf = RS:FindFirstChild("RemotesFolder")
-							local drop = rf and rf:FindFirstChild("DropItem")
-							if drop then drop:FireServer(tool) end
-							task.wait(0.54)
-							local drops = Workspace:FindFirstChild("Drops")
-							local dropped = drops and drops:FindFirstChild("Crucifix")
-							local prompt = dropped and dropped:FindFirstChildOfClass("ProximityPrompt")
-							if prompt and fireproximityprompt then fireproximityprompt(prompt) end
-						end)
-						return
+local EntityAlias = {
+	RushMoving = "Rush", BackdoorRush = "Rush", AmbushMoving = "Ambush", A60 = "A-60", A120 = "A-120",
+	GlitchRush = "RNIUSHCG==", GlitchAmbush = "AR0xMBUSH", DronesStampede = "DronesStampede",
+	Scribbles = "Scribbles", BlitzMoving = "Blitz",
+}
+Functions.GetNearestEntity = function(CheckDisabled, List)
+	local Nearest = { Distance = math.huge, Object = nil }
+	for _, Entity in ipairs(Workspace:GetChildren()) do
+		if Entity:IsA("Model") and EntityDistances[Entity.Name] and Entity.PrimaryPart then
+			if not (List and List[EntityAlias[Entity.Name] or Entity.Name]) then
+				local Distance = LocalPlayer:DistanceFromCharacter(Entity.PrimaryPart.Position)
+				if Distance < EntityDistances[Entity.Name] and Distance < Nearest.Distance then
+					if not CheckDisabled or Entity:GetAttribute("Inactive") ~= true then
+						Nearest.Distance = Distance
+						Nearest.Object = Entity
 					end
 				end
 			end
 		end
-	end)
-end)
+	end
+	return Nearest.Object
+end
 
--- ------------------------------------------------------------------------------------------
--- Skip Seek (Hotel): salta las secciones del Seek abriendo las puertas y mandandote al vacio
--- ------------------------------------------------------------------------------------------
-Ex.SkipSeekHotel = false
-Ex.SkipSeekMines = false
-
-local function Rooms() return Workspace:FindFirstChild("CurrentRooms") end
-
-local function VoidBurst(pivot, bursts)
-	for _, b in ipairs(bursts) do
-		task.wait(b[1])
-		for _ = 1, b[2] do
-			local ch = Char()
-			if not ch then return end
-			ch:PivotTo(pivot)
-			task.wait()
+local function TrackHidingSpot(Prompt)
+	if Prompt:IsA("ProximityPrompt") and (Prompt.Name == "HidePrompt" or Prompt.Name == "HidingPrompt") then
+		local Model = Prompt.Parent
+		if Model and Model:IsA("Model") and not table.find(Objects.HidingSpots, Model) then
+			table.insert(Objects.HidingSpots, Model)
+			Model.Destroying:Once(function()
+				local pos = table.find(Objects.HidingSpots, Model)
+				if pos then table.remove(Objects.HidingSpots, pos) end
+			end)
 		end
 	end
 end
+task.spawn(function()
+	local Rooms = Workspace:WaitForChild("CurrentRooms", 60)
+	if not Rooms then return end
+	for _, d in ipairs(Rooms:GetDescendants()) do TrackHidingSpot(d) end
+	Rooms.DescendantAdded:Connect(TrackHidingSpot)
+end)
 
-AutomationTab:Section({ Title = "Skip Seek" })
-AddToggle(AutomationTab, "SkipSeekHotel", "Skip Seek (Hotel)", "Skips the entire Seek sections.", Ex.SkipSeekHotel, function(v)
-	Ex.SkipSeekHotel = v
-	if not v then return end
-	if not B.InMode("Hotel") then B.Toast("Skip Seek", "Only works on the Hotel.") return end
+local function GetHidePrompt(Spot)
+	local Prompt = Spot:FindFirstChild("HidePrompt") or Spot:FindFirstChild("HidingPrompt")
+		or Spot:FindFirstChild("HidePrompt", true) or Spot:FindFirstChild("HidingPrompt", true)
+	if Prompt and Prompt:IsA("ProximityPrompt") then return Prompt end
+	return nil
+end
+local function FindNearestHidingSpot()
+	local Nearest, NearestDistance = nil, math.huge
+	for _, Spot in ipairs(Objects.HidingSpots) do
+		if Spot.Parent and Spot.PrimaryPart and Spot.PrimaryPart.Position.Y > -10 and GetHidePrompt(Spot) then
+			local Hidden = Spot:FindFirstChild("HiddenPlayer", true)
+			if not (Hidden and Hidden.Value) then
+				local Distance = LocalPlayer:DistanceFromCharacter(Spot.PrimaryPart.Position)
+				if Distance < NearestDistance then NearestDistance, Nearest = Distance, Spot end
+			end
+		end
+	end
+	return Nearest
+end
+local function FirePromptSafe(Prompt)
+	if Env.fireproximityprompt and Prompt then pcall(Env.fireproximityprompt, Prompt) end
+end
+Functions.ForceFirePrompt = FirePromptSafe
+
+
+-- [Skip Seek Hotel]
+Toggles.SkipSeekHotel:OnChanged(function(Value)
+	if not Value then return end
+	if Floor ~= "Hotel" then return end
+
 	task.spawn(function()
-		local function alive() return Ex.SkipSeekHotel and B.InMode("Hotel") end
-		local lastTrigger
-		while alive() do
-			local triggerRoom
+		print("started")
+
+		local currentRooms
+
+		repeat
+			if not Toggles.SkipSeekHotel.Value or Floor ~= "Hotel" then
+				return
+			end
+			currentRooms = workspace:FindFirstChild("CurrentRooms")
+			task.wait()
+		until currentRooms
+
+		print("got currentrooms")
+
+		local lastTriggerRoom = nil
+
+		while Toggles.SkipSeekHotel.Value and Floor == "Hotel" do
+			local triggerRoom = nil
+
+			print("waiting for trigger")
+
 			repeat
-				if not alive() then return end
-				local cur = tonumber(LocalPlayer:GetAttribute("CurrentRoom"))
-				if cur and cur ~= lastTrigger then
-					local rooms = Rooms()
-					local room = rooms and rooms:FindFirstChild(tostring(cur))
-					if room and room:WaitForChild("TriggerEventCollision", 0.5) then triggerRoom = cur end
+				if not Toggles.SkipSeekHotel.Value or Floor ~= "Hotel" then
+					return
 				end
+
+				currentRooms = workspace:FindFirstChild("CurrentRooms")
+				local currentRoomNum = tonumber(LocalPlayer:GetAttribute("CurrentRoom"))
+
+				if currentRoomNum and currentRoomNum ~= lastTriggerRoom then
+					local room = currentRooms and currentRooms:FindFirstChild(tostring(currentRoomNum))
+					if room then
+						local trigger = room:WaitForChild("TriggerEventCollision", 0.5)
+						if trigger then
+							triggerRoom = currentRoomNum
+							print("found trigger in", triggerRoom)
+						end
+					end
+				end
+
 				task.wait()
 			until triggerRoom
-			lastTrigger = triggerRoom
+
+			lastTriggerRoom = triggerRoom
+
 			local roomNum = triggerRoom
-			while alive() do
-				roomNum = roomNum + 1
+
+			while Toggles.SkipSeekHotel.Value and Floor == "Hotel" do
+				roomNum += 1
+				print("looking for room", roomNum)
+
 				local room
 				repeat
-					if not alive() then return end
-					local rooms = Rooms()
-					room = rooms and rooms:FindFirstChild(tostring(roomNum))
+					if not Toggles.SkipSeekHotel.Value or Floor ~= "Hotel" then
+						return
+					end
+					currentRooms = workspace:FindFirstChild("CurrentRooms")
+					room = currentRooms and currentRooms:FindFirstChild(tostring(roomNum))
 					task.wait()
 				until room
-				local hasArm = false
+
+				print("found room", roomNum)
+
+				local hasSeekArm = false
 				local assets = room:FindFirstChild("Assets")
 				if assets then
-					for _, c in ipairs(assets:GetChildren()) do
-						if c.Name == "Seek_Arm" then hasArm = true break end
+					for _, child in ipairs(assets:GetChildren()) do
+						if child.Name == "Seek_Arm" then
+							hasSeekArm = true
+							print("found seek arm")
+							break
+						end
 					end
 				end
+
 				local door
 				repeat
-					if not alive() then return end
+					if not Toggles.SkipSeekHotel.Value or Floor ~= "Hotel" then
+						return
+					end
 					door = room:FindFirstChild("Door", true)
 					task.wait()
 				until door
+
+				print("found door, teleporting")
+
 				repeat
-					if not alive() then return end
-					local ch = Char()
-					if ch then ch:PivotTo(door:GetPivot()) end
+					if not Toggles.SkipSeekHotel.Value or Floor ~= "Hotel" then
+						return
+					end
+					if Character then
+						Character:PivotTo(door:GetPivot())
+					end
 					task.wait()
 				until door:GetAttribute("Opened") == true
-				if hasArm then
-					local ch = Char()
-					if not ch then return end
-					local void = ch:GetPivot() + Vector3.new(0, -2500, 0)
-					VoidBurst(void, { { 0.25, 20 }, { 0.3, 15 }, { 0.2, 10 } })
+
+				print("door opened")
+
+				if hasSeekArm then
+					if not Character then
+						return
+					end
+
+					print("voiding")
+
+					local voidCFrame = Character:GetPivot() + Vector3.new(0, -2500, 0)
+
+					task.wait(0.25)
+
+					for _ = 1, 20 do
+						Character:PivotTo(voidCFrame)
+						task.wait()
+					end
+
+					task.wait(0.3)
+
+					for _ = 1, 15 do
+						Character:PivotTo(voidCFrame)
+						task.wait()
+					end
+
+					task.wait(0.2)
+
+					for _ = 1, 10 do
+						Character:PivotTo(voidCFrame)
+						task.wait()
+					end
+
+					print("done voiding")
 					break
 				end
 			end
@@ -10938,318 +11016,826 @@ AddToggle(AutomationTab, "SkipSeekHotel", "Skip Seek (Hotel)", "Skips the entire
 	end)
 end)
 
-AddToggle(AutomationTab, "SkipSeekMines", "Skip Seek (Mines)", "Skips the entire Seek sections.", Ex.SkipSeekMines, function(v)
-	Ex.SkipSeekMines = v
-	if not v then return end
-	if not B.InMode("Mines") then B.Toast("Skip Seek", "Only works on the Mines.") return end
-	task.spawn(function()
-		local function alive() return Ex.SkipSeekMines end
-		local rooms
-		repeat
-			if not alive() then return end
-			rooms = Rooms()
-			task.wait()
-		until rooms
-		local startRoom
-		repeat
-			if not alive() then return end
-			rooms = Rooms()
-			startRoom = rooms and rooms:FindFirstChild("42")
-			task.wait()
-		until startRoom
-		local startDoor
-		repeat
-			if not alive() then return end
-			startDoor = startRoom:FindFirstChild("Door", true)
-			task.wait()
-		until startDoor
-		repeat
-			if not alive() then return end
-			task.wait()
-		until startDoor:GetAttribute("Opened") == true
-		local ch0 = Char()
-		if ch0 and ch0:GetAttribute("Minecarting") == true then ch0:SetAttribute("Minecarting", false) end
-		for _, num in ipairs({ 43, 44, 45, 46, 47, 48, 49, 78, 79, 80, 81, 82, 83 }) do
-			if not alive() then return end
-			local room
-			repeat
-				if not alive() then return end
-				rooms = Rooms()
-				room = rooms and rooms:FindFirstChild(tostring(num))
-				task.wait()
-			until room
-			local door
-			repeat
-				if not alive() then return end
-				door = room:FindFirstChild("Door", true)
-				task.wait()
-			until door
-			repeat
-				if not alive() then return end
-				local ch = Char()
-				if ch then ch:PivotTo(door:GetPivot()) end
-				task.wait()
-			until door:GetAttribute("Opened") == true
-			if num == 49 or num == 83 then
-				local ch = Char()
-				if not ch then return end
-				local void = ch:GetPivot() + Vector3.new(0, -1000, 0)
-				task.wait(0.3)
-				for _ = 1, 36 do ch:PivotTo(void) end
-				task.wait(0.3)
-				for _ = 1, 6 do ch:PivotTo(void) end
+-- [Auto Library]
+Toggles.AutoLibrary:OnChanged(function(AutoLibraryEnabled)
+	if AutoLibraryConnection then
+		task.cancel(AutoLibraryConnection)
+		AutoLibraryConnection = nil
+	end
+
+	if AutoLibraryRoomConnection then
+		AutoLibraryRoomConnection:Disconnect()
+		AutoLibraryRoomConnection = nil
+	end
+
+	if not AutoLibraryEnabled then
+		return
+	end
+
+	AutoLibraryConnection = task.spawn(function()
+		local AutoLibraryPlayers = game:GetService("Players")
+		local AutoLibraryLocalPlayer = AutoLibraryPlayers.LocalPlayer
+		local AutoLibraryCharacter = AutoLibraryLocalPlayer.Character or AutoLibraryLocalPlayer.CharacterAdded:Wait()
+		local AutoLibraryHumanoidRootPart = AutoLibraryCharacter:WaitForChild("HumanoidRootPart")
+
+		local AutoLibraryCurrentRooms = workspace:WaitForChild("CurrentRooms")
+		local AutoLibraryRoom50 = AutoLibraryCurrentRooms:WaitForChild("50")
+		local AutoLibraryLiveHintBooks = {}
+		local AutoLibraryHintPaperObtained = false
+
+		local function AutoLibraryIsInRoom50(AutoLibraryObject)
+			return AutoLibraryObject
+				and AutoLibraryObject:IsDescendantOf(AutoLibraryRoom50)
+				and AutoLibraryObject:IsDescendantOf(AutoLibraryCurrentRooms)
+				and AutoLibraryObject:IsDescendantOf(workspace)
+		end
+
+		local function AutoLibraryIsActuallyInRoom50()
+			return tonumber(AutoLibraryLocalPlayer:GetAttribute("CurrentRoom")) == 50
+		end
+
+		while AutoLibraryEnabled and not AutoLibraryIsActuallyInRoom50() do
+			task.wait(0.05)
+		end
+
+		if not AutoLibraryEnabled then
+			return
+		end
+
+		local function AutoLibraryHasHintPaper()
+			AutoLibraryCharacter = AutoLibraryLocalPlayer.Character
+
+			if not AutoLibraryCharacter then
+				return false
 			end
-			if num == 83 then return end
+
+			local AutoLibraryBackpackPaper = AutoLibraryLocalPlayer.Backpack:FindFirstChild("LibraryHintPaper", true)
+			local AutoLibraryCharacterPaper = AutoLibraryCharacter:FindFirstChild("LibraryHintPaper", true)
+
+			return AutoLibraryBackpackPaper ~= nil or AutoLibraryCharacterPaper ~= nil
+		end
+
+		local function AutoLibraryGetObjectCFrame(AutoLibraryObject)
+			if not AutoLibraryIsActuallyInRoom50() then
+				return nil
+			end
+
+			if not AutoLibraryIsInRoom50(AutoLibraryObject) then
+				return nil
+			end
+
+			if AutoLibraryObject:IsA("Model") then
+				return AutoLibraryObject:GetPivot()
+			elseif AutoLibraryObject:IsA("BasePart") then
+				return AutoLibraryObject.CFrame
+			end
+
+			local AutoLibraryObjectPart = AutoLibraryObject:FindFirstChildWhichIsA("BasePart", true)
+
+			if AutoLibraryObjectPart then
+				return AutoLibraryObjectPart.CFrame
+			end
+
+			return nil
+		end
+
+		local function AutoLibraryFindBooks(AutoLibraryObject)
+			if not AutoLibraryIsActuallyInRoom50() then
+				return
+			end
+
+			if not AutoLibraryIsInRoom50(AutoLibraryObject) then
+				return
+			end
+
+			if AutoLibraryObject.Name == "LiveHintBook" then
+				if not table.find(AutoLibraryLiveHintBooks, AutoLibraryObject) then
+					table.insert(AutoLibraryLiveHintBooks, AutoLibraryObject)
+				end
+			end
+
+			for _, AutoLibraryDescendant in ipairs(AutoLibraryObject:GetDescendants()) do
+				if AutoLibraryDescendant.Name == "LiveHintBook"
+					and AutoLibraryIsInRoom50(AutoLibraryDescendant) then
+
+					if not table.find(AutoLibraryLiveHintBooks, AutoLibraryDescendant) then
+						table.insert(AutoLibraryLiveHintBooks, AutoLibraryDescendant)
+					end
+				end
+			end
+		end
+
+		for _, AutoLibraryDescendant in ipairs(AutoLibraryRoom50:GetDescendants()) do
+			if not AutoLibraryEnabled or not AutoLibraryIsActuallyInRoom50() then
+				return
+			end
+
+			if AutoLibraryDescendant.Name == "LiveHintBook"
+				and AutoLibraryIsInRoom50(AutoLibraryDescendant) then
+
+				if not table.find(AutoLibraryLiveHintBooks, AutoLibraryDescendant) then
+					table.insert(AutoLibraryLiveHintBooks, AutoLibraryDescendant)
+				end
+			end
+		end
+
+		AutoLibraryRoomConnection = AutoLibraryRoom50.DescendantAdded:Connect(function(AutoLibraryAddedObject)
+			if not AutoLibraryEnabled then
+				return
+			end
+
+			if not AutoLibraryIsActuallyInRoom50() then
+				return
+			end
+
+			if not AutoLibraryIsInRoom50(AutoLibraryAddedObject) then
+				return
+			end
+
+			AutoLibraryFindBooks(AutoLibraryAddedObject)
+		end)
+
+		while AutoLibraryEnabled
+			and AutoLibraryIsActuallyInRoom50()
+			and #AutoLibraryLiveHintBooks < 3 do
+
+			for _, AutoLibraryDescendant in ipairs(AutoLibraryRoom50:GetDescendants()) do
+				if not AutoLibraryEnabled or not AutoLibraryIsActuallyInRoom50() then
+					return
+				end
+
+				if AutoLibraryDescendant.Name == "LiveHintBook"
+					and AutoLibraryIsInRoom50(AutoLibraryDescendant)
+					and not table.find(AutoLibraryLiveHintBooks, AutoLibraryDescendant) then
+
+					table.insert(AutoLibraryLiveHintBooks, AutoLibraryDescendant)
+				end
+			end
+
+			if #AutoLibraryLiveHintBooks >= 3 then
+				break
+			end
+
+			task.wait(0.05)
+		end
+
+		while AutoLibraryEnabled
+			and AutoLibraryIsActuallyInRoom50()
+			and not AutoLibraryHintPaperObtained do
+
+			if AutoLibraryHasHintPaper() then
+				AutoLibraryHintPaperObtained = true
+				break
+			end
+
+			for AutoLibraryIndex = #AutoLibraryLiveHintBooks, 1, -1 do
+				if not AutoLibraryIsActuallyInRoom50() then
+					return
+				end
+
+				local AutoLibraryLiveHintBook = AutoLibraryLiveHintBooks[AutoLibraryIndex]
+
+				if not AutoLibraryIsInRoom50(AutoLibraryLiveHintBook) then
+					table.remove(AutoLibraryLiveHintBooks, AutoLibraryIndex)
+					continue
+				end
+
+				while AutoLibraryEnabled
+					and AutoLibraryIsActuallyInRoom50()
+					and not AutoLibraryHintPaperObtained
+					and AutoLibraryLiveHintBook.Parent
+					and AutoLibraryIsInRoom50(AutoLibraryLiveHintBook) do
+
+					if AutoLibraryHasHintPaper() then
+						AutoLibraryHintPaperObtained = true
+						break
+					end
+
+					AutoLibraryCharacter = AutoLibraryLocalPlayer.Character or AutoLibraryLocalPlayer.CharacterAdded:Wait()
+					AutoLibraryHumanoidRootPart = AutoLibraryCharacter:FindFirstChild("HumanoidRootPart")
+
+					if not AutoLibraryHumanoidRootPart then
+						task.wait()
+						continue
+					end
+
+					local AutoLibraryBookCFrame = AutoLibraryGetObjectCFrame(AutoLibraryLiveHintBook)
+
+					if AutoLibraryBookCFrame
+						and AutoLibraryIsActuallyInRoom50()
+						and AutoLibraryIsInRoom50(AutoLibraryLiveHintBook) then
+
+						AutoLibraryHumanoidRootPart.CFrame = AutoLibraryBookCFrame
+					end
+
+					for _, AutoLibraryPromptDescendant in ipairs(AutoLibraryLiveHintBook:GetDescendants()) do
+						if AutoLibraryPromptDescendant:IsA("ProximityPrompt")
+							and AutoLibraryIsInRoom50(AutoLibraryPromptDescendant)
+							and AutoLibraryIsActuallyInRoom50() then
+
+							fireproximityprompt(AutoLibraryPromptDescendant)
+						end
+					end
+
+					task.wait(0.05)
+				end
+
+				if AutoLibraryHintPaperObtained then
+					break
+				end
+			end
+
+			if AutoLibraryHasHintPaper() then
+				AutoLibraryHintPaperObtained = true
+				break
+			end
+
+			local AutoLibraryHintPaper = AutoLibraryRoom50:FindFirstChild("LibraryHintPaper", true)
+
+			if AutoLibraryHintPaper
+				and AutoLibraryIsInRoom50(AutoLibraryHintPaper)
+				and AutoLibraryIsActuallyInRoom50() then
+
+				while AutoLibraryEnabled
+					and AutoLibraryIsActuallyInRoom50()
+					and not AutoLibraryHintPaperObtained
+					and AutoLibraryHintPaper.Parent
+					and AutoLibraryIsInRoom50(AutoLibraryHintPaper) do
+
+					if AutoLibraryHasHintPaper() then
+						AutoLibraryHintPaperObtained = true
+						break
+					end
+
+					AutoLibraryCharacter = AutoLibraryLocalPlayer.Character or AutoLibraryLocalPlayer.CharacterAdded:Wait()
+					AutoLibraryHumanoidRootPart = AutoLibraryCharacter:FindFirstChild("HumanoidRootPart")
+
+					if not AutoLibraryHumanoidRootPart then
+						task.wait()
+						continue
+					end
+
+					local AutoLibraryPaperCFrame = AutoLibraryGetObjectCFrame(AutoLibraryHintPaper)
+
+					if AutoLibraryPaperCFrame
+						and AutoLibraryIsActuallyInRoom50()
+						and AutoLibraryIsInRoom50(AutoLibraryHintPaper) then
+
+						AutoLibraryHumanoidRootPart.CFrame = AutoLibraryPaperCFrame * CFrame.new(0, 5, 0)
+					end
+
+					for _, AutoLibraryPromptDescendant in ipairs(AutoLibraryHintPaper:GetDescendants()) do
+						if AutoLibraryPromptDescendant:IsA("ProximityPrompt")
+							and AutoLibraryIsInRoom50(AutoLibraryPromptDescendant)
+							and AutoLibraryIsActuallyInRoom50() then
+
+							fireproximityprompt(AutoLibraryPromptDescendant)
+						end
+					end
+
+					task.wait(0.05)
+				end
+			end
+
+			task.wait(0.05)
 		end
 	end)
 end)
-end)()
 
--- ============================================================================================
--- BATCH 14: portado del Main: Knob Farm, Auto Hotel, Auto Rooms (pathfinding) y Entity Chat.
--- Todo vive dentro de una funcion para no gastar locales del chunk principal.
--- ============================================================================================
-print("[R4NS0M] Loading Batch 14")
-;(function()
-local Players = game:GetService("Players")
-local RS = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local PathfindingService = game:GetService("PathfindingService")
-local TextChatService = game:GetService("TextChatService")
-local B = FX.B8
-
-local function Char() return LocalPlayer.Character end
-local function Root() local c = Char() return c and c:FindFirstChild("HumanoidRootPart") end
-local function Hum() local c = Char() return c and c:FindFirstChildOfClass("Humanoid") end
-local function Col() local c = Char() return c and c:FindFirstChild("CollisionPart") end
-local function LatestRoomValue()
-	local gd = RS:FindFirstChild("GameData")
-	return gd and gd:FindFirstChild("LatestRoom")
-end
-local function RoomsFolder() return Workspace:FindFirstChild("CurrentRooms") end
-local function Fire(p) if fireproximityprompt then fireproximityprompt(p) end end
-
--- ------------------------------------------------------------------------------------------
--- Knob Farm: muere y revive en bucle para ganar knobs (hay que tener oro)
--- ------------------------------------------------------------------------------------------
-Ex.KnobFarm = false
-local knobStarted, knobActive = false, false
-
-AutomationTab:Section({ Title = "Farming" })
-AddToggle(AutomationTab, "KnobFarm", "Knob Farm", "Automatically gains knobs for you, dies and revives repeatedly. Risky outside the lobby floor.", Ex.KnobFarm, function(v)
-	Ex.KnobFarm = v
-	if v then
-		B.Toast("Knob Farm", "Collect some gold first, then press 'Start Knob Farm'.")
-		task.spawn(function()
-			while Ex.KnobFarm do
-				if knobStarted and not knobActive then
-					knobActive = true
-					pcall(function()
-						if replicatesignal and LocalPlayer:FindFirstChild("Kill") then
-							replicatesignal(LocalPlayer.Kill)
-						else
-							local h = Hum()
-							if h then h.Health = 0 end
-						end
-						repeat task.wait() until LocalPlayer:GetAttribute("Alive") or not Ex.KnobFarm
-						local rf = RS:FindFirstChild("RemotesFolder")
-						local stats = rf and rf:FindFirstChild("Statistics")
-						if stats then stats:FireServer() end
-						task.wait(0.25)
-					end)
-					knobActive = false
-				end
-				task.wait()
-			end
-		end)
-	else
-		knobStarted = false
+-- [Auto Breaker Room]
+Toggles.AutoBreakerRoom:OnChanged(function(AutoBreakerRoomEnabled)
+	if AutoBreakerRoomConnection then
+		task.cancel(AutoBreakerRoomConnection)
+		AutoBreakerRoomConnection = nil
 	end
-end)
-AutomationTab:Button({ Title = "Start Knob Farm", Desc = "Starts farming knobs. Click this in Room 0 once you have enough gold.", Callback = function()
-	local lr = LatestRoomValue()
-	if lr and lr.Value ~= 0 then
-		B.Toast("Knob Farm", "You must be in Room 0 to use this.")
+
+	if AutoBreakerRoomRoomConnection then
+		AutoBreakerRoomRoomConnection:Disconnect()
+		AutoBreakerRoomRoomConnection = nil
+	end
+
+	if not AutoBreakerRoomEnabled then
 		return
 	end
-	local pg = LocalPlayer:FindFirstChild("PlayerGui")
-	local top = pg and pg:FindFirstChild("TopbarUI")
-	if top then
-		local ok, gold = pcall(function() return top.Topbar.StatsTopbarHandler.StatModules.Gold.GoldVal end)
-		if ok and gold and gold.Value <= 0 then
-			B.Toast("Knob Farm", "You must have gold to do this.")
-			return
+
+	local AutoBreakerRoomGateFireTime = 5
+	local AutoBreakerRoomWaitAfterLever = 5
+	local AutoBreakerRoomBreakerSecondTime = 10
+	local AutoBreakerRoomWaitBeforeWeb = 4
+	local AutoBreakerRoomWebDuration = 20
+
+	AutoBreakerRoomConnection = task.spawn(function()
+		local AutoBreakerRoomPlayers = game:GetService("Players")
+		local AutoBreakerRoomCurrentRooms = workspace:WaitForChild("CurrentRooms")
+		local AutoBreakerRoom100 = AutoBreakerRoomCurrentRooms:WaitForChild("100")
+
+		local function AutoBreakerRoomIsActuallyInRoom100()
+			return tonumber(AutoBreakerRoomPlayers.LocalPlayer:GetAttribute("CurrentRoom")) == 100
 		end
-	end
-	knobStarted = true
-	B.Toast("Knob Farm", "Started.")
-end })
 
--- ------------------------------------------------------------------------------------------
--- Auto Hotel
--- ------------------------------------------------------------------------------------------
-Ex.AutoHotel = false
-Ex.AutoHotelIgnoreEntities = false
+		local function AutoBreakerRoomIsInRoom100(AutoBreakerRoomObject)
+			return AutoBreakerRoomObject
+				and AutoBreakerRoomObject.Parent
+				and AutoBreakerRoomObject:IsDescendantOf(AutoBreakerRoom100)
+				and AutoBreakerRoomObject:IsDescendantOf(AutoBreakerRoomCurrentRooms)
+		end
 
-local hotelThread, hotelLibThread, hotelSeekThread, hotelLibConn, hotelRoomsConn
-local hotelPause = false
-local hotelRoomTime = 0.5
-local hotelProcessed = {}
+		local function AutoBreakerRoomGetObjectCFrame(AutoBreakerRoomObject)
+			if not AutoBreakerRoomIsActuallyInRoom100() or not AutoBreakerRoomIsInRoom100(AutoBreakerRoomObject) then
+				return nil
+			end
 
-local HOTEL_ENTITIES = {
-	RushMoving = true, Scribbles = true, BashMoving = true, DronesStampede = true, AmbushMoving = true,
-	A60 = true, A120 = true, GlitchRush = true, GlitchAmbush = true, BackdoorRush = true, CustomEntity = true,
+			if AutoBreakerRoomObject:IsA("Model") then
+				return AutoBreakerRoomObject:GetPivot()
+			elseif AutoBreakerRoomObject:IsA("BasePart") then
+				return AutoBreakerRoomObject.CFrame
+			end
+
+			local AutoBreakerRoomPart = AutoBreakerRoomObject:FindFirstChildWhichIsA("BasePart", true)
+			return AutoBreakerRoomPart and AutoBreakerRoomPart.CFrame
+		end
+
+		local function AutoBreakerRoomGetHRP()
+			local AutoBreakerRoomCharacter = AutoBreakerRoomPlayers.LocalPlayer.Character
+			return AutoBreakerRoomCharacter and AutoBreakerRoomCharacter:FindFirstChild("HumanoidRootPart")
+		end
+
+		local function AutoBreakerRoomActivate(AutoBreakerRoomObject)
+			if not AutoBreakerRoomObject then
+				return
+			end
+
+			if AutoBreakerRoomObject:IsA("ProximityPrompt") then
+				fireproximityprompt(AutoBreakerRoomObject)
+				return
+			end
+
+			for _, AutoBreakerRoomDescendant in ipairs(AutoBreakerRoomObject:GetDescendants()) do
+				if AutoBreakerRoomDescendant:IsA("ProximityPrompt") then
+					fireproximityprompt(AutoBreakerRoomDescendant)
+				end
+			end
+		end
+
+		local function AutoBreakerRoomConstantTPAndActivate(AutoBreakerRoomTarget, AutoBreakerRoomDuration, AutoBreakerRoomInterval, AutoBreakerRoomOffset)
+			AutoBreakerRoomInterval = AutoBreakerRoomInterval or 0.04
+			AutoBreakerRoomOffset = AutoBreakerRoomOffset or CFrame.new()
+			local AutoBreakerRoomEndTime = os.clock() + (AutoBreakerRoomDuration or 3)
+
+			while AutoBreakerRoomEnabled
+				and AutoBreakerRoomIsActuallyInRoom100()
+				and AutoBreakerRoomIsInRoom100(AutoBreakerRoomTarget)
+				and os.clock() < AutoBreakerRoomEndTime do
+
+				local AutoBreakerRoomHRP = AutoBreakerRoomGetHRP()
+				local AutoBreakerRoomCF = AutoBreakerRoomGetObjectCFrame(AutoBreakerRoomTarget)
+
+				if AutoBreakerRoomHRP and AutoBreakerRoomCF then
+					AutoBreakerRoomHRP.CFrame = AutoBreakerRoomCF * AutoBreakerRoomOffset
+				end
+
+				AutoBreakerRoomActivate(AutoBreakerRoomTarget)
+				task.wait(AutoBreakerRoomInterval)
+			end
+		end
+
+		while AutoBreakerRoomEnabled do
+			while AutoBreakerRoomEnabled and not AutoBreakerRoomIsActuallyInRoom100() do
+				task.wait(0.1)
+			end
+
+			if not AutoBreakerRoomEnabled then
+				return
+			end
+
+			local AutoBreakerRoomPoles = {}
+
+			while AutoBreakerRoomEnabled and AutoBreakerRoomIsActuallyInRoom100() do
+				AutoBreakerRoomPoles = {}
+
+				for _, AutoBreakerRoomDescendant in ipairs(AutoBreakerRoom100:GetDescendants()) do
+					if AutoBreakerRoomDescendant.Name == "LiveBreakerPolePickup" and AutoBreakerRoomIsInRoom100(AutoBreakerRoomDescendant) then
+						if not table.find(AutoBreakerRoomPoles, AutoBreakerRoomDescendant) then
+							table.insert(AutoBreakerRoomPoles, AutoBreakerRoomDescendant)
+						end
+					end
+				end
+
+				if #AutoBreakerRoomPoles == 0 then
+					break
+				end
+
+				for _, AutoBreakerRoomPole in ipairs(AutoBreakerRoomPoles) do
+					if not AutoBreakerRoomEnabled or not AutoBreakerRoomIsActuallyInRoom100() then
+						break
+					end
+
+					if AutoBreakerRoomIsInRoom100(AutoBreakerRoomPole) then
+						AutoBreakerRoomConstantTPAndActivate(AutoBreakerRoomPole, 2.8, 0.03)
+						task.wait(0.12)
+					end
+				end
+
+				task.wait(0.05)
+			end
+
+			if not AutoBreakerRoomEnabled or not AutoBreakerRoomIsActuallyInRoom100() then
+				continue
+			end
+
+			local AutoBreakerRoomIndustrialGate = AutoBreakerRoom100:FindFirstChild("IndustrialGate")
+			local AutoBreakerRoomBox = AutoBreakerRoomIndustrialGate and AutoBreakerRoomIndustrialGate:FindFirstChild("Box")
+			local AutoBreakerRoomLever = AutoBreakerRoomBox and AutoBreakerRoomBox:FindFirstChild("Lever")
+			local AutoBreakerRoomActivateEventPrompt = AutoBreakerRoomBox and AutoBreakerRoomBox:FindFirstChild("ActivateEventPrompt")
+
+			if AutoBreakerRoomActivateEventPrompt and AutoBreakerRoomLever then
+				local function AutoBreakerRoomGetLeverCFrame()
+					if AutoBreakerRoomLever:IsA("Model") then
+						return AutoBreakerRoomLever:GetPivot()
+					elseif AutoBreakerRoomLever:IsA("BasePart") then
+						return AutoBreakerRoomLever.CFrame
+					end
+					local AutoBreakerRoomPart = AutoBreakerRoomLever:FindFirstChildWhichIsA("BasePart", true)
+					return AutoBreakerRoomPart and AutoBreakerRoomPart.CFrame
+				end
+
+				local AutoBreakerRoomInitialLeverCFrame = AutoBreakerRoomGetLeverCFrame()
+				local AutoBreakerRoomLeverEndTime = os.clock() + 10
+
+				while AutoBreakerRoomEnabled
+					and AutoBreakerRoomIsActuallyInRoom100()
+					and AutoBreakerRoomIsInRoom100(AutoBreakerRoomLever)
+					and os.clock() < AutoBreakerRoomLeverEndTime do
+
+					local AutoBreakerRoomCurrentLeverCFrame = AutoBreakerRoomGetLeverCFrame()
+
+					if AutoBreakerRoomCurrentLeverCFrame and AutoBreakerRoomInitialLeverCFrame
+						and AutoBreakerRoomCurrentLeverCFrame ~= AutoBreakerRoomInitialLeverCFrame then
+						break
+					end
+
+					local AutoBreakerRoomHRP = AutoBreakerRoomGetHRP()
+					local AutoBreakerRoomCF = AutoBreakerRoomGetObjectCFrame(AutoBreakerRoomBox)
+
+					if AutoBreakerRoomHRP and AutoBreakerRoomCF then
+						AutoBreakerRoomHRP.CFrame = AutoBreakerRoomCF
+					end
+
+					AutoBreakerRoomActivate(AutoBreakerRoomActivateEventPrompt)
+					task.wait(0.04)
+				end
+			end
+
+			if not AutoBreakerRoomEnabled or not AutoBreakerRoomIsActuallyInRoom100() then
+				continue
+			end
+
+			task.wait(AutoBreakerRoomWaitAfterLever)
+
+			if not AutoBreakerRoomEnabled or not AutoBreakerRoomIsActuallyInRoom100() then
+				continue
+			end
+
+			local AutoBreakerRoomElevatorBreakerEmpty = AutoBreakerRoom100:FindFirstChild("ElevatorBreakerEmpty")
+			if not AutoBreakerRoomElevatorBreakerEmpty then
+				continue
+			end
+
+			local AutoBreakerRoomBreakerPrompt = AutoBreakerRoomElevatorBreakerEmpty:FindFirstChild("Prompt")
+			if not AutoBreakerRoomBreakerPrompt then
+				continue
+			end
+
+			local AutoBreakerRoomBreakerOffset = CFrame.new(0, -1.8, 0)
+
+			while AutoBreakerRoomEnabled and AutoBreakerRoomIsActuallyInRoom100() do
+				if AutoBreakerRoomElevatorBreakerEmpty:FindFirstChild("BreakerSwitchInBox") then
+					break
+				end
+
+				local AutoBreakerRoomHRP = AutoBreakerRoomGetHRP()
+				local AutoBreakerRoomCF = AutoBreakerRoomGetObjectCFrame(AutoBreakerRoomElevatorBreakerEmpty)
+
+				if AutoBreakerRoomHRP and AutoBreakerRoomCF then
+					AutoBreakerRoomHRP.CFrame = AutoBreakerRoomCF * AutoBreakerRoomBreakerOffset
+				end
+
+				AutoBreakerRoomActivate(AutoBreakerRoomBreakerPrompt)
+				task.wait(0.04)
+			end
+
+			if not AutoBreakerRoomEnabled or not AutoBreakerRoomIsActuallyInRoom100() then
+				continue
+			end
+
+			task.wait(10)
+
+			AutoBreakerRoomConstantTPAndActivate(
+				AutoBreakerRoomElevatorBreakerEmpty,
+				AutoBreakerRoomBreakerSecondTime,
+				0.04,
+				AutoBreakerRoomBreakerOffset
+			)
+
+			task.wait(AutoBreakerRoomWaitBeforeWeb)
+
+			if not AutoBreakerRoomEnabled or not AutoBreakerRoomIsActuallyInRoom100() then
+				continue
+			end
+
+			local AutoBreakerRoomElevatorCar = AutoBreakerRoom100:FindFirstChild("ElevatorCar")
+			local AutoBreakerRoomWeb = AutoBreakerRoomElevatorCar and AutoBreakerRoomElevatorCar:FindFirstChild("Web", true)
+
+			if AutoBreakerRoomWeb then
+				local AutoBreakerRoomEndTime = os.clock() + AutoBreakerRoomWebDuration
+
+				while AutoBreakerRoomEnabled and AutoBreakerRoomIsActuallyInRoom100() and os.clock() < AutoBreakerRoomEndTime do
+					local AutoBreakerRoomHRP = AutoBreakerRoomGetHRP()
+					local AutoBreakerRoomCF = AutoBreakerRoomGetObjectCFrame(AutoBreakerRoomWeb)
+
+					if AutoBreakerRoomHRP and AutoBreakerRoomCF then
+						AutoBreakerRoomHRP.CFrame = AutoBreakerRoomCF
+					end
+
+					task.wait(0.04)
+				end
+			end
+
+			while AutoBreakerRoomEnabled and AutoBreakerRoomIsActuallyInRoom100() do
+				task.wait(0.5)
+			end
+		end
+	end)
+end)
+
+
+
+-- [Auto Hotel]
+local AutoHotelConnection
+local AutoHotelLibraryConnection
+local AutoHotelLibraryRoomConnection
+local AutoHotelSeekConnection
+local AutoHotelEntityPause = false
+local AutoHotelRoomProcessTime = 0.5
+local AutoHotelProcessedRooms = {}
+
+local AutoHotelEntityNames = {
+	["RushMoving"] = true,
+	["Scribbles"] = true,
+	["BashMoving"] = true,
+	["DronesStampede"] = true,
+	["AmbushMoving"] = true,
+	["A60"] = true,
+	["A120"] = true,
+	["GlitchRush"] = true,
+	["GlitchAmbush"] = true,
+	["BackdoorRush"] = true,
+	["CustomEntity"] = true,
 }
 
-local function HotelEntityPresent()
-	if Ex.AutoHotelIgnoreEntities then return false end
-	for _, c in ipairs(Workspace:GetChildren()) do
-		if HOTEL_ENTITIES[c.Name] then return true end
+local function AutoHotelIsEntityPresent()
+	if Toggles.AutoHotelIgnoreEntities and Toggles.AutoHotelIgnoreEntities.Value then
+		return false
+	end
+	for _, AutoHotelChild in ipairs(workspace:GetChildren()) do
+		if AutoHotelEntityNames[AutoHotelChild.Name] then
+			return true
+		end
 	end
 	return false
 end
 
-local function HotelWaitEntities(seconds)
-	if Ex.AutoHotelIgnoreEntities then return end
-	task.wait(seconds or 5)
-	while HotelEntityPresent() and Ex.AutoHotel do task.wait(0.15) end
+local function AutoHotelWaitForEntities(AutoHotelSeconds)
+	if Toggles.AutoHotelIgnoreEntities and Toggles.AutoHotelIgnoreEntities.Value then
+		return
+	end
+
+	task.wait(AutoHotelSeconds or 5)
+
+	while AutoHotelIsEntityPresent() do
+		task.wait(0.15)
+	end
 end
 
-local function HotelNextDoor()
-	if not Char() then return nil, nil end
-	local lr = LatestRoomValue()
-	if not lr then return nil, nil end
-	local startRoom = lr.Value
-	local bestDoor, bestNum = nil, math.huge
-	local rooms = RoomsFolder()
-	if rooms then
-		for _, room in ipairs(rooms:GetChildren()) do
-			local n = tonumber(room.Name)
-			if n and n ~= 100 and n >= startRoom and n < bestNum then
-				local door = room:FindFirstChild("Door")
-				if door and door:IsA("Model") then
-					local open = door:GetAttribute("Open")
-					if open == false or open == nil then
-						bestNum, bestDoor = n, door
+local function AutoHotelGetNextClosedDoor()
+	if not Character then return nil, nil end
+
+	local AutoHotelGameData = game:GetService("ReplicatedStorage"):FindFirstChild("GameData")
+	if not AutoHotelGameData then return nil, nil end
+
+	local AutoHotelLatestRoom = AutoHotelGameData:FindFirstChild("LatestRoom")
+	if not AutoHotelLatestRoom then return nil, nil end
+
+	local AutoHotelStartRoom = AutoHotelLatestRoom.Value
+	local AutoHotelBestDoor, AutoHotelBestNumber = nil, math.huge
+	local AutoHotelCurrentRooms = workspace:FindFirstChild("CurrentRooms")
+
+	if AutoHotelCurrentRooms then
+		for _, AutoHotelRoom in ipairs(AutoHotelCurrentRooms:GetChildren()) do
+			local AutoHotelRoomNum = tonumber(AutoHotelRoom.Name)
+			if AutoHotelRoomNum and AutoHotelRoomNum ~= 100 and AutoHotelRoomNum >= AutoHotelStartRoom and AutoHotelRoomNum < AutoHotelBestNumber then
+				local AutoHotelDoor = AutoHotelRoom:FindFirstChild("Door")
+				if AutoHotelDoor and AutoHotelDoor:IsA("Model") then
+					local AutoHotelOpenAttr = AutoHotelDoor:GetAttribute("Open")
+					if AutoHotelOpenAttr == false or AutoHotelOpenAttr == nil then
+						AutoHotelBestNumber = AutoHotelRoomNum
+						AutoHotelBestDoor = AutoHotelDoor
 					end
 				end
 			end
 		end
 	end
-	return bestDoor, bestNum
+
+	return AutoHotelBestDoor, AutoHotelBestNumber
 end
 
-local function HotelFindKey(room)
-	for _, d in ipairs(room:GetDescendants()) do
-		if d.Name == "KeyObtain" then return d end
-	end
-end
-
-local function HotelHandleKey(num)
-	local rooms = RoomsFolder()
-	local room = rooms and rooms:FindFirstChild(tostring(num))
-	if not room then return false end
-	local door = room:FindFirstChild("Door")
-	if not door or not door:FindFirstChild("Lock") then return false end
-	local keyObtain = HotelFindKey(room)
-	if not keyObtain then return false end
-	local started = tick()
-	while tick() - started < 12 and Ex.AutoHotel do
-		local ch = Char()
-		if LocalPlayer.Backpack:FindFirstChild("Key") or (ch and ch:FindFirstChild("Key")) then return true end
-		if ch then ch:PivotTo(keyObtain:GetPivot()) end
-		for _, d in ipairs(keyObtain:GetDescendants()) do
-			if d:IsA("ProximityPrompt") then Fire(d) end
+local function AutoHotelFindKeyObtain(AutoHotelRoom)
+	local AutoHotelFound = nil
+	local function AutoHotelScan(AutoHotelParent)
+		if AutoHotelFound then return end
+		for _, AutoHotelChild in ipairs(AutoHotelParent:GetChildren()) do
+			if AutoHotelChild.Name == "KeyObtain" then
+				AutoHotelFound = AutoHotelChild
+				return
+			end
+			AutoHotelScan(AutoHotelChild)
+			if AutoHotelFound then return end
 		end
+	end
+	AutoHotelScan(AutoHotelRoom)
+	return AutoHotelFound
+end
+
+local function AutoHotelHandleKey(AutoHotelRoomNum)
+	local AutoHotelCurrentRooms = workspace:FindFirstChild("CurrentRooms")
+	if not AutoHotelCurrentRooms then return false end
+
+	local AutoHotelRoom = AutoHotelCurrentRooms:FindFirstChild(tostring(AutoHotelRoomNum))
+	if not AutoHotelRoom then return false end
+
+	local AutoHotelDoor = AutoHotelRoom:FindFirstChild("Door")
+	if not AutoHotelDoor or not AutoHotelDoor:FindFirstChild("Lock") then
+		return false
+	end
+
+	local AutoHotelKeyObtain = AutoHotelFindKeyObtain(AutoHotelRoom)
+	if not AutoHotelKeyObtain then return false end
+
+	local AutoHotelStart = tick()
+	while tick() - AutoHotelStart < 12 do
+		if LocalPlayer.Backpack:FindFirstChild("Key") or (Character and Character:FindFirstChild("Key")) then
+			return true
+		end
+
+		if Character then
+			Character:PivotTo(AutoHotelKeyObtain:GetPivot())
+		end
+
+		for _, AutoHotelDesc in ipairs(AutoHotelKeyObtain:GetDescendants()) do
+			if AutoHotelDesc:IsA("ProximityPrompt") then
+				fireproximityprompt(AutoHotelDesc)
+			end
+		end
+
 		task.wait(0.12)
 	end
 	return false
 end
 
-local function HotelProcessRoom(num)
-	if hotelProcessed[num] then return end
-	task.wait(hotelRoomTime)
-	hotelProcessed[num] = true
+local function AutoHotelProcessRoom(AutoHotelRoomNum)
+	if AutoHotelProcessedRooms[AutoHotelRoomNum] then
+		return
+	end
+	task.wait(AutoHotelRoomProcessTime)
+	AutoHotelProcessedRooms[AutoHotelRoomNum] = true
 end
 
-local function HotelRunLibrary()
-	local rooms = Workspace:WaitForChild("CurrentRooms")
-	local room50 = rooms:WaitForChild("50")
-	local books = {}
-	local paperObtained = false
+local function AutoHotelRunLibrary()
+	local AutoHotelCurrentRooms = workspace:WaitForChild("CurrentRooms")
+	local AutoHotelRoom50 = AutoHotelCurrentRooms:WaitForChild("50")
+	local AutoHotelLiveHintBooks = {}
+	local AutoHotelHintPaperObtained = false
 
-	local function inRoom50(o) return o and o:IsDescendantOf(room50) end
-	local function actuallyIn50() return tonumber(LocalPlayer:GetAttribute("CurrentRoom")) == 50 end
-
-	while Ex.AutoHotel and not actuallyIn50() do task.wait(0.1) end
-	if not Ex.AutoHotel then return end
-	HotelWaitEntities(5)
-
-	local function hasPaper()
-		local ch = Char()
-		if not ch then return false end
-		return LocalPlayer.Backpack:FindFirstChild("LibraryHintPaper", true) or ch:FindFirstChild("LibraryHintPaper", true)
+	local function AutoHotelIsInRoom50(AutoHotelObj)
+		return AutoHotelObj and AutoHotelObj:IsDescendantOf(AutoHotelRoom50)
 	end
-	local function cframeOf(o)
-		if not actuallyIn50() or not inRoom50(o) then return nil end
-		if o:IsA("Model") then return o:GetPivot() end
-		if o:IsA("BasePart") then return o.CFrame end
-		local part = o:FindFirstChildWhichIsA("BasePart", true)
-		return part and part.CFrame
+
+	local function AutoHotelIsActuallyInRoom50()
+		return tonumber(LocalPlayer:GetAttribute("CurrentRoom")) == 50
 	end
-	local function collect()
-		for _, d in ipairs(room50:GetDescendants()) do
-			if d.Name == "LiveHintBook" and inRoom50(d) and not table.find(books, d) then books[#books + 1] = d end
+
+	while Toggles.AutoHotel.Value and not AutoHotelIsActuallyInRoom50() do
+		task.wait(0.1)
+	end
+	if not Toggles.AutoHotel.Value then return end
+
+	AutoHotelWaitForEntities(5)
+
+	local function AutoHotelHasHintPaper()
+		local AutoHotelChar = LocalPlayer.Character
+		if not AutoHotelChar then return false end
+		return LocalPlayer.Backpack:FindFirstChild("LibraryHintPaper", true) or AutoHotelChar:FindFirstChild("LibraryHintPaper", true)
+	end
+
+	local function AutoHotelGetCFrame(AutoHotelObj)
+		if not AutoHotelIsActuallyInRoom50() or not AutoHotelIsInRoom50(AutoHotelObj) then return nil end
+		if AutoHotelObj:IsA("Model") then return AutoHotelObj:GetPivot() end
+		if AutoHotelObj:IsA("BasePart") then return AutoHotelObj.CFrame end
+		local AutoHotelPart = AutoHotelObj:FindFirstChildWhichIsA("BasePart", true)
+		return AutoHotelPart and AutoHotelPart.CFrame
+	end
+
+	local function AutoHotelCollectBooks()
+		for _, AutoHotelDesc in ipairs(AutoHotelRoom50:GetDescendants()) do
+			if AutoHotelDesc.Name == "LiveHintBook" and AutoHotelIsInRoom50(AutoHotelDesc) and not table.find(AutoHotelLiveHintBooks, AutoHotelDesc) then
+				table.insert(AutoHotelLiveHintBooks, AutoHotelDesc)
+			end
 		end
 	end
-	collect()
-	hotelLibConn = room50.DescendantAdded:Connect(function(d)
-		if Ex.AutoHotel and actuallyIn50() and inRoom50(d) and d.Name == "LiveHintBook" and not table.find(books, d) then
-			books[#books + 1] = d
+
+	AutoHotelCollectBooks()
+
+	AutoHotelLibraryRoomConnection = AutoHotelRoom50.DescendantAdded:Connect(function(AutoHotelAdded)
+		if Toggles.AutoHotel.Value and AutoHotelIsActuallyInRoom50() and AutoHotelIsInRoom50(AutoHotelAdded) then
+			if AutoHotelAdded.Name == "LiveHintBook" and not table.find(AutoHotelLiveHintBooks, AutoHotelAdded) then
+				table.insert(AutoHotelLiveHintBooks, AutoHotelAdded)
+			end
 		end
 	end)
-	while Ex.AutoHotel and actuallyIn50() and #books < 3 do
-		collect()
-		if #books >= 3 then break end
+
+	while Toggles.AutoHotel.Value and AutoHotelIsActuallyInRoom50() and #AutoHotelLiveHintBooks < 3 do
+		AutoHotelCollectBooks()
+		if #AutoHotelLiveHintBooks >= 3 then break end
 		task.wait(0.1)
 	end
 
-	while Ex.AutoHotel and actuallyIn50() and not paperObtained do
-		if hasPaper() then paperObtained = true break end
-		for i = #books, 1, -1 do
-			local book = books[i]
-			if not inRoom50(book) then
-				table.remove(books, i)
-			else
-				while Ex.AutoHotel and actuallyIn50() and not paperObtained and book.Parent and inRoom50(book) do
-					if hasPaper() then paperObtained = true break end
-					local ch = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-					local hrp = ch:FindFirstChild("HumanoidRootPart")
-					if hrp then
-						local cf = cframeOf(book)
-						if cf then hrp.CFrame = cf end
-						for _, p in ipairs(book:GetDescendants()) do
-							if p:IsA("ProximityPrompt") then Fire(p) end
-						end
-					end
-					task.wait(0.08)
-				end
-				if paperObtained then break end
-			end
+	while Toggles.AutoHotel.Value and AutoHotelIsActuallyInRoom50() and not AutoHotelHintPaperObtained do
+		if AutoHotelHasHintPaper() then
+			AutoHotelHintPaperObtained = true
+			break
 		end
-		if hasPaper() then paperObtained = true break end
-		local paper = room50:FindFirstChild("LibraryHintPaper", true)
-		if paper and inRoom50(paper) then
-			while Ex.AutoHotel and actuallyIn50() and not paperObtained and paper.Parent do
-				if hasPaper() then paperObtained = true break end
-				local ch = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-				local hrp = ch:FindFirstChild("HumanoidRootPart")
-				if hrp then
-					local cf = cframeOf(paper)
-					if cf then hrp.CFrame = cf * CFrame.new(0, 5, 0) end
+
+		for AutoHotelIndex = #AutoHotelLiveHintBooks, 1, -1 do
+			local AutoHotelBook = AutoHotelLiveHintBooks[AutoHotelIndex]
+			if not AutoHotelIsInRoom50(AutoHotelBook) then
+				table.remove(AutoHotelLiveHintBooks, AutoHotelIndex)
+				continue
+			end
+
+			while Toggles.AutoHotel.Value and AutoHotelIsActuallyInRoom50() and not AutoHotelHintPaperObtained and AutoHotelBook.Parent and AutoHotelIsInRoom50(AutoHotelBook) do
+				if AutoHotelHasHintPaper() then
+					AutoHotelHintPaperObtained = true
+					break
 				end
-				for _, p in ipairs(paper:GetDescendants()) do
-					if p:IsA("ProximityPrompt") then Fire(p) end
+
+				local AutoHotelChar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+				local AutoHotelHRP = AutoHotelChar:FindFirstChild("HumanoidRootPart")
+				if not AutoHotelHRP then
+					task.wait()
+					continue
+				end
+
+				local AutoHotelCF = AutoHotelGetCFrame(AutoHotelBook)
+				if AutoHotelCF then
+					AutoHotelHRP.CFrame = AutoHotelCF
+				end
+
+				for _, AutoHotelPrompt in ipairs(AutoHotelBook:GetDescendants()) do
+					if AutoHotelPrompt:IsA("ProximityPrompt") then
+						fireproximityprompt(AutoHotelPrompt)
+					end
+				end
+				task.wait(0.08)
+			end
+			if AutoHotelHintPaperObtained then break end
+		end
+
+		if AutoHotelHasHintPaper() then
+			AutoHotelHintPaperObtained = true
+			break
+		end
+
+		local AutoHotelPaper = AutoHotelRoom50:FindFirstChild("LibraryHintPaper", true)
+		if AutoHotelPaper and AutoHotelIsInRoom50(AutoHotelPaper) then
+			while Toggles.AutoHotel.Value and AutoHotelIsActuallyInRoom50() and not AutoHotelHintPaperObtained and AutoHotelPaper.Parent do
+				if AutoHotelHasHintPaper() then
+					AutoHotelHintPaperObtained = true
+					break
+				end
+
+				local AutoHotelChar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+				local AutoHotelHRP = AutoHotelChar:FindFirstChild("HumanoidRootPart")
+				if AutoHotelHRP then
+					local AutoHotelCF = AutoHotelGetCFrame(AutoHotelPaper)
+					if AutoHotelCF then
+						AutoHotelHRP.CFrame = AutoHotelCF * CFrame.new(0, 5, 0)
+					end
+				end
+
+				for _, AutoHotelPrompt in ipairs(AutoHotelPaper:GetDescendants()) do
+					if AutoHotelPrompt:IsA("ProximityPrompt") then
+						fireproximityprompt(AutoHotelPrompt)
+					end
 				end
 				task.wait(0.08)
 			end
@@ -11258,356 +11844,778 @@ local function HotelRunLibrary()
 	end
 end
 
-local function HotelHandleSeek()
-	local lastTrigger
-	while Ex.AutoHotel do
-		local rooms = RoomsFolder()
-		if not rooms then
+local function AutoHotelHandleSeek()
+	local AutoHotelLastTriggerRoom = nil
+
+	while Toggles.AutoHotel.Value do
+		local AutoHotelCurrentRooms = workspace:FindFirstChild("CurrentRooms")
+		if not AutoHotelCurrentRooms then
 			task.wait(0.2)
-		else
-			local triggerNum
-			for _, room in ipairs(rooms:GetChildren()) do
-				local n = tonumber(room.Name)
-				if n and n ~= lastTrigger then
-					if room:FindFirstChild("TriggerEventCollision", true) then triggerNum = n break end
-				end
-			end
-			if not triggerNum then
-				task.wait(0.15)
-			else
-				lastTrigger = triggerNum
-				hotelPause = true
-				HotelWaitEntities(10)
-				hotelPause = false
-			end
-		end
-	end
-end
-
-local function HotelStop()
-	if hotelThread then pcall(task.cancel, hotelThread) hotelThread = nil end
-	if hotelLibThread then pcall(task.cancel, hotelLibThread) hotelLibThread = nil end
-	if hotelSeekThread then pcall(task.cancel, hotelSeekThread) hotelSeekThread = nil end
-	if hotelLibConn then hotelLibConn:Disconnect() hotelLibConn = nil end
-	if hotelRoomsConn then hotelRoomsConn:Disconnect() hotelRoomsConn = nil end
-	hotelPause = false
-	table.clear(hotelProcessed)
-end
-
-AutomationTab:Section({ Title = "Auto Hotel" })
-AddToggle(AutomationTab, "AutoHotel", "Auto Hotel", "Automatically progresses through the hotel floor (keys, library, doors). Risky.", Ex.AutoHotel, function(v)
-	Ex.AutoHotel = v
-	HotelStop()
-	if not v then return end
-	local rooms = RoomsFolder()
-	if rooms then
-		hotelRoomsConn = rooms.ChildAdded:Connect(function(child)
-			local n = tonumber(child.Name)
-			if n then task.spawn(HotelProcessRoom, n) end
-		end)
-	end
-	hotelSeekThread = task.spawn(HotelHandleSeek)
-	task.spawn(function()
-		while Ex.AutoHotel do
-			if HotelEntityPresent() then
-				hotelPause = true
-				while HotelEntityPresent() and Ex.AutoHotel do task.wait(0.15) end
-				hotelPause = false
-			end
-			task.wait(0.2)
-		end
-	end)
-	hotelThread = task.spawn(function()
-		while Ex.AutoHotel do
-			if hotelPause then
-				task.wait(0.1)
-			else
-				local door, num = HotelNextDoor()
-				if door and num and Char() then
-					if num == 50 then
-						if not hotelLibThread then
-							hotelLibThread = task.spawn(function()
-								HotelRunLibrary()
-								hotelLibThread = nil
-							end)
-						end
-						task.wait(0.4)
-					else
-						HotelProcessRoom(num)
-						HotelHandleKey(num)
-						local ch = Char()
-						if ch and not hotelPause then
-							ch:PivotTo(door:GetPivot() * CFrame.new(0, -1, 0))
-						end
-					end
-				end
-				task.wait(0.15)
-			end
-		end
-	end)
-end)
-AddToggle(AutomationTab, "AutoHotelIgnoreEntities", "Auto Hotel: Ignore Entities", "Skip all entity waits and pauses.", Ex.AutoHotelIgnoreEntities, function(v) Ex.AutoHotelIgnoreEntities = v end)
-
--- ------------------------------------------------------------------------------------------
--- Auto Rooms: camina y se esconde de las entidades en The Rooms
--- ------------------------------------------------------------------------------------------
-Ex.RoomsAutoWalk = false
-Ex.RoomsAutoWalkIgnoreA60 = false
-Ex.RoomsAutoWalkShowPath = false
-Ex.RoomsAutoWalkSpoofFootsteps = false
-Ex.RoomsAutoWalkTimeout = 1
-
-local nodesFolder = Workspace:FindFirstChild("R4NS0M_RoomsNodes")
-if not nodesFolder then
-	nodesFolder = Instance.new("Folder")
-	nodesFolder.Name = "R4NS0M_RoomsNodes"
-	nodesFolder.Parent = Workspace
-end
-local pathColor = Color3.fromRGB(0, 255, 0)
-local walkActive = false
-
-local function ClearNodes(name)
-	for _, o in ipairs(nodesFolder:GetChildren()) do
-		if o.Name == name then o:Destroy() end
-	end
-end
-
-local ROOMS_ENTITIES = { "RushMoving", "AmbushMoving", "BackdoorRush", "A60", "A120", "CustomEntity", "GlitchRush", "GlitchAmbush" }
-
-local function NearestHidingSpot()
-	local lr = LatestRoomValue()
-	local rooms = RoomsFolder()
-	if not lr or not rooms then return nil end
-	local best, bestDist = nil, math.huge
-	for n = math.max(0, lr.Value - 1), lr.Value + 1 do
-		local room = rooms:FindFirstChild(tostring(n))
-		if room then
-			for _, o in ipairs(room:GetDescendants()) do
-				if o:IsA("Model") and o.PrimaryPart and o:FindFirstChild("HidePrompt") then
-					local dist = LocalPlayer:DistanceFromCharacter(o.PrimaryPart.Position)
-					if dist < bestDist and o.PrimaryPart.Position.Y > -10 then
-						local hp = o:FindFirstChild("HiddenPlayer", true)
-						if hp and not hp.Value then best, bestDist = o, dist end
-					end
-				end
-			end
-		end
-	end
-	return best
-end
-
-local function CurrentRoomExit()
-	local lr = LatestRoomValue()
-	local rooms = RoomsFolder()
-	local room = lr and rooms and rooms:FindFirstChild(tostring(lr.Value))
-	return room and room:FindFirstChild("RoomExit"), room
-end
-
-local function PathfindTarget()
-	for _, o in ipairs(Workspace:GetChildren()) do
-		if table.find(ROOMS_ENTITIES, o.Name) and o.PrimaryPart then
-			local y = o.PrimaryPart.Position.Y
-			if y > -10 and y < 150 then
-				if (o.Name == "A60" and not Ex.RoomsAutoWalkIgnoreA60) or o.Name ~= "A60" then
-					return NearestHidingSpot() or (CurrentRoomExit())
-				end
-			end
-		end
-	end
-	return (CurrentRoomExit())
-end
-
-AutomationTab:Section({ Title = "Auto Rooms" })
-AddToggle(AutomationTab, "RoomsAutoWalk", "Auto Rooms", "Automatically moves and hides from entities in The Rooms.", Ex.RoomsAutoWalk, function(v)
-	Ex.RoomsAutoWalk = v
-	ClearNodes("PathNode")
-end)
-AddSlider(AutomationTab, "RoomsAutoWalkTimeout", "Pathfind Timeout (x0.1s)", "How long to wait on a waypoint before marking it as stuck (5 = 0.5s ... 30 = 3s).", 5, 30, 10, function(v) Ex.RoomsAutoWalkTimeout = v / 10 end)
-AddToggle(AutomationTab, "RoomsAutoWalkIgnoreA60", "Ignore A-60", "Keeps walking if A-60 is present; turns Position Spoof on automatically.", Ex.RoomsAutoWalkIgnoreA60, function(v) Ex.RoomsAutoWalkIgnoreA60 = v end)
-AddToggle(AutomationTab, "RoomsAutoWalkShowPath", "Show Path", "Shows the current path of Auto Rooms.", Ex.RoomsAutoWalkShowPath, function(v)
-	Ex.RoomsAutoWalkShowPath = v
-	for _, o in ipairs(nodesFolder:GetChildren()) do
-		if o.Name == "PathNode" then o.Transparency = v and 0.5 or 1 end
-	end
-end)
-AddToggle(AutomationTab, "RoomsAutoWalkSpoofFootsteps", "Spoof Footsteps", "Makes it look as if your character is walking normally (needs hookmetamethod).", Ex.RoomsAutoWalkSpoofFootsteps, function(v) Ex.RoomsAutoWalkSpoofFootsteps = v end)
-
-if hookmetamethod and newcclosure then
-	pcall(function()
-		local oldIndex
-		oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, prop)
-			local real = oldIndex(self, prop)
-			if prop == "MoveDirection" and walkActive and Ex.RoomsAutoWalkSpoofFootsteps and Mode.Name == "Rooms" then
-				local hum, root, ch = Hum(), Root(), Char()
-				if self == hum and root and ch and not ch:GetAttribute("Hiding") then
-					return root.CFrame.LookVector
-				end
-			end
-			return real
-		end))
-	end)
-end
-
-RunService.Heartbeat:Connect(function()
-	if not Ex.RoomsAutoWalk or walkActive or Mode.Name ~= "Rooms" then return end
-	local lr = LatestRoomValue()
-	local col, root, hum, ch = Col(), Root(), Hum(), Char()
-	if not (lr and col and root and hum and ch) or lr.Value >= 1000 then return end
-	local rooms = RoomsFolder()
-	local curRoom = rooms and rooms:FindFirstChild(tostring(lr.Value))
-	if not curRoom then return end
-	walkActive = true
-
-	local ok = pcall(function()
-		if Ex.RoomsAutoWalkIgnoreA60 and not Ex.PositionSpoof then
-			pcall(SetFeature, "PositionSpoof", true)
+			continue
 		end
 
-		local path = PathfindingService:CreatePath({
-			AgentCanJump = true, AgentCanClimb = false, WaypointSpacing = 4,
-			AgentRadius = 1.5, AgentHeight = 1.5, Costs = { StuckPart = 8 },
-		})
+		local TriggerRoomNum = nil
 
-		local target = PathfindTarget()
-		if not target then return end
-		local targetPos
-		if target.Name == "RoomExit" then
-			targetPos = target.Position
-		elseif target:FindFirstChild("HidePrompt") then
-			for _, part in ipairs(target:GetDescendants()) do
-				if part:IsA("BasePart") then part.CanCollide = false end
-			end
-			targetPos = target.PrimaryPart.Position
-		end
+		for _, Room in ipairs(AutoHotelCurrentRooms:GetChildren()) do
+			local Num = tonumber(Room.Name)
+			if Num and Num ~= AutoHotelLastTriggerRoom then
+				local Trigger = Room:FindFirstChild("TriggerEventCollision")
+					or Room:FindFirstChild("TriggerEventCollision", true)
 
-		if col.Anchored and not target:FindFirstChild("HidePrompt") then
-			local rf = RS:FindFirstChild("RemotesFolder")
-			ch:SetAttribute("Hiding", true)
-			if rf and rf:FindFirstChild("CamLock") then rf.CamLock:FireServer() end
-			ch:SetAttribute("Hiding", false)
-		end
-
-		local door = curRoom:FindFirstChild("Door")
-		if door and door:FindFirstChild("Door") then door.Door.CanCollide = false end
-
-		if not targetPos or LocalPlayer:DistanceFromCharacter(targetPos) >= 750 then return end
-
-		path:ComputeAsync(col.Position, targetPos)
-		local waypoints = path:GetWaypoints()
-		if #waypoints == 0 then
-			local exitPart = curRoom:FindFirstChild("RoomExit")
-			if exitPart then hum:MoveTo(exitPart.Position) end
-			return
-		end
-
-		ClearNodes("PathNode")
-		for _, wp in ipairs(waypoints) do
-			local block = Instance.new("Part")
-			block.Transparency = Ex.RoomsAutoWalkShowPath and 0.5 or 1
-			block.Size = Vector3.one
-			block.Position = wp.Position
-			block.Shape = Enum.PartType.Ball
-			block.CanCollide = false
-			block.Anchored = true
-			block.Name = "PathNode"
-			block.Color = pathColor
-			block.Material = Enum.Material.Neon
-			block.Parent = nodesFolder
-		end
-
-		local stuck = false
-		for _, wp in ipairs(waypoints) do
-			if stuck or not Ex.RoomsAutoWalk then break end
-			local finished = false
-			local startedAt = tick()
-
-			local step = RunService.RenderStepped:Connect(function()
-				if stuck or not Ex.RoomsAutoWalk then finished = true return end
-				local newTarget = PathfindTarget()
-				if newTarget and newTarget:FindFirstChild("HidePrompt") and not target:FindFirstChild("HidePrompt") then
-					finished = true
-					return
-				end
-				if target:FindFirstChild("HidePrompt") then
-					local hp = target:FindFirstChild("HidePrompt")
-					if LocalPlayer:DistanceFromCharacter(targetPos) < hp.MaxActivationDistance and ch:GetAttribute("Hiding") ~= true then
-						Fire(hp)
-					end
-				end
-				local flat = Vector3.new(wp.Position.X, root.Position.Y, wp.Position.Z)
-				if LocalPlayer:DistanceFromCharacter(flat) < 5 then finished = true end
-				hum:MoveTo(wp.Position)
-			end)
-
-			while not finished do
-				if tick() - startedAt > Ex.RoomsAutoWalkTimeout then
-					local sb = Instance.new("Part")
-					sb.Transparency = 1
-					sb.Size = Vector3.one
-					sb.CFrame = col.CFrame
-					sb.Shape = Enum.PartType.Ball
-					sb.CanCollide = false
-					sb.Anchored = true
-					sb.Name = "StuckPart"
-					local mod = Instance.new("PathfindingModifier")
-					mod.Label = "StuckPart"
-					mod.Parent = sb
-					sb.Parent = nodesFolder
-					stuck = true
+				if Trigger then
+					TriggerRoomNum = Num
 					break
 				end
-				task.wait()
 			end
-			step:Disconnect()
-			hum:MoveTo(root.Position)
 		end
-	end)
-	walkActive = false
-end)
 
-do
-	local rooms = RoomsFolder()
-	if rooms then
-		rooms.ChildAdded:Connect(function() ClearNodes("StuckPart") end)
+		if not TriggerRoomNum then
+			task.wait(0.15)
+			continue
+		end
+
+		AutoHotelLastTriggerRoom = TriggerRoomNum
+
+		AutoHotelEntityPause = true
+		AutoHotelWaitForEntities(10)
+		AutoHotelEntityPause = false
 	end
 end
 
--- ------------------------------------------------------------------------------------------
--- Entity Chat: escribe en el chat cuando aparece una entidad (usa el filtro del Entity Notifier)
--- ------------------------------------------------------------------------------------------
-Ex.EntityChat = false
-Ex.EntityChatMessage = "spawned!"
+Toggles.AutoHotel:OnChanged(function(AutoHotelEnabled)
+	if AutoHotelConnection then
+		task.cancel(AutoHotelConnection)
+		AutoHotelConnection = nil
+	end
+	if AutoHotelLibraryConnection then
+		task.cancel(AutoHotelLibraryConnection)
+		AutoHotelLibraryConnection = nil
+	end
+	if AutoHotelLibraryRoomConnection then
+		AutoHotelLibraryRoomConnection:Disconnect()
+		AutoHotelLibraryRoomConnection = nil
+	end
+	if AutoHotelSeekConnection then
+		task.cancel(AutoHotelSeekConnection)
+		AutoHotelSeekConnection = nil
+	end
 
-local function SendChat(msg)
-	pcall(function()
-		local folder = RS:FindFirstChild("DefaultChatSystemEvents")
-		local event = folder and folder:FindFirstChild("SayMessageRequest")
-		if event then event:FireServer(msg, "All") end
+	AutoHotelEntityPause = false
+	table.clear(AutoHotelProcessedRooms)
+
+	if not AutoHotelEnabled then return end
+
+	if Options.AutoHotelRoomProcess then
+		AutoHotelRoomProcessTime = Options.AutoHotelRoomProcess.Value
+		Options.AutoHotelRoomProcess:OnChanged(function(Value)
+			AutoHotelRoomProcessTime = Value
+		end)
+	end
+
+	local AutoHotelCurrentRooms = workspace:FindFirstChild("CurrentRooms")
+	if AutoHotelCurrentRooms then
+		AutoHotelCurrentRooms.ChildAdded:Connect(function(AutoHotelChild)
+			local AutoHotelNum = tonumber(AutoHotelChild.Name)
+			if AutoHotelNum then
+				AutoHotelProcessRoom(AutoHotelNum)
+			end
+		end)
+	end
+
+	AutoHotelSeekConnection = task.spawn(AutoHotelHandleSeek)
+
+	task.spawn(function()
+		while Toggles.AutoHotel.Value do
+			if AutoHotelIsEntityPresent() then
+				AutoHotelEntityPause = true
+				while AutoHotelIsEntityPresent() and Toggles.AutoHotel.Value do
+					task.wait(0.15)
+				end
+				AutoHotelEntityPause = false
+			end
+			task.wait(0.2)
+		end
 	end)
-	pcall(function()
-		local channels = TextChatService:FindFirstChild("TextChannels")
-		local general = channels and channels:FindFirstChild("RBXGeneral")
-		if general then general:SendAsync(msg) end
+
+	AutoHotelConnection = task.spawn(function()
+		while Toggles.AutoHotel.Value do
+			if AutoHotelEntityPause then
+				task.wait(0.1)
+				continue
+			end
+
+			local AutoHotelDoor, AutoHotelRoomNum = AutoHotelGetNextClosedDoor()
+
+			if AutoHotelDoor and AutoHotelRoomNum and Character then
+				if AutoHotelRoomNum == 50 then
+					if not AutoHotelLibraryConnection then
+						AutoHotelLibraryConnection = task.spawn(function()
+							AutoHotelRunLibrary()
+							AutoHotelLibraryConnection = nil
+						end)
+					end
+					task.wait(0.4)
+				else
+					AutoHotelProcessRoom(AutoHotelRoomNum)
+					AutoHotelHandleKey(AutoHotelRoomNum)
+					if Character and not AutoHotelEntityPause then
+						Character:PivotTo(AutoHotelDoor:GetPivot() * CFrame.new(0, -1, 0))
+					end
+				end
+			end
+			task.wait(0.15)
+		end
 	end)
+end)
+
+-- [Skip Seek Mines]
+Toggles.SkipSeekMines:OnChanged(function(Value)
+	if Value then
+		if Floor ~= "Mines" then
+			return
+		end
+		task.spawn(function()
+			local MinesSkipSeekCurrentRooms
+
+			repeat
+				if not Toggles.SkipSeekMines.Value then
+					return
+				end
+
+				MinesSkipSeekCurrentRooms = workspace:FindFirstChild("CurrentRooms")
+				task.wait()
+			until MinesSkipSeekCurrentRooms
+
+			local MinesSkipSeekStartRoom
+
+			repeat
+				if not Toggles.SkipSeekMines.Value then
+					return
+				end
+
+				MinesSkipSeekCurrentRooms = workspace:FindFirstChild("CurrentRooms")
+
+				if MinesSkipSeekCurrentRooms then
+					MinesSkipSeekStartRoom = MinesSkipSeekCurrentRooms:FindFirstChild("42")
+				end
+
+				task.wait()
+			until MinesSkipSeekStartRoom
+
+			local MinesSkipSeekStartDoor
+
+			repeat
+				if not Toggles.SkipSeekMines.Value then
+					return
+				end
+
+				MinesSkipSeekStartDoor = MinesSkipSeekStartRoom:FindFirstChild("Door", true)
+				task.wait()
+			until MinesSkipSeekStartDoor
+
+			repeat
+				if not Toggles.SkipSeekMines.Value then
+					return
+				end
+
+				task.wait()
+			until MinesSkipSeekStartDoor:GetAttribute("Opened") == true
+
+			if Character and Character:GetAttribute("Minecarting") == true then
+				Character:SetAttribute("Minecarting", false)
+			end
+
+			for _, MinesSkipSeekRoomNumber in ipairs({
+				43, 44, 45, 46, 47, 48, 49,
+				78, 79, 80, 81, 82, 83
+			}) do
+				if not Toggles.SkipSeekMines.Value then
+					return
+				end
+
+				local MinesSkipSeekRoom
+
+				repeat
+					if not Toggles.SkipSeekMines.Value then
+						return
+					end
+
+					MinesSkipSeekCurrentRooms = workspace:FindFirstChild("CurrentRooms")
+
+					if MinesSkipSeekCurrentRooms then
+						MinesSkipSeekRoom = MinesSkipSeekCurrentRooms:FindFirstChild(
+							tostring(MinesSkipSeekRoomNumber)
+						)
+					end
+
+					task.wait()
+				until MinesSkipSeekRoom
+
+				local MinesSkipSeekDoor
+
+				repeat
+					if not Toggles.SkipSeekMines.Value then
+						return
+					end
+
+					MinesSkipSeekDoor = MinesSkipSeekRoom:FindFirstChild("Door", true)
+					task.wait()
+				until MinesSkipSeekDoor
+
+				repeat
+					if not Toggles.SkipSeekMines.Value then
+						return
+					end
+
+					if Character then
+						Character:PivotTo(MinesSkipSeekDoor:GetPivot())
+					end
+
+					task.wait()
+				until MinesSkipSeekDoor:GetAttribute("Opened") == true
+
+				if MinesSkipSeekRoomNumber == 49 or MinesSkipSeekRoomNumber == 83 then
+					if not Character then
+						return
+					end
+
+					local MinesSkipSeekVoidPivot = Character:GetPivot()
+					MinesSkipSeekVoidPivot = MinesSkipSeekVoidPivot + Vector3.new(0, -1000, 0)
+
+					task.wait(0.3)
+
+					for MinesSkipSeekVoidCount = 1, 12 do
+						Character:PivotTo(MinesSkipSeekVoidPivot)
+					end
+
+					for MinesSkipSeekVoidCount = 1, 12 do
+						Character:PivotTo(MinesSkipSeekVoidPivot)
+					end
+
+					for MinesSkipSeekVoidCount = 1, 12 do
+						Character:PivotTo(MinesSkipSeekVoidPivot)
+					end
+
+					task.wait(0.3)
+
+					for MinesSkipSeekVoidCount = 1, 6 do
+						Character:PivotTo(MinesSkipSeekVoidPivot)
+					end
+				end
+
+				if MinesSkipSeekRoomNumber == 83 then
+					return
+				end
+			end
+		end)
+	end
+end)
+
+-- Knob Farm
+Globals.KnobFarmActive = false
+Globals.KnobFarmStarted = false
+Toggles.KnobFarm:OnChanged(function(Value)
+	if Value then
+		Functions.Notify({ Title = "Please collect some gold to earn knobs.", Body = "Click 'Start Knob Farm' when you're ready." })
+	else
+		Globals.KnobFarmStarted = false
+	end
+end)
+local function StartKnobFarm()
+	if LatestRoom.Value ~= 0 then
+		Functions.Notify({ Title = "You must be in Room 0 to use this." })
+		return
+	end
+	if LocalPlayer.PlayerGui:FindFirstChild("TopbarUI") then
+		local Ok, GoldCount = pcall(function()
+			return LocalPlayer.PlayerGui.TopbarUI.Topbar.StatsTopbarHandler.StatModules.Gold.GoldVal
+		end)
+		if Ok and GoldCount and GoldCount.Value <= 0 then
+			Functions.Notify({ Title = "You must have gold to do this." })
+			return
+		end
+	end
+	Globals.KnobFarmStarted = true
+end
+Connections.KnobFarm = Services.RunService.Heartbeat:Connect(function()
+	if Toggles.KnobFarm.Value and Globals.KnobFarmStarted then
+		if not Globals.KnobFarmActive then
+			Globals.KnobFarmActive = true
+			if Functions.CheckCompatability({"replicatesignal"}) then
+				Env.replicatesignal(LocalPlayer.Kill)
+			elseif LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+				LocalPlayer.Character.Humanoid.Health = 0
+			end
+			while task.wait() do
+				if LocalPlayer:GetAttribute("Alive") then break end
+			end
+			if RemotesFolder and RemotesFolder:FindFirstChild("Statistics") then
+				RemotesFolder.Statistics:FireServer()
+			end
+			task.wait(0.25)
+			Globals.KnobFarmActive = false
+		end
+	end
+end)
+
+-- Auto Closet (+ Spectate Entity)
+Globals.LastAutoHide = tick()
+Connections.AutoHideConnection = Services.RunService.Heartbeat:Connect(function()
+	if not Toggles.AutoClosetToggle.Value or tick() - Globals.LastAutoHide <= 0.1 or not (Character and RemotesFolder) then
+		Globals.AutoClosetActive = false
+		return
+	end
+	local Entity = Functions.GetNearestEntity(true, Options.AutoClosetEntityList.Value)
+	local EntityNearby = Entity and LocalPlayer:DistanceFromCharacter(Entity.PrimaryPart.Position) <= (EntityDistances[Entity.Name] or 150)
+	if Character:GetAttribute("Hiding") == true then
+		Globals.AutoClosetActive = false
+		Globals.SpectateEntity = nil
+		if not EntityNearby and RemotesFolder:FindFirstChild("CamLock") then
+			RemotesFolder.CamLock:FireServer()
+		end
+		if EntityNearby and Toggles.SpectateEntityToggle.Value and Entity.PrimaryPart then
+			Globals.SpectateEntity = Entity
+		end
+		Globals.LastAutoHide = tick()
+		return
+	end
+	if not Entity or not EntityNearby then
+		Globals.SpectateEntity = nil
+		Globals.AutoClosetActive = false
+		Globals.LastAutoHide = tick()
+		return
+	end
+	local Closet = FindNearestHidingSpot()
+	if Closet then
+		local Prompt = GetHidePrompt(Closet)
+		if Prompt then
+			Globals.AutoClosetActive = true
+			FirePromptSafe(Prompt)
+		end
+	end
+	Globals.LastAutoHide = tick()
+end)
+
+Connections.SpectateEntityConnection = Services.RunService.RenderStepped:Connect(function()
+	if Globals.SpectateEntity and Toggles.AutoClosetToggle.Value and Toggles.SpectateEntityToggle.Value and Character then
+		local Cam = Workspace.CurrentCamera
+		local Entity = Globals.SpectateEntity
+		if not (Cam and Entity.Parent and Entity.PrimaryPart and Character:FindFirstChild("Head")) then return end
+		if Options.SpecateEntityMode.Value == "Player to Entity" then
+			Cam.CFrame = CFrame.lookAt(Character.Head.Position, Entity.PrimaryPart.Position)
+		else
+			Cam.CFrame = CFrame.lookAt(Entity.PrimaryPart.Position, Character.Head.Position)
+		end
+	end
+end)
+
+-- Auto Solve Anchors (Mines)
+Globals.LastAutoAnchor = tick()
+Connections.AutoSolveAnchorsConnection = Services.RunService.Heartbeat:Connect(function()
+	if not Toggles.AutoSolveAnchors.Value or not Character or not CurrentRooms then return end
+	local MainUI = LocalPlayer.PlayerGui:FindFirstChild("MainUI")
+	local Hint = MainUI and MainUI:FindFirstChild("AnchorHintFrame")
+	if not Hint or tick() - Globals.LastAutoAnchor <= 0.1 then return end
+	Globals.LastAutoAnchor = tick()
+	local CodeLabel = Hint:FindFirstChild("AnchorCode")
+	local EnteredLabel = Hint:FindFirstChild("Code")
+	if not (CodeLabel and EnteredLabel) then return end
+	for _, Room in ipairs(CurrentRooms:GetChildren()) do
+		local Anchor = Room:FindFirstChild("MinesAnchor", true)
+		if Anchor and Anchor:FindFirstChild("Sign") and Anchor.PrimaryPart then
+			local Sign = Anchor.Sign:FindFirstChild("TextLabel")
+			local Prompt = Anchor:FindFirstChild("ActivateEventPrompt")
+			if Sign and Sign.Text == CodeLabel.Text and Prompt and not Anchor:GetAttribute("Activated")
+				and LocalPlayer:DistanceFromCharacter(Anchor.PrimaryPart.Position) < Prompt.MaxActivationDistance then
+				local Remote = Anchor:FindFirstChild("AnchorRemote")
+				if Remote then
+					pcall(function() Remote:InvokeServer(EnteredLabel.Text) end)
+				end
+			end
+		end
+	end
+end)
+
+-- Auto Unlock Padlock (Library code)
+Functions.GetLibraryCode = function()
+	if not Character then return nil end
+	local Paper = Character:FindFirstChild("LibraryHintPaper")
+		or Character:FindFirstChild("LibraryHintPaperHard")
+		or LocalPlayer.Backpack:FindFirstChild("LibraryHintPaper")
+		or LocalPlayer.Backpack:FindFirstChild("LibraryHintPaperHard")
+	if Paper and Paper:FindFirstChild("UI") then
+		local Code = {}
+		local CodeLength = Floor == "Fools" and 10 or 5
+		for I = 1, CodeLength do Code[I] = "_" end
+		local HintsFolder = LocalPlayer.PlayerGui:FindFirstChild("PermUI") and LocalPlayer.PlayerGui.PermUI:FindFirstChild("Hints")
+		if not HintsFolder then return nil end
+		for _, Hint in HintsFolder:GetChildren() do
+			for _, UIChild in Paper.UI:GetChildren() do
+				if Hint:IsA("ImageLabel") and UIChild:IsA("ImageLabel")
+					and Hint.ImageRectOffset == UIChild.ImageRectOffset
+					and Code[tonumber(UIChild.Name)]
+				then
+					Code[tonumber(UIChild.Name)] = Hint.TextLabel.Text
+				end
+			end
+		end
+		return table.concat(Code)
+	end
+	return nil
+end
+task.spawn(function()
+	while true do
+		task.wait(0.25)
+		if Toggles.AutoUnlockPadlockToggle.Value and RemotesFolder and RemotesFolder:FindFirstChild("PL") then
+			pcall(function()
+				local Padlock = Workspace:FindFirstChild("Padlock", true)
+				if Padlock and Padlock.PrimaryPart then
+					local Code = Functions.GetLibraryCode()
+					local Distance = LocalPlayer:DistanceFromCharacter(Padlock.PrimaryPart.Position)
+					if Code and tonumber(Code) and Distance < Options.AutoUnlockPadlockSlider.Value then
+						RemotesFolder.PL:FireServer(Code)
+					end
+				end
+			end)
+		end
+	end
+end)
+
+-- Anti Scribbles (Archives)
+local AntiScribblesConnection
+Toggles.AntiScribbles:OnChanged(function(Value)
+	if AntiScribblesConnection then
+		AntiScribblesConnection:Disconnect()
+		AntiScribblesConnection = nil
+	end
+	if not Value then return end
+	AntiScribblesConnection = Workspace.ChildAdded:Connect(function(Child)
+		if Child.Name == "Scribbles" and Toggles.AntiScribbles.Value then
+			local Warning = Child:FindFirstChild("IfYoureExploitingDeleteThis")
+			if Warning then Warning:Destroy() end
+		end
+	end)
+end)
+
+-- Viewmodel Offset
+local MainGameModule
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if not MainGameModule and Env.require then
+			pcall(function()
+				local MainUI = LocalPlayer.PlayerGui:FindFirstChild("MainUI")
+				local Module = MainUI and MainUI:FindFirstChild("Initiator") and MainUI.Initiator:FindFirstChild("Main_Game")
+				if Module then MainGameModule = Env.require(Module) end
+			end)
+		end
+	end
+end)
+Services.RunService.RenderStepped:Connect(function()
+	if MainGameModule then
+		pcall(function()
+			if Toggles.ViewmodelOffsetToggle.Value then
+				MainGameModule.tooloffset = Vector3.new(Options.ViewmodelOffsetX.Value, Options.ViewmodelOffsetY.Value, Options.ViewmodelOffsetZ.Value)
+			elseif Globals.ViewmodelWasOn then
+				MainGameModule.tooloffset = Vector3.zero
+			end
+			Globals.ViewmodelWasOn = Toggles.ViewmodelOffsetToggle.Value
+		end)
+	end
+end)
+
+-- Auto Rooms (The Rooms)
+Globals.RoomsNodesFolder = Workspace:FindFirstChild("R4NS0M_RoomsNodes") or Instance.new("Folder")
+Globals.RoomsNodesFolder.Name = "R4NS0M_RoomsNodes"
+Globals.RoomsNodesFolder.Parent = Workspace
+Toggles.RoomsAutoWalk:OnChanged(function()
+	for _, Object in Globals.RoomsNodesFolder:GetChildren() do
+		if Object.Name == "PathNode" then Object:Destroy() end
+	end
+end)
+Toggles.RoomsAutoWalkShowPathToggle:OnChanged(function(Value)
+	for _, Object in Globals.RoomsNodesFolder:GetChildren() do
+		if Object.Name == "PathNode" then Object.Transparency = Value and 0.5 or 1 end
+	end
+end)
+
+-- Spoof Footsteps (Auto Rooms)
+if Functions.CheckCompatability({"hookmetamethod", "newcclosure"}) then
+	local OtherHook
+	OtherHook = Env.hookmetamethod(game, "__index", Env.newcclosure(function(Self, Property)
+		local Real = OtherHook(Self, Property)
+		if Property == "MoveDirection" and Humanoid and Self == Humanoid and Globals.RoomsAutoWalkActive
+			and Toggles.RoomsAutoWalkSpoofFootsteps.Value and Floor == "Rooms"
+			and Character and RootPart and not Character:GetAttribute("Hiding") then
+			return RootPart.CFrame.LookVector
+		end
+		return Real
+	end))
 end
 
-AlertsTab:Section({ Title = "Entity Chat" })
-AddToggle(AlertsTab, "EntityChat", "Notify Chat", "Sends a message in the chat when a selected entity spawns (uses the 'Notify me about' list).", Ex.EntityChat, function(v) Ex.EntityChat = v end)
-AddInput(AlertsTab, "EntityChatMessage", "Chat Message", "Sent after the entity name, e.g. \"Rush spawned!\".", "spawned!", Ex.EntityChatMessage)
 
-local chatSeen = setmetatable({}, { __mode = "k" })
-local prevSeen = OnEntitySeen
-OnEntitySeen = function(label, inst)
-	if prevSeen then pcall(prevSeen, label, inst) end
-	if not Ex.EntityChat or not Ex.Notify or chatSeen[inst] then return end
-	if St and St.ReadyAt and os.clock() < St.ReadyAt then return end
-	chatSeen[inst] = true
-	if not Ex.NotifyFilter[label] then return end
-	local msg = tostring(Ex.EntityChatMessage or "")
-	if msg == "" then msg = "spawned!" end
-	SendChat(label .. " " .. msg)
+-- [Auto Rooms core]
+Functions.RoomsAutoWalk = {}
+Functions.RoomsAutoWalk.GetNearestHidingSpot = function()
+	local Nearest = { Distance = math.huge, Object = nil }
+	for _, Object in Objects.HidingSpots do
+		if Object.PrimaryPart and Object:FindFirstChild("HidePrompt") then
+			local Distance = LocalPlayer:DistanceFromCharacter(Object.PrimaryPart.Position)
+			if Distance < Nearest.Distance and Object.PrimaryPart.Position.Y > -10 then
+				local HiddenPlayer = Object:FindFirstChild("HiddenPlayer", true)
+				if HiddenPlayer and not HiddenPlayer.Value then
+					Nearest.Distance = Distance
+					Nearest.Object = Object
+				end
+			end
+		end
+	end
+	return Nearest.Object
 end
+
+local RoomsEntityList = { "RushMoving","AmbushMoving","BackdoorRush","A60","A120","CustomEntity","GlitchRush","GlitchAmbush" }
+Functions.RoomsAutoWalk.GetPathfindTarget = function()
+	for _, Object in Services.Workspace:GetChildren() do
+		if table.find(RoomsEntityList, Object.Name) and Object.PrimaryPart then
+			local Y = Object.PrimaryPart.Position.Y
+			if Y > -10 and Y < 150 then
+				if Object.Name == "A60" and not Toggles.RoomsAutoWalkIgnoreA60.Value or Object.Name ~= "A60" then
+					return Functions.RoomsAutoWalk.GetNearestHidingSpot() or CurrentRooms[tostring(LatestRoom.Value)]:FindFirstChild("RoomExit")
+				end
+			end
+		end
+	end
+	return CurrentRooms[tostring(LatestRoom.Value)]:FindFirstChild("RoomExit")
+end
+
+Connections.RoomsAutoWalkHandler = Services.RunService.Heartbeat:Connect(function()
+	if Floor ~= "Rooms" or not Toggles.RoomsAutoWalk.Value or Globals.RoomsAutoWalkActive or not CollisionPart or LatestRoom.Value >= 1000 then return end
+	Globals.RoomsAutoWalkActive = true
+
+	local Path = Services.PathfindingService:CreatePath({
+		AgentCanJump = true, AgentCanClimb = false, WaypointSpacing = 4,
+		AgentRadius = 1.5, AgentHeight = 1.5, Costs = { StuckPart = 8 }
+	})
+
+	if Toggles.RoomsAutoWalkIgnoreA60.Value and not Toggles.PositionSpoof.Value then
+		Toggles.PositionSpoof:SetValue(true)
+	end
+
+	local TargetPart = Functions.RoomsAutoWalk.GetPathfindTarget()
+	if not TargetPart then
+		Globals.RoomsAutoWalkActive = false
+		return
+	end
+
+	local TargetPosition
+	if TargetPart.Name == "RoomExit" then
+		TargetPosition = TargetPart.Position
+	elseif TargetPart:FindFirstChild("HidePrompt") then
+		for _, Part in TargetPart:GetDescendants() do
+			if Part:IsA("BasePart") then Part.CanCollide = false end
+		end
+		TargetPosition = TargetPart.PrimaryPart.Position
+	end
+
+	if CollisionPart.Anchored and not TargetPart:FindFirstChild("HidePrompt") then
+		Character:SetAttribute("Hiding", true)
+		RemotesFolder.CamLock:FireServer()
+		Character:SetAttribute("Hiding", false)
+	end
+
+	local CurrentRoom = CurrentRooms[tostring(LatestRoom.Value)]
+	if CurrentRoom:FindFirstChild("Door") then
+		CurrentRoom.Door.Door.CanCollide = false
+	end
+
+	if not TargetPosition or LocalPlayer:DistanceFromCharacter(TargetPosition) >= 750 then
+		Globals.RoomsAutoWalkActive = false
+		return
+	end
+
+	Path:ComputeAsync(CollisionPart.Position, TargetPosition)
+	local Waypoints = Path:GetWaypoints()
+
+	if #Waypoints == 0 then
+		local RoomExit = CurrentRoom:FindFirstChild("RoomExit")
+		if RoomExit then Humanoid:MoveTo(RoomExit.Position) end
+		Globals.RoomsAutoWalkActive = false
+		return
+	end
+
+	for _, Node in Globals.RoomsNodesFolder:GetChildren() do
+		if Node.Name == "PathNode" then Node:Destroy() end
+	end
+
+	for _, Waypoint in Waypoints do
+		local Block = Instance.new("Part", Globals.RoomsNodesFolder)
+		Block.Transparency = Toggles.RoomsAutoWalkShowPathToggle.Value and 0.5 or 1
+		Block.Size = Vector3.one
+		Block.Position = Waypoint.Position
+		Block.Shape = Enum.PartType.Ball
+		Block.CanCollide = false
+		Block.Anchored = true
+		Block.Name = "PathNode"
+		Block.Color = Options.RoomsAutoWalkShowPathColor.Value
+		Block.Material = Enum.Material.Neon
+	end
+
+	local Stuck = false
+	for _, Waypoint in Waypoints do
+		if Stuck or not Toggles.RoomsAutoWalk.Value then break end
+
+		local Finished = false
+		local Start = tick()
+
+		local StepConnection = Services.RunService.RenderStepped:Connect(function()
+			if Stuck or not Toggles.RoomsAutoWalk.Value then Finished = true return end
+
+			local NewTarget = Functions.RoomsAutoWalk.GetPathfindTarget()
+			if NewTarget and NewTarget:FindFirstChild("HidePrompt") and not TargetPart:FindFirstChild("HidePrompt") then
+				Finished = true return
+			end
+			if TargetPart:FindFirstChild("HidePrompt") then
+				local HidePrompt = TargetPart:FindFirstChild("HidePrompt")
+				if LocalPlayer:DistanceFromCharacter(TargetPosition) < HidePrompt.MaxActivationDistance
+					and Character:GetAttribute("Hiding") ~= true
+				then
+					Functions.ForceFirePrompt(HidePrompt)
+				end
+			end
+			local FlatPos = Vector3.new(Waypoint.Position.X, RootPart.Position.Y, Waypoint.Position.Z)
+			if LocalPlayer:DistanceFromCharacter(FlatPos) < 5 then Finished = true end
+			Humanoid:MoveTo(Waypoint.Position)
+		end)
+
+		while not Finished do
+			if tick() - Start > Options.RoomsAutoWalkPathfindTimeout.Value then
+				local StuckBlock = Instance.new("Part", Globals.RoomsNodesFolder)
+				StuckBlock.Transparency = 1
+				StuckBlock.Size = Vector3.one
+				StuckBlock.CFrame = Collision.CFrame
+				StuckBlock.Shape = Enum.PartType.Ball
+				StuckBlock.CanCollide = false
+				StuckBlock.Anchored = true
+				StuckBlock.Name = "StuckPart"
+				local Modifier = Instance.new("PathfindingModifier", StuckBlock)
+				Modifier.Label = "StuckPart"
+				Stuck = true
+				break
+			end
+			task.wait()
+		end
+		StepConnection:Disconnect()
+		Humanoid:MoveTo(RootPart.Position)
+	end
+
+	Globals.RoomsAutoWalkActive = false
+end)
+
+-- --------------------------------------------------------------------------------------------
+-- Interfaz
+-- --------------------------------------------------------------------------------------------
+local function PTog(tab, id, title, desc)
+	AddToggle(tab, id, title, desc, Ex[id], function(v) Apply(id, v) end)
+end
+local function PSlider(tab, id, title, desc, min, max, step)
+	local el = tab:Slider({
+		Title = title, Desc = desc, Step = step or 1,
+		Value = { Min = min, Max = max, Default = Ex[id] },
+		Callback = function(v) Apply(id, v) end,
+	})
+	Setters[id] = function(v) pcall(function() el:Set(v) end) end
+end
+
+AutomationTab:Section({ Title = "Hotel" })
+PTog(AutomationTab, "SkipSeekHotel", "Skip Seek (Hotel)", "Skips the entire Seek sections.")
+PTog(AutomationTab, "AutoLibrary", "Auto Library", "Automatically gets the books and the hint paper in room 50.")
+PTog(AutomationTab, "AutoBreakerRoom", "Auto Breaker Room", "Automatically completes the breaker sequence in Hotel Room 100.")
+PTog(AutomationTab, "AutoUnlockPadlockToggle", "Auto Unlock Padlock", "Automatically enters the code into the library padlock.")
+PSlider(AutomationTab, "AutoUnlockPadlockSlider", "Unlock Distance", "How close you must be to the padlock.", 1, 50)
+PTog(AutomationTab, "AutoHotel", "Auto Hotel", "Automatically progresses through the hotel floor. Risky.")
+PTog(AutomationTab, "AutoHotelIgnoreEntities", "Ignore Entities", "Skip all entity waits and pauses.")
+PSlider(AutomationTab, "AutoHotelRoomProcess", "Room Process Time", "Seconds Auto Hotel waits before processing each room.", 0.1, 2, 0.1)
+
+AutomationTab:Section({ Title = "Closet & Anchors" })
+PTog(AutomationTab, "AutoClosetToggle", "Auto Closet", "Automatically hides in a nearby closet when an entity is near.")
+AutomationTab:Dropdown({
+	Title = "Auto Closet Ignore List",
+	Desc = "Entities Auto Closet will NOT hide from.",
+	Values = { "Rush", "Ambush", "Blitz", "DronesStampede", "Scribbles", "A-60", "A-120", "AR0xMBUSH", "RNIUSHCG==" },
+	Value = {}, Multi = true, AllowNone = true,
+	Callback = function(selected)
+		local set = {}
+		for _, n in ipairs(selected or {}) do set[n] = true end
+		Ex.AutoClosetEntityList = set
+	end,
+})
+PTog(AutomationTab, "SpectateEntityToggle", "Spectate Entity", "Spectates the entity while auto hiding.")
+AutomationTab:Dropdown({
+	Title = "Spectate Mode", Desc = "Where the camera looks from.",
+	Values = { "Player to Entity", "Entity to Player" }, Value = "Player to Entity",
+	Callback = function(v) Ex.SpecateEntityMode = v end,
+})
+PTog(AutomationTab, "AutoSolveAnchors", "Auto Solve Anchors", "Automatically enters the correct code into anchors when you are near them.")
+
+AutomationTab:Section({ Title = "Mines & Rooms" })
+PTog(AutomationTab, "SkipSeekMines", "Skip Seek (Mines)", "Skips the entire Seek sections. Risky outside Mines.")
+PTog(AutomationTab, "RoomsAutoWalk", "Auto Rooms", "Automatically moves and hides from entities in The Rooms.")
+PSlider(AutomationTab, "RoomsAutoWalkPathfindTimeout", "Pathfind Timeout", "Seconds before a path step counts as stuck.", 0.5, 3, 0.1)
+PTog(AutomationTab, "RoomsAutoWalkIgnoreA60", "Ignore A-60", "Keeps walking if A-60 is present, enables position spoof automatically.")
+PTog(AutomationTab, "RoomsAutoWalkShowPathToggle", "Show Path", "Shows the current path of Auto Rooms.")
+PTog(AutomationTab, "RoomsAutoWalkSpoofFootsteps", "Spoof Footsteps", "Makes it appear as if your character is walking normally.")
+
+AutomationTab:Section({ Title = "Farming" })
+PTog(AutomationTab, "KnobFarm", "Knob Farm", "Automatically gains knobs for you, dies and revives repeatedly. Risky.")
+AutomationTab:Button({ Title = "Start Knob Farm", Desc = "Starts farming knobs, click this when you have enough gold.", Callback = StartKnobFarm })
+
+ArchivesTab:Section({ Title = "Scribbles" })
+PTog(ArchivesTab, "AntiScribbles", "Bypass Scribbles", "Prevents 'Scribbles' from attacking you.")
+
+VisualsTab:Section({ Title = "Viewmodel" })
+PTog(VisualsTab, "ViewmodelOffsetToggle", "Viewmodel Offset", "Changes the offset of your viewmodel while holding an item.")
+PSlider(VisualsTab, "ViewmodelOffsetX", "X Offset", "", -10, 10)
+PSlider(VisualsTab, "ViewmodelOffsetY", "Y Offset", "", -10, 10)
+PSlider(VisualsTab, "ViewmodelOffsetZ", "Z Offset", "", -10, 10)
+
+MiscTab:Section({ Title = "Debug Tools" })
+MiscTab:Button({ Title = "Ladder Softlock Fix", Desc = "Fixes getting stuck after a ladder.", Callback = function()
+	LocalPlayer:SetAttribute("Climbing", false)
+	if Character then Character:SetAttribute("Climbing", false) end
+end })
+MiscTab:Button({ Title = "Get Current Floor", Desc = "Prints the current floor to the console.", Callback = function()
+	local gd = Services.ReplicatedStorage:FindFirstChild("GameData")
+	local fv = gd and gd:FindFirstChild("Floor")
+	print("Current Floor:", fv and fv.Value)
+	NotifyUI("Current Floor", tostring(fv and fv.Value))
+end })
+MiscTab:Button({ Title = "Get Current Room", Desc = "Prints the current room number to the console.", Callback = function()
+	print("Current Room:", LocalPlayer:GetAttribute("CurrentRoom"))
+	NotifyUI("Current Room", tostring(LocalPlayer:GetAttribute("CurrentRoom")))
+end })
+MiscTab:Button({ Title = "Void", Desc = "Teleports your character to Y -120.", Callback = function()
+	if not Character then return end
+	local Pivot = Character:GetPivot()
+	for _ = 1, 22 do
+		Character:PivotTo(Pivot + Vector3.new(0, -120 - Pivot.Position.Y, 0))
+	end
+end })
+MiscTab:Button({ Title = "Death", Desc = "Kills your character.", Callback = function()
+	Globals.Deathing = true
+	if Humanoid then Humanoid.Health = 0 end
+end })
+MiscTab:Button({ Title = "Reset Character", Desc = "Kills your character on the server (can take ~20s if replicatesignal is not supported).", Callback = function()
+	Globals.SelfKilled = true
+	if Functions.CheckCompatability({"replicatesignal"}) then
+		Env.replicatesignal(LocalPlayer.Kill)
+	elseif RemotesFolder and RemotesFolder:FindFirstChild("Underwater") then
+		RemotesFolder.Underwater:FireServer(true)
+	elseif Humanoid then
+		Humanoid.Health = 0
+	end
+end })
 end)()
+print("[R4NS0M] Loaded Main Port")
 
 Window:SelectTab(1)
 print("[R4NS0M] Loaded Config System")
