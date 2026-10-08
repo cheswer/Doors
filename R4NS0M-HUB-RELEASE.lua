@@ -6690,23 +6690,36 @@ Workspace.DescendantAdded:Connect(function(d)
 	end
 end)
 
--- Position Spoof automatico: solo mientras el Seek persigue o hay un Figure cerca
+-- Position Spoof automatico: UN SOLO arbitro para todas las funciones (Rush, Seek, Figure, Figure Godmode).
+-- Antes cada funcion tenia su propio bucle y se pisaban: una lo encendia, otra lo apagaba, y el personaje
+-- subia y bajaba sin parar (lag y anticheat raro). Ahora se juntan los "votos", el estado solo cambia cuando
+-- hace falta de verdad y hay una pausa antes de apagarlo.
+FX.SpoofVotes = FX.SpoofVotes or {}
+function FX.SpoofVote(tag, want)
+	FX.SpoofVotes[tag] = want and true or nil
+end
 local autoSpoof = false
+local lastWanted = 0
 task.spawn(function()
 	while true do
-		task.wait(0.2)
+		task.wait(0.25)
 		pcall(function()
-			local want = false
-			if Ex.AutoPositionSpoof and RushPresent() then want = true end
-			if Ex.BypassSeek and chase then want = true end
+			local votes = FX.SpoofVotes
+			votes.rush = (Ex.AutoPositionSpoof and RushPresent()) or nil
+			votes.seek = (Ex.BypassSeek and chase) or nil
+			local fig = nil
 			if Ex.BypassFigure and FX.Functions and FX.Functions.GetNearestFigure then
-				local ok, fig = pcall(FX.Functions.GetNearestFigure)
-				if ok and fig then want = true end
+				local ok, f = pcall(FX.Functions.GetNearestFigure)
+				if ok and f then fig = true end
 			end
-			if want and not Ex.PositionSpoof then
-				autoSpoof = true
-				SetFeature("PositionSpoof", true)
-			elseif not want and autoSpoof then
+			votes.figure = fig
+			if next(votes) ~= nil then
+				lastWanted = os.clock()
+				if not Ex.PositionSpoof then
+					autoSpoof = true
+					SetFeature("PositionSpoof", true)
+				end
+			elseif autoSpoof and os.clock() - lastWanted > 1.5 then
 				autoSpoof = false
 				if Ex.PositionSpoof then SetFeature("PositionSpoof", false) end
 			end
@@ -7768,23 +7781,17 @@ local Players = game:GetService("Players")
 
 Ex.BypassDrones = false
 Ex.AntiNoise = false
-Ex.NoForgetMeNotDamage = false
 Ex.BypassAlma = false
 Ex.NoScribblesDamage = false
-Ex.NoBashDamage = false
 
 -- test recibe el nombre compacto (solo letras, minusculas)
 local KINDS = {
 	{ id = "BypassDrones", name = "Drone", collide = true,
 		test = function(c) return c:find("drone", 1, true) ~= nil end },
-	{ id = "NoForgetMeNotDamage", name = "Forget-Me-Not",
-		test = function(c) return c:find("forgetmenot", 1, true) ~= nil end },
 	{ id = "BypassAlma", name = "Alma", collide = true,
 		test = function(c) return c:find("^alma") ~= nil and not c:find("almanac", 1, true) end },
 	{ id = "NoScribblesDamage", name = "Scribbles", spoof = true,
 		test = function(c) return c:find("^scribbles") ~= nil end },
-	{ id = "NoBashDamage", name = "Bash", spoof = true,
-		test = function(c) return c:find("^bash") ~= nil end },
 	{ id = "AntiNoise", name = "Noise", mute = true, hide = true,
 		test = function(c) return c == "noisemodel" or c == "noise" or c == "tvstand" end },
 }
@@ -7899,8 +7906,8 @@ local function Nearest(id)
 end
 B.NearestKind = Nearest
 
--- anti ragdoll cerca de un Drone + Position Spoof automatico para Bash / Scribbles
-local ragOff, spoofOn = false, false
+-- anti ragdoll cerca de un Drone
+local ragOff = false
 task.spawn(function()
 	while true do
 		task.wait(0.12)
@@ -7926,17 +7933,6 @@ task.spawn(function()
 				pcall(hum.SetStateEnabled, hum, Enum.HumanoidStateType.Ragdoll, true)
 				pcall(hum.SetStateEnabled, hum, Enum.HumanoidStateType.FallingDown, true)
 			end
-
-			-- Bash / Scribbles: se baja la posicion (Position Spoof) mientras estan activos y cerca
-			local want = (Ex.NoBashDamage and Nearest("NoBashDamage") < 170)
-				or (Ex.NoScribblesDamage and Nearest("NoScribblesDamage") < 170)
-			if want and not Ex.PositionSpoof then
-				spoofOn = true
-				SetFeature("PositionSpoof", true)
-			elseif not want and spoofOn then
-				spoofOn = false
-				if Ex.PositionSpoof then SetFeature("PositionSpoof", false) end
-			end
 		end)
 	end
 end)
@@ -7945,7 +7941,6 @@ end)
 -- Figure Godmode en TODOS los pisos: en Old Hotel / Fools ya lo hace el bloque del Anticheat;
 -- en el resto se baja la posicion (Position Spoof) mientras haya un Figure cerca
 -- ------------------------------------------------------------------------------------------
-local figSpoof = false
 task.spawn(function()
 	while true do
 		task.wait(0.2)
@@ -7959,28 +7954,11 @@ task.spawn(function()
 					want = ok and fig ~= nil
 				end
 			end
-			if want and not Ex.PositionSpoof then
-				figSpoof = true
-				SetFeature("PositionSpoof", true)
-			elseif not want and figSpoof then
-				figSpoof = false
-				if Ex.PositionSpoof then SetFeature("PositionSpoof", false) end
-			end
+			if FX.SpoofVote then FX.SpoofVote("figgod", want) end
 		end)
 	end
 end)
 
-AntisTab:Section({ Title = "Archives / Stairwell" })
-for _, b in ipairs({
-	{ "BypassDrones", "Bypass Drones", "Drones can't hurt or ragdoll you (their hitboxes are disabled and ragdoll is cancelled while one is near)." },
-	{ "BypassAlma", "Bypass Alma", "Disables Alma's hitbox and collision." },
-	{ "NoForgetMeNotDamage", "No Forget-Me-Not Damage", "Disables the touch damage of Forget-Me-Nots." },
-	{ "NoScribblesDamage", "No Scribbles Damage", "Moves you underground (Position Spoof) while Scribbles is active nearby and disables its hitbox." },
-	{ "NoBashDamage", "No Bash Damage", "Moves you underground (Position Spoof) while Bash is active nearby and disables its hitbox." },
-	{ "AntiNoise", "Anti Noise", "Hides Noise (and its TV), mutes its sounds and disables its touch." },
-}) do
-	AddToggle(AntisTab, b[1], b[2], b[3], Ex[b[1]], function(v) Apply(b[1], v) end)
-end
 end)()
 
 -- ------------------------------------------------------------------------------------------
@@ -8885,12 +8863,12 @@ local lastFire = setmetatable({}, { __mode = "k" })
 Ex.HonchoESP = false
 Ex.HonchoAutoDeposit = false
 Ex.HonchoAutoFull = false
+Ex.FMNSkipper = false
+Ex.BypassWater = false
 Ex.TimeShower = false
 Ex.StopTimeStampede = false
 Ex.AntiRansom = false
 Ex.AntiClosetTrash = false
-Ex.FMNSkipper = false
-Ex.BypassWater = false
 
 -- Bucle con "generacion": al apagar y volver a encender no se duplica
 local Gen = {}
@@ -9635,7 +9613,6 @@ AddToggle(ArchivesTab, "FMNSkipper", "Forget-Me-Not Skipper", "Fires the Forget-
 	Ex.FMNSkipper = v
 	SetFMNSkipper(v)
 end)
-ArchivesTab:Paragraph({ Title = "Drones / Alma / Scribbles", Desc = "Bypass Drones, Bypass Alma and No Scribbles Damage live in the Antis tab. They now also use the methods that work on the server (Drones: WalkedInto removed, Alma: deleted, Scribbles: exploit warning removed)." })
 
 ArchivesTab:Section({ Title = "Forget-Me-Not" })
 AddToggle(ArchivesTab, "FMNAnomalyESP", "Anomaly ESP", "Marks Forget-Me-Not anomalies (needs ESP Entities on).", Ex.FMNAnomalyESP, function(v) Ex.FMNAnomalyESP = v end)
@@ -9882,9 +9859,7 @@ local RS = game:GetService("ReplicatedStorage")
 local ANTI = {
 	BypassDrones        = { tokens = { "drone" },              module = true },
 	BypassAlma          = { tokens = { "alma" },               module = false },
-	NoForgetMeNotDamage = { tokens = { "forgetmenot", "fmn" }, module = false },
 	NoScribblesDamage   = { tokens = { "scribble", "a120" },   module = true },
-	NoBashDamage        = { tokens = { "bash", "a60" },        module = true },
 	AntiNoise           = { tokens = { "noise" },              module = true },
 }
 local function Cmp(s) return (tostring(s or ""):lower():gsub("[^%w]", "")) end
@@ -10155,6 +10130,407 @@ AntisTab:Button({ Title = "Dump Nearby Entities", Desc = "Stand within ~80 studs
 end })
 end)()
 
+print("[R4NS0M] Loading Batch 12")
+-- ============================================================================================
+-- BATCH 12
+--   Camara   : Custom FOV, Third Person, Remove Camera Shake, Remove Camera Bobbing
+--   Efectos  : Transparent Hiding Spots, Disable Hide Vignette, Disable Glitch / Timothy / Void Jumpscare
+--   Audio    : Remove Jammin Music, Remove Interacting Sounds
+--   Partida  : Play Again, Return to Lobby, Exit Closet, Tp Next Door (+ automatico)
+-- ============================================================================================
+;(function()
+local RS = game:GetService("ReplicatedStorage")
+local RunSvc = game:GetService("RunService")
+local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
+
+Ex.CustomFOV = false
+Ex.FOVValue = 70
+Ex.ThirdPerson = false
+Ex.TPOffsetX = 2
+Ex.TPOffsetY = 1
+Ex.TPOffsetZ = 5
+Ex.NoCamShake = false
+Ex.NoCamBob = false
+Ex.TransHide = false
+Ex.TransHideValue = 50
+Ex.NoHideVignette = false
+Ex.NoGlitchJumpscare = false
+Ex.NoTimothyJumpscare = false
+Ex.NoVoidJumpscare = false
+Ex.NoJamMusic = false
+Ex.NoPromptSounds = false
+Ex.AutoTpNextDoor = false
+
+-- ------------------------------------------------------------------------------------------
+-- Ayudas
+-- ------------------------------------------------------------------------------------------
+local function MainUI()
+	local pg = LocalPlayer:FindFirstChild("PlayerGui")
+	return pg and pg:FindFirstChild("MainUI")
+end
+local function MainGameScript()
+	local ui = MainUI()
+	local ini = ui and ui:FindFirstChild("Initiator")
+	return ini and ini:FindFirstChild("Main_Game")
+end
+
+local mgCache, mgScript
+local function MainGame()
+	local sc = MainGameScript()
+	if not sc then return nil end
+	if mgCache and mgScript == sc then return mgCache end
+	mgScript = sc
+	mgCache = nil
+	if require then
+		local ok, m = pcall(require, sc)
+		if ok and type(m) == "table" then mgCache = m end
+	end
+	return mgCache
+end
+
+local function Remote(name)
+	local rf = RS:FindFirstChild("RemotesFolder")
+	return rf and rf:FindFirstChild(name)
+end
+
+local confirmAt = {}
+local function Confirm(key, label)
+	local now = os.clock()
+	if confirmAt[key] and now - confirmAt[key] < 3 then
+		confirmAt[key] = nil
+		return true
+	end
+	confirmAt[key] = now
+	Toast(label, "Press the button again within 3 seconds to confirm.")
+	return false
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Camara: FOV, tercera persona, sin temblor, sin balanceo
+-- ------------------------------------------------------------------------------------------
+local tpParts, tpChar, tpWasOn = {}, nil, false
+local function RefreshTPParts(char)
+	table.clear(tpParts)
+	tpChar = char
+	if not char then return end
+	for _, d in ipairs(char:GetDescendants()) do
+		if d:IsA("Accessory") then
+			local h = d:FindFirstChild("Handle")
+			if h and h:IsA("BasePart") then tpParts[#tpParts + 1] = h end
+		end
+	end
+	local head = char:FindFirstChild("Head")
+	if head then tpParts[#tpParts + 1] = head end
+end
+
+RunSvc.RenderStepped:Connect(function()
+	local cam = Workspace.CurrentCamera
+	if not cam then return end
+	if Ex.NoCamShake or Ex.NoCamBob or Ex.CustomFOV then
+		local usedModule = false
+		pcall(function()
+			local m = MainGame()
+			if not m then return end
+			usedModule = true
+			if Ex.NoCamShake then m.csgo = CFrame.new() end
+			if Ex.NoCamBob and m.spring and m.spring.Speed ~= 9e9 then m.spring.Speed = 9e9 end
+			if Ex.CustomFOV then m.fovtarget = Ex.FOVValue end
+		end)
+		if Ex.CustomFOV and not usedModule then cam.FieldOfView = Ex.FOVValue end
+	end
+	pcall(function()
+		if Ex.ThirdPerson then
+			local char = LocalPlayer.Character
+			if char ~= tpChar then RefreshTPParts(char) end
+			cam.CFrame = cam.CFrame * CFrame.new(Ex.TPOffsetX, Ex.TPOffsetY, Ex.TPOffsetZ)
+			for _, p in ipairs(tpParts) do
+				if p.Parent then
+					p.Transparency = 0
+					p.LocalTransparencyModifier = 0
+				end
+			end
+			tpWasOn = true
+		elseif tpWasOn then
+			tpWasOn = false
+			for _, p in ipairs(tpParts) do
+				if p.Parent then
+					p.Transparency = 1
+					p.LocalTransparencyModifier = 1
+				end
+			end
+		end
+	end)
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Escondites transparentes: solo el escondite donde estas metido
+-- ------------------------------------------------------------------------------------------
+local thSpot, thOrig, thLastScan = nil, {}, 0
+local function THRestore()
+	for p, t in pairs(thOrig) do
+		if p.Parent then p.Transparency = t end
+	end
+	table.clear(thOrig)
+	thSpot = nil
+end
+local function THFind(char)
+	local rooms = Workspace:FindFirstChild("CurrentRooms")
+	if not rooms then return nil end
+	local cur = rooms:FindFirstChild(tostring(LocalPlayer:GetAttribute("CurrentRoom")))
+	local roots = cur and { cur } or rooms:GetChildren()
+	for _, root in ipairs(roots) do
+		for _, d in ipairs(root:GetDescendants()) do
+			if d.Name == "HiddenPlayer" and d:IsA("ObjectValue") and d.Value == char then
+				return d.Parent
+			end
+		end
+	end
+	return nil
+end
+task.spawn(function()
+	while true do
+		task.wait(0.25)
+		pcall(function()
+			local char = LocalPlayer.Character
+			local hiding = Ex.TransHide and char ~= nil and char:GetAttribute("Hiding") == true
+			if hiding then
+				if not (thSpot and thSpot.Parent) and os.clock() - thLastScan > 1.5 then
+					thLastScan = os.clock()
+					thSpot = THFind(char)
+				end
+				if thSpot and thSpot.Parent then
+					local a = Ex.TransHideValue / 100
+					for _, d in ipairs(thSpot:GetDescendants()) do
+						if d:IsA("BasePart") then
+							if thOrig[d] == nil then thOrig[d] = d.Transparency end
+							if thOrig[d] < 1 then d.Transparency = math.max(thOrig[d], a) end
+						end
+					end
+				end
+			elseif thSpot or next(thOrig) ~= nil then
+				THRestore()
+			end
+		end)
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Efectos: vineta al esconderse y jumpscares (se desactivan los modulos de la entidad)
+-- ------------------------------------------------------------------------------------------
+local vigOrig = {}
+local function FindVignette()
+	local ui = MainUI()
+	if not ui then return nil end
+	local v = ui:FindFirstChild("HideVignette")
+	if not v then
+		local mf = ui:FindFirstChild("MainFrame")
+		v = mf and mf:FindFirstChild("HideVignette")
+	end
+	if v and v:IsA("GuiObject") then return v end
+	return nil
+end
+local function VignetteStep()
+	if Ex.NoHideVignette then
+		local v = FindVignette()
+		if v then
+			if vigOrig[v] == nil then vigOrig[v] = v.Visible end
+			v.Visible = false
+		end
+	elseif next(vigOrig) ~= nil then
+		for v, o in pairs(vigOrig) do
+			if v.Parent then v.Visible = o end
+		end
+		table.clear(vigOrig)
+	end
+end
+
+local function EntityModules()
+	local cm = RS:FindFirstChild("ModulesClient") or RS:FindFirstChild("ClientModules")
+	return cm and cm:FindFirstChild("EntityModules")
+end
+local function SetModules(names, on)
+	local f = EntityModules()
+	if not f then
+		Toast("Jumpscares", "Entity modules were not found.")
+		return
+	end
+	for _, m in ipairs(f:GetChildren()) do
+		if m:IsA("ModuleScript") then
+			local orig = m:GetAttribute("R4NOrig12") or m.Name
+			for _, n in ipairs(names) do
+				if orig == n then
+					if on then
+						m:SetAttribute("R4NOrig12", orig)
+						m.Name = orig .. "_Disabled"
+					else
+						m.Name = orig
+						m:SetAttribute("R4NOrig12", nil)
+					end
+					break
+				end
+			end
+		end
+	end
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Audio: musica de Jammin y sonidos de interaccion
+-- ------------------------------------------------------------------------------------------
+local audioOrig = setmetatable({}, { __mode = "k" })
+local function SetVol(snd, on)
+	if not (snd and snd:IsA("Sound")) then return end
+	if on then
+		if audioOrig[snd] == nil then audioOrig[snd] = snd.Volume end
+		snd.Volume = 0
+	elseif audioOrig[snd] ~= nil then
+		snd.Volume = audioOrig[snd]
+		audioOrig[snd] = nil
+	end
+end
+local function ApplyAudio()
+	local sc = MainGameScript()
+	if not sc then return end
+	local health = sc:FindFirstChild("Health")
+	SetVol(health and health:FindFirstChild("Jam"), Ex.NoJamMusic)
+	local ps = sc:FindFirstChild("PromptService")
+	if ps then
+		SetVol(ps:FindFirstChild("Triggered"), Ex.NoPromptSounds)
+		SetVol(ps:FindFirstChild("Holding"), Ex.NoPromptSounds)
+		SetVol(ps:FindFirstChild("Notification"), Ex.NoPromptSounds)
+	end
+	local rem = sc:FindFirstChild("Reminder")
+	SetVol(rem and rem:FindFirstChild("Caption"), Ex.NoPromptSounds)
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		pcall(function()
+			if Ex.NoJamMusic or Ex.NoPromptSounds then ApplyAudio() end
+			if Ex.NoHideVignette then VignetteStep() end
+		end)
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Partida: Tp Next Door (la siguiente puerta sin abrir)
+-- ------------------------------------------------------------------------------------------
+local function NextClosedDoor()
+	local rooms = Workspace:FindFirstChild("CurrentRooms")
+	local gd = RS:FindFirstChild("GameData")
+	local lv = gd and gd:FindFirstChild("LatestRoom")
+	if not (rooms and lv) then return nil end
+	local best, bestN = nil, math.huge
+	for _, room in ipairs(rooms:GetChildren()) do
+		local n = tonumber(room.Name)
+		if n and n >= lv.Value and n < bestN then
+			local door = room:FindFirstChild("Door")
+			if door and door:GetAttribute("Opened") ~= true and door:GetAttribute("Open") ~= true then
+				best, bestN = door, n
+			end
+		end
+	end
+	return best
+end
+local function TpNextDoor()
+	local door = NextClosedDoor()
+	if not door then return false end
+	local cf = door:GetPivot() * CFrame.new(0, -1, 0)
+	local B8 = FX.B8
+	if B8 and B8.SafeTP then return B8.SafeTP(cf) end
+	local char = LocalPlayer.Character
+	if char then
+		char:PivotTo(cf)
+		return true
+	end
+	return false
+end
+local doorGen = 0
+local function SetAutoDoor(v)
+	doorGen = doorGen + 1
+	local my = doorGen
+	if not v then return end
+	task.spawn(function()
+		while Ex.AutoTpNextDoor and doorGen == my do
+			pcall(TpNextDoor)
+			task.wait(0.6)
+		end
+	end)
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Interfaz
+-- ------------------------------------------------------------------------------------------
+VisualsTab:Section({ Title = "Camera" })
+AddToggle(VisualsTab, "CustomFOV", "Custom FOV", "Applies the Field of View slider below. Turn it off to go back to the normal FOV.", Ex.CustomFOV, function(v) Ex.CustomFOV = v end)
+AddSlider(VisualsTab, "FOVValue", "Field of View", "Camera field of view (1 - 120).", 1, 120, Ex.FOVValue, function(v) Ex.FOVValue = v end)
+AddToggle(VisualsTab, "ThirdPerson", "Third Person", "Moves the camera behind your character so you can see yourself. Offsets below.", Ex.ThirdPerson, function(v) Ex.ThirdPerson = v end)
+AddSlider(VisualsTab, "TPOffsetX", "Third Person X Offset", "Left / right.", -10, 10, Ex.TPOffsetX, function(v) Ex.TPOffsetX = v end)
+AddSlider(VisualsTab, "TPOffsetY", "Third Person Y Offset", "Up / down.", -10, 10, Ex.TPOffsetY, function(v) Ex.TPOffsetY = v end)
+AddSlider(VisualsTab, "TPOffsetZ", "Third Person Z Offset", "Distance behind you.", -10, 10, Ex.TPOffsetZ, function(v) Ex.TPOffsetZ = v end)
+AddToggle(VisualsTab, "NoCamShake", "Remove Camera Shake", "Stops the camera from shaking.", Ex.NoCamShake, function(v) Ex.NoCamShake = v end)
+AddToggle(VisualsTab, "NoCamBob", "Remove Camera Bobbing", "Stops the camera from bobbing while you walk.", Ex.NoCamBob, function(v)
+	Ex.NoCamBob = v
+	pcall(function()
+		local m = MainGame()
+		if m and m.spring then m.spring.Speed = v and 9e9 or 8 end
+	end)
+end)
+
+VisualsTab:Section({ Title = "Effects" })
+AddToggle(VisualsTab, "TransHide", "Transparent Hiding Spots", "Makes the hiding spot you are inside of see-through.", Ex.TransHide, function(v) Ex.TransHide = v end)
+AddSlider(VisualsTab, "TransHideValue", "Hiding Spot Transparency (%)", "How see-through the hiding spot becomes (0 - 100).", 0, 100, Ex.TransHideValue, function(v) Ex.TransHideValue = v end)
+AddToggle(VisualsTab, "NoHideVignette", "Disable Hide Vignette", "Removes the dark screen effect while hiding.", Ex.NoHideVignette, function(v)
+	Ex.NoHideVignette = v
+	pcall(VignetteStep)
+end)
+AddToggle(VisualsTab, "NoGlitchJumpscare", "Disable Glitch Jumpscare", "Disables the jumpscare of Glitch.", Ex.NoGlitchJumpscare, function(v)
+	Ex.NoGlitchJumpscare = v
+	pcall(SetModules, { "Glitch" }, v)
+end)
+AddToggle(VisualsTab, "NoTimothyJumpscare", "Disable Timothy Jumpscare", "Disables the jumpscare of Timothy.", Ex.NoTimothyJumpscare, function(v)
+	Ex.NoTimothyJumpscare = v
+	pcall(SetModules, { "SpiderJumpscare" }, v)
+end)
+AddToggle(VisualsTab, "NoVoidJumpscare", "Disable Void Jumpscare", "Disables the jumpscare of Void.", Ex.NoVoidJumpscare, function(v)
+	Ex.NoVoidJumpscare = v
+	pcall(SetModules, { "Void" }, v)
+end)
+
+MiscTab:Section({ Title = "Audio" })
+AddToggle(MiscTab, "NoJamMusic", "Remove Jammin Music", "Mutes the music of the Jammin modifier.", Ex.NoJamMusic, function(v)
+	Ex.NoJamMusic = v
+	pcall(ApplyAudio)
+end)
+AddToggle(MiscTab, "NoPromptSounds", "Remove Interacting Sounds", "Mutes the sounds of proximity prompts.", Ex.NoPromptSounds, function(v)
+	Ex.NoPromptSounds = v
+	pcall(ApplyAudio)
+end)
+
+MiscTab:Section({ Title = "Run" })
+MiscTab:Button({ Title = "Play Again", Desc = "Starts a new run. Press twice to confirm.", Callback = function()
+	if not Confirm("again", "Play Again") then return end
+	local r = Remote("PlayAgain")
+	if r then pcall(function() r:FireServer() end) else Toast("Play Again", "Remote not found.") end
+end })
+MiscTab:Button({ Title = "Return to Lobby", Desc = "Takes you back to the lobby. Press twice to confirm.", Callback = function()
+	if not Confirm("lobby", "Return to Lobby") then return end
+	local r = Remote("Lobby")
+	if r then pcall(function() r:FireServer() end) else Toast("Return to Lobby", "Remote not found.") end
+end })
+MiscTab:Button({ Title = "Exit Closet", Desc = "Gets you out of the closet / hiding spot you are in.", Callback = function()
+	local r = Remote("CamLock")
+	if r then pcall(function() r:FireServer() end) else Toast("Exit Closet", "Remote not found.") end
+end })
+MiscTab:Button({ Title = "Tp Next Door", Desc = "Teleports you to the next door that is still closed.", Callback = function()
+	if not TpNextDoor() then Toast("Tp Next Door", "No closed door found.") end
+end })
+AddToggle(MiscTab, "AutoTpNextDoor", "Auto Tp Next Door", "Keeps teleporting you to the next closed door. Can trigger the anticheat: use it with the Anticheat Bypass.", Ex.AutoTpNextDoor, function(v)
+	Ex.AutoTpNextDoor = v
+	SetAutoDoor(v)
+end)
+end)()
+
 print("[R4NS0M] Loaded more UI")
 print("[R4NS0M] Loading Keybinds Tab")
 ----------------------------------------------------
@@ -10228,7 +10604,7 @@ local EXTRA_KEYS = {
     "Fullbright", "VoidGuard", "AutoBreakerBox", "InfiniteItems", "InfiniteItemsList", "AutoInteract", "PromptReach", "PromptClip", "DisableIdleKick", "MeldStopGrowth", "MeldRemove", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "NotifyOxygen", "NotifyHaste", "NoClosetDelay", "NoAcceleration", "DoorReach", "NoFootsteps", "NoPromptSounds",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_SpeedHack", "Key_TimerToggle", "Key_TimerStop", "Key_TimerReset", "Key_Slide", "Key_Hub", "Key_RestorePrompts",
-    "BypassDrones", "AntiNoise", "NoForgetMeNotDamage", "BypassAlma", "NoScribblesDamage", "NoBashDamage", "StairwellExtraESP",
+    "BypassDrones", "AntiNoise", "BypassAlma", "NoScribblesDamage", "StairwellExtraESP", "CustomFOV", "FOVValue", "ThirdPerson", "TPOffsetX", "TPOffsetY", "TPOffsetZ", "NoCamShake", "NoCamBob", "TransHide", "TransHideValue", "NoHideVignette", "NoGlitchJumpscare", "NoTimothyJumpscare", "NoVoidJumpscare", "NoJamMusic", "NoPromptSounds",
     "FBBrightness", "FBAmbient", "NoFog", "AntiLag", "AntiLagLevel", "TimerAutoEnd", "TimerStopOnDeath",
     "CreakText", "CreakRange", "HonchoESP", "HonchoAutoDeposit", "TimeShower", "StopTimeStampede", "AntiRansom", "AntiClosetTrash", "DropCounter", "DropIntervalSecs", "OrbitHeight", "OrbitDistance", "OrbitSpeed", "CrusherOff", "MeldWallRemove", "NoiseTVBreaker", "FMNAnomalyESP", "FMNAnomalyNotify", "AutoAlmaMinigame", "TellerNumber", "TellerNotify",
 }
