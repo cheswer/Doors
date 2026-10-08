@@ -9598,6 +9598,14 @@ ArchivesTab:Section({ Title = "Forget-Me-Not" })
 AddToggle(ArchivesTab, "FMNAnomalyESP", "Anomaly ESP", "Marks Forget-Me-Not anomalies (needs ESP Entities on).", Ex.FMNAnomalyESP, function(v) Ex.FMNAnomalyESP = v end)
 AddToggle(ArchivesTab, "FMNAnomalyNotify", "Anomaly Notification", "Tells you whether to go back or forward (and how many rooms) when an anomaly is found.", Ex.FMNAnomalyNotify, function(v) Ex.FMNAnomalyNotify = v end)
 
+ArchivesTab:Section({ Title = "Bypasses" })
+AddToggle(ArchivesTab, "BypassDrones", "Bypass Drones", "Prevents 'Drones' from attacking you (removes their hit detection, disables their touch parts and blocks the ragdoll).", Ex.BypassDrones, function(v) Apply("BypassDrones", v) end)
+AddToggle(ArchivesTab, "BypassAlma", "Bypass Alma", "Prevents 'Alma' from spawning (deletes it as soon as it appears).", Ex.BypassAlma, function(v) Apply("BypassAlma", v) end)
+AddToggle(ArchivesTab, "NoScribblesDamage", "No Scribbles Damage", "Disables the touch parts of 'Scribbles' and removes its exploit check. Use together with Bypass Scribbles.", Ex.NoScribblesDamage, function(v) Apply("NoScribblesDamage", v) end)
+
+StairwellTab:Section({ Title = "Anti" })
+AddToggle(StairwellTab, "AntiNoise", "Anti Noise", "Mutes and hides 'Noise' and its TV and disables their touch parts so it cannot hurt you.", Ex.AntiNoise, function(v) Apply("AntiNoise", v) end)
+
 ArchivesTab:Section({ Title = "Alma" })
 AddToggle(ArchivesTab, "AutoAlmaMinigame", "Auto Alma Minigame", "Presses the buttons of the Alma minigame screen automatically (best effort).", Ex.AutoAlmaMinigame, function(v) Ex.AutoAlmaMinigame = v end)
 
