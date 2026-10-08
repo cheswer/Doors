@@ -8813,26 +8813,6 @@ end)
 StairwellTab:Section({ Title = "Creak" })
 AddToggle(StairwellTab, "CreakText", "Creak Aggression Text", "Shows Creak's aggression percentage at the bottom of the screen while it is near you.", Ex.CreakText, function(v) Ex.CreakText = v end)
 AddSlider(StairwellTab, "CreakRange", "Creak Text Range", "How close (in studs) Creak must be for the text to appear.", 10, 300, Ex.CreakRange, function(v) Ex.CreakRange = v end)
-StairwellTab:Button({ Title = "Dump Creak info", Desc = "Prints (and copies) the attributes and values of the nearest Creak.", Callback = function()
-	local best, bd
-	for m in pairs(Creaks) do
-		if m.Parent then
-			local d = B.Dist(m)
-			if not bd or d < bd then best, bd = m, d end
-		end
-	end
-	if not best then B.Toast("Creak", "No Creak model loaded.") return end
-	local lines = { B.Describe(best) }
-	local i = 0
-	for _, d in ipairs(best:GetDescendants()) do
-		if d:IsA("ValueBase") or next(d:GetAttributes()) ~= nil then
-			lines[#lines + 1] = B.Describe(d)
-			i = i + 1
-			if i > 120 then break end
-		end
-	end
-	B.Out("Creak info", lines)
-end })
 end)()
 
 -- ============================================================================================
@@ -9625,56 +9605,6 @@ ArchivesTab:Section({ Title = "Teller" })
 AddToggle(ArchivesTab, "TellerNumber", "Teller Number ESP", "Adds [current/your ticket] to the Teller ESP, e.g. [2/37].", Ex.TellerNumber, function(v) Ex.TellerNumber = v end)
 AddToggle(ArchivesTab, "TellerNotify", "Notify Teller On My Ticket", "Notifies when the Teller reaches your ticket number.", Ex.TellerNotify, function(v) Ex.TellerNotify = v end)
 
-ArchivesTab:Section({ Title = "Debug" })
-ArchivesTab:Button({ Title = "Dump Archives info", Desc = "Prints (and copies) Honcho boxes and deposits, the clock, Teller, Alma and ticket data found around you. Send it if something does not detect correctly.", Callback = function()
-	task.spawn(function()
-		pcall(ScanHoncho)
-		local lines = {}
-		lines[#lines + 1] = "Room " .. B.CurRoom() .. " | mode " .. tostring(Mode.Name)
-		local nd, nb, ndr = 0, 0, 0
-		for id, d in pairs(Hon.Deposits) do
-			nd = nd + 1
-			lines[#lines + 1] = "Deposit " .. id .. ": " .. B.Describe(d)
-		end
-		for c, id in pairs(Hon.Boxes) do
-			nb = nb + 1
-			lines[#lines + 1] = "Correct box " .. id .. ": " .. B.Describe(c)
-		end
-		for c, id in pairs(Hon.Drops) do
-			ndr = ndr + 1
-			lines[#lines + 1] = "Dropped box " .. id .. ": " .. B.Describe(c)
-		end
-		lines[#lines + 1] = "Deposits " .. nd .. " | boxes " .. nb .. " | dropped " .. ndr
-		local lbl = ResolveClockLabel()
-		lines[#lines + 1] = "Clock: " .. (lbl and (lbl:GetFullName() .. " = " .. lbl.Text) or "not found") .. " | remote: " .. tostring(ResolveClockRemote() ~= nil)
-		lines[#lines + 1] = "My ticket: " .. tostring(MyTicket())
-		local rooms = B.Rooms()
-		local cur = B.CurRoom()
-		for _, n in ipairs({ cur, cur + 1 }) do
-			local room = rooms and rooms:FindFirstChild(tostring(n))
-			if room then
-				local i = 0
-				for _, d in ipairs(room:GetDescendants()) do
-					local w = B.Words(d.Name)
-					if w.terminal or w.teller or w.honcho or w.alma or B.Has(d.Name, "anomal") then
-						lines[#lines + 1] = B.Describe(d) .. (w.teller and ("  now=" .. tostring(TellerNow(d))) or "")
-						i = i + 1
-						if i > 80 then break end
-					end
-				end
-			end
-		end
-		local pg = LocalPlayer:FindFirstChild("PlayerGui")
-		if pg then
-			for _, g in ipairs(pg:GetChildren()) do
-				if g:IsA("ScreenGui") and (B.Has(g.Name, "alma") or B.Has(g.Name, "terminal") or B.Has(g.Name, "honcho")) then
-					lines[#lines + 1] = "GUI: " .. B.Describe(g)
-				end
-			end
-		end
-		B.Out("Archives dump", lines)
-	end)
-end })
 end)()
 
 -- ============================================================================================
@@ -9934,201 +9864,8 @@ task.spawn(function()
 		end
 	end
 end)
-
--- ------------------------------------------------------------------------------------------
--- Diagnostico
--- ------------------------------------------------------------------------------------------
-AntisTab:Section({ Title = "Diagnostics" })
-AntisTab:Button({ Title = "Dump Game Structure", Desc = "Prints (and copies) the game's entity modules, remotes, loaded rooms and UI names. Use it inside Archives / Stairwell and send it if an anti or a tab feature does not work.", Callback = function()
-	local lines = {}
-	local function add(s) lines[#lines + 1] = s end
-	add("Mode: " .. tostring(Mode.Name) .. "  Raw: " .. tostring(Mode.Raw) .. "  Room: " .. B.CurRoom())
-	add("== EntityModules ==")
-	local f = ModulesFolder()
-	if f then
-		for _, m in ipairs(f:GetChildren()) do add(m.Name .. " [" .. m.ClassName .. "]") end
-	else
-		add("(folder not found)")
-	end
-	add("== Remotes ==")
-	local rf = Rem()
-	if rf then
-		for _, r in ipairs(rf:GetChildren()) do add(r.Name .. " [" .. r.ClassName .. "]") end
-	else
-		add("(folder not found)")
-	end
-	add("== CurrentRooms ==")
-	local rooms = B.Rooms()
-	if rooms then
-		local names = {}
-		for _, r in ipairs(rooms:GetChildren()) do names[#names + 1] = r.Name end
-		add(table.concat(names, ", "))
-		local cur = rooms:FindFirstChild(tostring(B.CurRoom()))
-		if cur then
-			add("== Current room children ==")
-			for i, c in ipairs(cur:GetChildren()) do
-				if i > 60 then break end
-				add(c.Name .. " [" .. c.ClassName .. "]")
-			end
-			local assets = cur:FindFirstChild("Assets")
-			if assets then
-				add("== Current room Assets ==")
-				for i, c in ipairs(assets:GetChildren()) do
-					if i > 80 then break end
-					add(c.Name .. " [" .. c.ClassName .. "]")
-				end
-			end
-		end
-	end
-	add("== Workspace ==")
-	for i, c in ipairs(Workspace:GetChildren()) do
-		if i > 60 then break end
-		add(c.Name .. " [" .. c.ClassName .. "]")
-	end
-	add("== MainUI ==")
-	local ui = LocalPlayer.PlayerGui:FindFirstChild("MainUI")
-	if ui then
-		for _, c in ipairs(ui:GetChildren()) do add(c.Name .. " [" .. c.ClassName .. "]") end
-		local mf = ui:FindFirstChild("MainFrame")
-		if mf then
-			for _, c in ipairs(mf:GetChildren()) do add("MainFrame." .. c.Name .. " [" .. c.ClassName .. "]") end
-		end
-	end
-	B.Out("Game structure", lines)
-end })
 end)()
 
--- ============================================================================================
--- BATCH 10: dumps dirigidos de Archives (Forget-Me-Not y cajas) para confirmar los nombres reales
--- ============================================================================================
-;(function()
-local B = FX.B8
-
-function B.Tree(root, maxDepth, maxLines, out)
-	local n = 0
-	local function walk(i, depth)
-		if n >= maxLines then return end
-		n = n + 1
-		local s = string.rep("  ", depth) .. i.Name .. " [" .. i.ClassName .. "]"
-		local ok, attrs = pcall(i.GetAttributes, i)
-		if ok and attrs then
-			for k, v in pairs(attrs) do s = s .. " @" .. k .. "=" .. tostring(v) end
-		end
-		pcall(function()
-			if i:IsA("TextLabel") or i:IsA("TextButton") then s = s .. ' text="' .. tostring(i.Text) .. '"' end
-			if i:IsA("ValueBase") then s = s .. " =" .. tostring(i.Value) end
-			if i:IsA("Decal") or i:IsA("Texture") then s = s .. " tex=" .. tostring(i.Texture) end
-			if i:IsA("ImageLabel") or i:IsA("ImageButton") then s = s .. " img=" .. tostring(i.Image) end
-			if i:IsA("ProximityPrompt") then s = s .. ' action="' .. i.ActionText .. '" object="' .. i.ObjectText .. '"' end
-			if i:IsA("SurfaceGui") then s = s .. " enabled=" .. tostring(i.Enabled) end
-		end)
-		out[#out + 1] = s
-		if depth < maxDepth then
-			for _, c in ipairs(i:GetChildren()) do walk(c, depth + 1) end
-		end
-	end
-	walk(root, 0)
-	if n >= maxLines then out[#out + 1] = "... (cut at " .. maxLines .. " lines)" end
-end
-
-ArchivesTab:Section({ Title = "Targeted dumps" })
-ArchivesTab:Button({ Title = "Dump Forget-Me-Not Room", Desc = "Stand in or next to a Forget-Me-Not room (vines on the door) and press this. Prints the structure of the room's Forget-Me-Not objects and related UI.", Callback = function()
-	local lines = {}
-	local rooms = B.Rooms()
-	local cur = B.CurRoom()
-	for _, n in ipairs({ cur - 1, cur, cur + 1 }) do
-		local room = rooms and rooms:FindFirstChild(tostring(n))
-		if room then
-			lines[#lines + 1] = "######## Room " .. n
-			for _, c in ipairs(room:GetChildren()) do
-				if B.Has(c.Name, "forgetmenot") or B.Has(c.Name, "void") or B.Has(c.Name, "anomal") then
-					B.Tree(c, 4, 120, lines)
-				end
-			end
-		end
-	end
-	lines[#lines + 1] = "######## PlayerGui"
-	local pg = LocalPlayer:FindFirstChild("PlayerGui")
-	if pg then
-		for _, g in ipairs(pg:GetChildren()) do
-			lines[#lines + 1] = g.Name .. " [" .. g.ClassName .. "]"
-			if B.Has(g.Name, "forget") or B.Has(g.Name, "minigame") or B.Has(g.Name, "anomal") then B.Tree(g, 3, 60, lines) end
-		end
-		local mu = pg:FindFirstChild("MainUI")
-		local mods = mu and mu:FindFirstChild("Modules")
-		if mods then
-			lines[#lines + 1] = "######## MainUI.Modules"
-			for _, c in ipairs(mods:GetChildren()) do lines[#lines + 1] = c.Name .. " [" .. c.ClassName .. "]" end
-		end
-	end
-	lines[#lines + 1] = "######## LiveEntities"
-	local le = Workspace:FindFirstChild("LiveEntities")
-	if le then
-		for i, c in ipairs(le:GetChildren()) do
-			if i > 40 then break end
-			lines[#lines + 1] = c.Name .. " [" .. c.ClassName .. "]"
-		end
-	end
-	B.Out("Forget-Me-Not dump", lines)
-end })
-ArchivesTab:Button({ Title = "Dump Nearest Boxes", Desc = "Prints the full structure of the 2 nearest cardboard boxes (where their code is stored) and any code-looking text around them.", Callback = function()
-	local lines = {}
-	local list = B.Find(function(d)
-		if not d:IsA("Model") or #d.Name > 40 then return false end
-		local w = B.Words(d.Name)
-		return (w.box or w.boxes or w.crate or w.crates) and true or false
-	end)
-	table.sort(list, function(a, b) return B.Dist(a) < B.Dist(b) end)
-	for i = 1, math.min(2, #list) do
-		lines[#lines + 1] = "######## " .. list[i]:GetFullName() .. "  dist=" .. math.floor(B.Dist(list[i]))
-		B.Tree(list[i], 6, 90, lines)
-	end
-	if #list == 0 then lines[#lines + 1] = "No boxes loaded." end
-	B.Out("Box dump", lines)
-end })
-end)()
-
--- ============================================================================================
--- BATCH 11: dump de entidades cercanas (para confirmar como funciona cada entidad nueva)
--- ============================================================================================
-;(function()
-local B = FX.B8
-local Players = game:GetService("Players")
-AntisTab:Button({ Title = "Dump Nearby Entities", Desc = "Stand within ~80 studs of an entity (Drone, Teller, Alma, Bash, Scribbles, Creak...) and press this. Prints the structure of the nearest ones: parts, scripts, constraints, attributes.", Callback = function()
-	local lines = {}
-	local cands = {}
-	local skip = { Camera = true, CurrentRooms = true, Terrain = true, R4NS0M_Paths = true }
-	local function consider(m)
-		if not m:IsA("Model") and not m:IsA("BasePart") then return end
-		if skip[m.Name] then return end
-		local ch = LocalPlayer.Character
-		if ch and (m == ch or m:IsDescendantOf(ch)) then return end
-		if Players:GetPlayerFromCharacter(m) then return end
-		local d = B.Dist(m)
-		if d <= 80 then cands[#cands + 1] = { m = m, d = d } end
-	end
-	for _, c in ipairs(Workspace:GetChildren()) do consider(c) end
-	local le = Workspace:FindFirstChild("LiveEntities")
-	if le then for _, c in ipairs(le:GetChildren()) do consider(c) end end
-	local rooms = B.Rooms()
-	local cur = rooms and rooms:FindFirstChild(tostring(B.CurRoom()))
-	if cur then
-		for _, c in ipairs(cur:GetChildren()) do
-			if c:IsA("Model") and not B.Has(c.Name, "door") then consider(c) end
-		end
-	end
-	table.sort(cands, function(a, b) return a.d < b.d end)
-	lines[#lines + 1] = "Candidates within 80 studs: " .. #cands
-	for i, e in ipairs(cands) do
-		lines[#lines + 1] = i .. ". " .. e.m:GetFullName() .. " [" .. e.m.ClassName .. "] dist=" .. math.floor(e.d)
-	end
-	for i = 1, math.min(3, #cands) do
-		lines[#lines + 1] = "######## TREE " .. cands[i].m:GetFullName()
-		B.Tree(cands[i].m, 4, 70, lines)
-	end
-	B.Out("Nearby entities", lines)
-end })
-end)()
 
 print("[R4NS0M] Loading Batch 12")
 -- ============================================================================================
@@ -10951,6 +10688,926 @@ ConfigsTab:Button({
         end
     end
 })
+
+-- ============================================================================================
+-- BATCH 13: funciones portadas del Main (Infinite Crucifix, Kill All with Cart, selector de carritos,
+-- Skip Seek Hotel / Mines). Va dentro de una funcion para no gastar locales del chunk principal.
+-- ============================================================================================
+print("[R4NS0M] Loading Batch 13")
+;(function()
+local Players = game:GetService("Players")
+local RS = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local B = FX.B8
+
+local Gen = {}
+local function Loop(flag, fn, interval)
+	Gen[flag] = (Gen[flag] or 0) + 1
+	local my = Gen[flag]
+	task.spawn(function()
+		while Ex[flag] and Gen[flag] == my do
+			pcall(fn)
+			task.wait(interval)
+		end
+	end)
+end
+
+local function Char() return LocalPlayer.Character end
+
+local function Carts()
+	local out = {}
+	local misc = Workspace:FindFirstChild("Misc")
+	if misc then
+		for _, m in ipairs(misc:GetChildren()) do
+			if m.Name == "ShoppingCart" and m:IsA("Model") then out[#out + 1] = m end
+		end
+	end
+	return out
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Stairwell: Kill All (carritos) + selector de jugador para los carritos
+-- ------------------------------------------------------------------------------------------
+Ex.KillAllWithCart = false
+Ex.CartTarget = LocalPlayer.Name
+
+StairwellTab:Section({ Title = "Carts (Main)" })
+
+local killIndex = 1
+AddToggle(StairwellTab, "KillAllWithCart", "Kill All (Requires >=1 Cart)", "Moves every shopping cart onto each other player in turn.", Ex.KillAllWithCart, function(v)
+	Ex.KillAllWithCart = v
+	if v then
+		killIndex = 1
+		Loop("KillAllWithCart", function()
+			local carts = Carts()
+			local alive = {}
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= LocalPlayer and p.Character then
+					local hum = p.Character:FindFirstChildOfClass("Humanoid")
+					if hum and hum.Health > 0 then alive[#alive + 1] = p end
+				end
+			end
+			if #carts > 0 and #alive > 0 then
+				if killIndex > #alive then killIndex = 1 end
+				local target = alive[killIndex]
+				local cf = target.Character:GetPivot()
+				for i = 1, #carts do carts[i]:PivotTo(cf) end
+				killIndex = killIndex + 1
+			end
+		end, 0.10)
+	end
+end)
+
+local function PlayerNames()
+	local names = {}
+	for _, p in ipairs(Players:GetPlayers()) do names[#names + 1] = p.Name end
+	return names
+end
+
+local cartDropdown
+do
+	local ok, el = pcall(function()
+		return StairwellTab:Dropdown({
+			Title = "Shopping Cart Target",
+			Desc = "Player the shopping carts are sent to.",
+			Values = PlayerNames(),
+			Value = LocalPlayer.Name,
+			Callback = function(v)
+				if type(v) == "table" then v = v.Title or v[1] end
+				Ex.CartTarget = v
+			end
+		})
+	end)
+	if ok then cartDropdown = el end
+end
+StairwellTab:Button({ Title = "Refresh Players", Desc = "Updates the Shopping Cart Target list.", Callback = function()
+	if not cartDropdown then return end
+	local names = PlayerNames()
+	local done = pcall(function() cartDropdown:Refresh(names) end)
+	if not done then pcall(function() cartDropdown:SetValues(names) end) end
+end })
+StairwellTab:Button({ Title = "TP Shopping Carts To Player", Desc = "Sends every cart to the selected player. Carts are physical: everyone sees them move.", Callback = function()
+	local target = Players:FindFirstChild(tostring(Ex.CartTarget))
+	if not target or not target.Character then
+		B.Toast("Carts", "Target player not found.")
+		return
+	end
+	local cf = target.Character:GetPivot()
+	local n = 0
+	for _, c in ipairs(Carts()) do c:PivotTo(cf) n = n + 1 end
+	B.Toast("Carts", n > 0 and (n .. " carts moved.") or "No shopping carts are loaded.")
+end })
+
+-- ------------------------------------------------------------------------------------------
+-- Infinite Crucifix: suelta y recoge el Crucifix cuando una entidad se acerca
+-- ------------------------------------------------------------------------------------------
+Ex.InfCrucifix = false
+local CRUCIFIX_DISTANCE = {
+	RushMoving = 54, AmbushMoving = 67, A60 = 70,
+	GlitchRush = 120, GlitchAmbush = 155, A120 = 75,
+}
+local crucifixConn
+AntisTab:Section({ Title = "Crucifix" })
+AddToggle(AntisTab, "InfCrucifix", "Infinite Crucifix", "Risky! You can die or lose the Crucifix. Recommended: low ping and stable FPS.", Ex.InfCrucifix, function(v)
+	Ex.InfCrucifix = v
+	if crucifixConn then crucifixConn:Disconnect() crucifixConn = nil end
+	if not v then return end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local busyUntil = 0
+	crucifixConn = RunService.RenderStepped:Connect(function()
+		if not Ex.InfCrucifix then
+			if crucifixConn then crucifixConn:Disconnect() crucifixConn = nil end
+			return
+		end
+		if os.clock() < busyUntil then return end
+		local ch = Char()
+		if not ch then return end
+		local col = ch:FindFirstChild("CollisionPart") or ch:FindFirstChild("HumanoidRootPart")
+		if not col then return end
+		params.FilterDescendantsInstances = { ch }
+		for _, ent in ipairs(Workspace:GetChildren()) do
+			local maxDist = CRUCIFIX_DISTANCE[ent.Name]
+			local pp = maxDist and ent:IsA("Model") and ent.PrimaryPart
+			if pp then
+				pp.CanCollide = true
+				pp.CanQuery = true
+				local origin = col.Position
+				local hit = Workspace:Raycast(origin, pp.Position - origin, params)
+				if hit and hit.Instance:IsDescendantOf(ent) and (origin - pp.Position).Magnitude < maxDist then
+					local tool = ch:FindFirstChildOfClass("Tool")
+					if tool and tool.Name == "Crucifix" then
+						busyUntil = os.clock() + 0.6
+						task.spawn(function()
+							local rf = RS:FindFirstChild("RemotesFolder")
+							local drop = rf and rf:FindFirstChild("DropItem")
+							if drop then drop:FireServer(tool) end
+							task.wait(0.54)
+							local drops = Workspace:FindFirstChild("Drops")
+							local dropped = drops and drops:FindFirstChild("Crucifix")
+							local prompt = dropped and dropped:FindFirstChildOfClass("ProximityPrompt")
+							if prompt and fireproximityprompt then fireproximityprompt(prompt) end
+						end)
+						return
+					end
+				end
+			end
+		end
+	end)
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Skip Seek (Hotel): salta las secciones del Seek abriendo las puertas y mandandote al vacio
+-- ------------------------------------------------------------------------------------------
+Ex.SkipSeekHotel = false
+Ex.SkipSeekMines = false
+
+local function Rooms() return Workspace:FindFirstChild("CurrentRooms") end
+
+local function VoidBurst(pivot, bursts)
+	for _, b in ipairs(bursts) do
+		task.wait(b[1])
+		for _ = 1, b[2] do
+			local ch = Char()
+			if not ch then return end
+			ch:PivotTo(pivot)
+			task.wait()
+		end
+	end
+end
+
+AutomationTab:Section({ Title = "Skip Seek" })
+AddToggle(AutomationTab, "SkipSeekHotel", "Skip Seek (Hotel)", "Skips the entire Seek sections.", Ex.SkipSeekHotel, function(v)
+	Ex.SkipSeekHotel = v
+	if not v then return end
+	if not B.InMode("Hotel") then B.Toast("Skip Seek", "Only works on the Hotel.") return end
+	task.spawn(function()
+		local function alive() return Ex.SkipSeekHotel and B.InMode("Hotel") end
+		local lastTrigger
+		while alive() do
+			local triggerRoom
+			repeat
+				if not alive() then return end
+				local cur = tonumber(LocalPlayer:GetAttribute("CurrentRoom"))
+				if cur and cur ~= lastTrigger then
+					local rooms = Rooms()
+					local room = rooms and rooms:FindFirstChild(tostring(cur))
+					if room and room:WaitForChild("TriggerEventCollision", 0.5) then triggerRoom = cur end
+				end
+				task.wait()
+			until triggerRoom
+			lastTrigger = triggerRoom
+			local roomNum = triggerRoom
+			while alive() do
+				roomNum = roomNum + 1
+				local room
+				repeat
+					if not alive() then return end
+					local rooms = Rooms()
+					room = rooms and rooms:FindFirstChild(tostring(roomNum))
+					task.wait()
+				until room
+				local hasArm = false
+				local assets = room:FindFirstChild("Assets")
+				if assets then
+					for _, c in ipairs(assets:GetChildren()) do
+						if c.Name == "Seek_Arm" then hasArm = true break end
+					end
+				end
+				local door
+				repeat
+					if not alive() then return end
+					door = room:FindFirstChild("Door", true)
+					task.wait()
+				until door
+				repeat
+					if not alive() then return end
+					local ch = Char()
+					if ch then ch:PivotTo(door:GetPivot()) end
+					task.wait()
+				until door:GetAttribute("Opened") == true
+				if hasArm then
+					local ch = Char()
+					if not ch then return end
+					local void = ch:GetPivot() + Vector3.new(0, -2500, 0)
+					VoidBurst(void, { { 0.25, 20 }, { 0.3, 15 }, { 0.2, 10 } })
+					break
+				end
+			end
+		end
+	end)
+end)
+
+AddToggle(AutomationTab, "SkipSeekMines", "Skip Seek (Mines)", "Skips the entire Seek sections.", Ex.SkipSeekMines, function(v)
+	Ex.SkipSeekMines = v
+	if not v then return end
+	if not B.InMode("Mines") then B.Toast("Skip Seek", "Only works on the Mines.") return end
+	task.spawn(function()
+		local function alive() return Ex.SkipSeekMines end
+		local rooms
+		repeat
+			if not alive() then return end
+			rooms = Rooms()
+			task.wait()
+		until rooms
+		local startRoom
+		repeat
+			if not alive() then return end
+			rooms = Rooms()
+			startRoom = rooms and rooms:FindFirstChild("42")
+			task.wait()
+		until startRoom
+		local startDoor
+		repeat
+			if not alive() then return end
+			startDoor = startRoom:FindFirstChild("Door", true)
+			task.wait()
+		until startDoor
+		repeat
+			if not alive() then return end
+			task.wait()
+		until startDoor:GetAttribute("Opened") == true
+		local ch0 = Char()
+		if ch0 and ch0:GetAttribute("Minecarting") == true then ch0:SetAttribute("Minecarting", false) end
+		for _, num in ipairs({ 43, 44, 45, 46, 47, 48, 49, 78, 79, 80, 81, 82, 83 }) do
+			if not alive() then return end
+			local room
+			repeat
+				if not alive() then return end
+				rooms = Rooms()
+				room = rooms and rooms:FindFirstChild(tostring(num))
+				task.wait()
+			until room
+			local door
+			repeat
+				if not alive() then return end
+				door = room:FindFirstChild("Door", true)
+				task.wait()
+			until door
+			repeat
+				if not alive() then return end
+				local ch = Char()
+				if ch then ch:PivotTo(door:GetPivot()) end
+				task.wait()
+			until door:GetAttribute("Opened") == true
+			if num == 49 or num == 83 then
+				local ch = Char()
+				if not ch then return end
+				local void = ch:GetPivot() + Vector3.new(0, -1000, 0)
+				task.wait(0.3)
+				for _ = 1, 36 do ch:PivotTo(void) end
+				task.wait(0.3)
+				for _ = 1, 6 do ch:PivotTo(void) end
+			end
+			if num == 83 then return end
+		end
+	end)
+end)
+end)()
+
+-- ============================================================================================
+-- BATCH 14: portado del Main: Knob Farm, Auto Hotel, Auto Rooms (pathfinding) y Entity Chat.
+-- Todo vive dentro de una funcion para no gastar locales del chunk principal.
+-- ============================================================================================
+print("[R4NS0M] Loading Batch 14")
+;(function()
+local Players = game:GetService("Players")
+local RS = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local PathfindingService = game:GetService("PathfindingService")
+local TextChatService = game:GetService("TextChatService")
+local B = FX.B8
+
+local function Char() return LocalPlayer.Character end
+local function Root() local c = Char() return c and c:FindFirstChild("HumanoidRootPart") end
+local function Hum() local c = Char() return c and c:FindFirstChildOfClass("Humanoid") end
+local function Col() local c = Char() return c and c:FindFirstChild("CollisionPart") end
+local function LatestRoomValue()
+	local gd = RS:FindFirstChild("GameData")
+	return gd and gd:FindFirstChild("LatestRoom")
+end
+local function RoomsFolder() return Workspace:FindFirstChild("CurrentRooms") end
+local function Fire(p) if fireproximityprompt then fireproximityprompt(p) end end
+
+-- ------------------------------------------------------------------------------------------
+-- Knob Farm: muere y revive en bucle para ganar knobs (hay que tener oro)
+-- ------------------------------------------------------------------------------------------
+Ex.KnobFarm = false
+local knobStarted, knobActive = false, false
+
+AutomationTab:Section({ Title = "Farming" })
+AddToggle(AutomationTab, "KnobFarm", "Knob Farm", "Automatically gains knobs for you, dies and revives repeatedly. Risky outside the lobby floor.", Ex.KnobFarm, function(v)
+	Ex.KnobFarm = v
+	if v then
+		B.Toast("Knob Farm", "Collect some gold first, then press 'Start Knob Farm'.")
+		task.spawn(function()
+			while Ex.KnobFarm do
+				if knobStarted and not knobActive then
+					knobActive = true
+					pcall(function()
+						if replicatesignal and LocalPlayer:FindFirstChild("Kill") then
+							replicatesignal(LocalPlayer.Kill)
+						else
+							local h = Hum()
+							if h then h.Health = 0 end
+						end
+						repeat task.wait() until LocalPlayer:GetAttribute("Alive") or not Ex.KnobFarm
+						local rf = RS:FindFirstChild("RemotesFolder")
+						local stats = rf and rf:FindFirstChild("Statistics")
+						if stats then stats:FireServer() end
+						task.wait(0.25)
+					end)
+					knobActive = false
+				end
+				task.wait()
+			end
+		end)
+	else
+		knobStarted = false
+	end
+end)
+AutomationTab:Button({ Title = "Start Knob Farm", Desc = "Starts farming knobs. Click this in Room 0 once you have enough gold.", Callback = function()
+	local lr = LatestRoomValue()
+	if lr and lr.Value ~= 0 then
+		B.Toast("Knob Farm", "You must be in Room 0 to use this.")
+		return
+	end
+	local pg = LocalPlayer:FindFirstChild("PlayerGui")
+	local top = pg and pg:FindFirstChild("TopbarUI")
+	if top then
+		local ok, gold = pcall(function() return top.Topbar.StatsTopbarHandler.StatModules.Gold.GoldVal end)
+		if ok and gold and gold.Value <= 0 then
+			B.Toast("Knob Farm", "You must have gold to do this.")
+			return
+		end
+	end
+	knobStarted = true
+	B.Toast("Knob Farm", "Started.")
+end })
+
+-- ------------------------------------------------------------------------------------------
+-- Auto Hotel
+-- ------------------------------------------------------------------------------------------
+Ex.AutoHotel = false
+Ex.AutoHotelIgnoreEntities = false
+
+local hotelThread, hotelLibThread, hotelSeekThread, hotelLibConn, hotelRoomsConn
+local hotelPause = false
+local hotelRoomTime = 0.5
+local hotelProcessed = {}
+
+local HOTEL_ENTITIES = {
+	RushMoving = true, Scribbles = true, BashMoving = true, DronesStampede = true, AmbushMoving = true,
+	A60 = true, A120 = true, GlitchRush = true, GlitchAmbush = true, BackdoorRush = true, CustomEntity = true,
+}
+
+local function HotelEntityPresent()
+	if Ex.AutoHotelIgnoreEntities then return false end
+	for _, c in ipairs(Workspace:GetChildren()) do
+		if HOTEL_ENTITIES[c.Name] then return true end
+	end
+	return false
+end
+
+local function HotelWaitEntities(seconds)
+	if Ex.AutoHotelIgnoreEntities then return end
+	task.wait(seconds or 5)
+	while HotelEntityPresent() and Ex.AutoHotel do task.wait(0.15) end
+end
+
+local function HotelNextDoor()
+	if not Char() then return nil, nil end
+	local lr = LatestRoomValue()
+	if not lr then return nil, nil end
+	local startRoom = lr.Value
+	local bestDoor, bestNum = nil, math.huge
+	local rooms = RoomsFolder()
+	if rooms then
+		for _, room in ipairs(rooms:GetChildren()) do
+			local n = tonumber(room.Name)
+			if n and n ~= 100 and n >= startRoom and n < bestNum then
+				local door = room:FindFirstChild("Door")
+				if door and door:IsA("Model") then
+					local open = door:GetAttribute("Open")
+					if open == false or open == nil then
+						bestNum, bestDoor = n, door
+					end
+				end
+			end
+		end
+	end
+	return bestDoor, bestNum
+end
+
+local function HotelFindKey(room)
+	for _, d in ipairs(room:GetDescendants()) do
+		if d.Name == "KeyObtain" then return d end
+	end
+end
+
+local function HotelHandleKey(num)
+	local rooms = RoomsFolder()
+	local room = rooms and rooms:FindFirstChild(tostring(num))
+	if not room then return false end
+	local door = room:FindFirstChild("Door")
+	if not door or not door:FindFirstChild("Lock") then return false end
+	local keyObtain = HotelFindKey(room)
+	if not keyObtain then return false end
+	local started = tick()
+	while tick() - started < 12 and Ex.AutoHotel do
+		local ch = Char()
+		if LocalPlayer.Backpack:FindFirstChild("Key") or (ch and ch:FindFirstChild("Key")) then return true end
+		if ch then ch:PivotTo(keyObtain:GetPivot()) end
+		for _, d in ipairs(keyObtain:GetDescendants()) do
+			if d:IsA("ProximityPrompt") then Fire(d) end
+		end
+		task.wait(0.12)
+	end
+	return false
+end
+
+local function HotelProcessRoom(num)
+	if hotelProcessed[num] then return end
+	task.wait(hotelRoomTime)
+	hotelProcessed[num] = true
+end
+
+local function HotelRunLibrary()
+	local rooms = Workspace:WaitForChild("CurrentRooms")
+	local room50 = rooms:WaitForChild("50")
+	local books = {}
+	local paperObtained = false
+
+	local function inRoom50(o) return o and o:IsDescendantOf(room50) end
+	local function actuallyIn50() return tonumber(LocalPlayer:GetAttribute("CurrentRoom")) == 50 end
+
+	while Ex.AutoHotel and not actuallyIn50() do task.wait(0.1) end
+	if not Ex.AutoHotel then return end
+	HotelWaitEntities(5)
+
+	local function hasPaper()
+		local ch = Char()
+		if not ch then return false end
+		return LocalPlayer.Backpack:FindFirstChild("LibraryHintPaper", true) or ch:FindFirstChild("LibraryHintPaper", true)
+	end
+	local function cframeOf(o)
+		if not actuallyIn50() or not inRoom50(o) then return nil end
+		if o:IsA("Model") then return o:GetPivot() end
+		if o:IsA("BasePart") then return o.CFrame end
+		local part = o:FindFirstChildWhichIsA("BasePart", true)
+		return part and part.CFrame
+	end
+	local function collect()
+		for _, d in ipairs(room50:GetDescendants()) do
+			if d.Name == "LiveHintBook" and inRoom50(d) and not table.find(books, d) then books[#books + 1] = d end
+		end
+	end
+	collect()
+	hotelLibConn = room50.DescendantAdded:Connect(function(d)
+		if Ex.AutoHotel and actuallyIn50() and inRoom50(d) and d.Name == "LiveHintBook" and not table.find(books, d) then
+			books[#books + 1] = d
+		end
+	end)
+	while Ex.AutoHotel and actuallyIn50() and #books < 3 do
+		collect()
+		if #books >= 3 then break end
+		task.wait(0.1)
+	end
+
+	while Ex.AutoHotel and actuallyIn50() and not paperObtained do
+		if hasPaper() then paperObtained = true break end
+		for i = #books, 1, -1 do
+			local book = books[i]
+			if not inRoom50(book) then
+				table.remove(books, i)
+			else
+				while Ex.AutoHotel and actuallyIn50() and not paperObtained and book.Parent and inRoom50(book) do
+					if hasPaper() then paperObtained = true break end
+					local ch = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+					local hrp = ch:FindFirstChild("HumanoidRootPart")
+					if hrp then
+						local cf = cframeOf(book)
+						if cf then hrp.CFrame = cf end
+						for _, p in ipairs(book:GetDescendants()) do
+							if p:IsA("ProximityPrompt") then Fire(p) end
+						end
+					end
+					task.wait(0.08)
+				end
+				if paperObtained then break end
+			end
+		end
+		if hasPaper() then paperObtained = true break end
+		local paper = room50:FindFirstChild("LibraryHintPaper", true)
+		if paper and inRoom50(paper) then
+			while Ex.AutoHotel and actuallyIn50() and not paperObtained and paper.Parent do
+				if hasPaper() then paperObtained = true break end
+				local ch = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+				local hrp = ch:FindFirstChild("HumanoidRootPart")
+				if hrp then
+					local cf = cframeOf(paper)
+					if cf then hrp.CFrame = cf * CFrame.new(0, 5, 0) end
+				end
+				for _, p in ipairs(paper:GetDescendants()) do
+					if p:IsA("ProximityPrompt") then Fire(p) end
+				end
+				task.wait(0.08)
+			end
+		end
+		task.wait(0.1)
+	end
+end
+
+local function HotelHandleSeek()
+	local lastTrigger
+	while Ex.AutoHotel do
+		local rooms = RoomsFolder()
+		if not rooms then
+			task.wait(0.2)
+		else
+			local triggerNum
+			for _, room in ipairs(rooms:GetChildren()) do
+				local n = tonumber(room.Name)
+				if n and n ~= lastTrigger then
+					if room:FindFirstChild("TriggerEventCollision", true) then triggerNum = n break end
+				end
+			end
+			if not triggerNum then
+				task.wait(0.15)
+			else
+				lastTrigger = triggerNum
+				hotelPause = true
+				HotelWaitEntities(10)
+				hotelPause = false
+			end
+		end
+	end
+end
+
+local function HotelStop()
+	if hotelThread then pcall(task.cancel, hotelThread) hotelThread = nil end
+	if hotelLibThread then pcall(task.cancel, hotelLibThread) hotelLibThread = nil end
+	if hotelSeekThread then pcall(task.cancel, hotelSeekThread) hotelSeekThread = nil end
+	if hotelLibConn then hotelLibConn:Disconnect() hotelLibConn = nil end
+	if hotelRoomsConn then hotelRoomsConn:Disconnect() hotelRoomsConn = nil end
+	hotelPause = false
+	table.clear(hotelProcessed)
+end
+
+AutomationTab:Section({ Title = "Auto Hotel" })
+AddToggle(AutomationTab, "AutoHotel", "Auto Hotel", "Automatically progresses through the hotel floor (keys, library, doors). Risky.", Ex.AutoHotel, function(v)
+	Ex.AutoHotel = v
+	HotelStop()
+	if not v then return end
+	local rooms = RoomsFolder()
+	if rooms then
+		hotelRoomsConn = rooms.ChildAdded:Connect(function(child)
+			local n = tonumber(child.Name)
+			if n then task.spawn(HotelProcessRoom, n) end
+		end)
+	end
+	hotelSeekThread = task.spawn(HotelHandleSeek)
+	task.spawn(function()
+		while Ex.AutoHotel do
+			if HotelEntityPresent() then
+				hotelPause = true
+				while HotelEntityPresent() and Ex.AutoHotel do task.wait(0.15) end
+				hotelPause = false
+			end
+			task.wait(0.2)
+		end
+	end)
+	hotelThread = task.spawn(function()
+		while Ex.AutoHotel do
+			if hotelPause then
+				task.wait(0.1)
+			else
+				local door, num = HotelNextDoor()
+				if door and num and Char() then
+					if num == 50 then
+						if not hotelLibThread then
+							hotelLibThread = task.spawn(function()
+								HotelRunLibrary()
+								hotelLibThread = nil
+							end)
+						end
+						task.wait(0.4)
+					else
+						HotelProcessRoom(num)
+						HotelHandleKey(num)
+						local ch = Char()
+						if ch and not hotelPause then
+							ch:PivotTo(door:GetPivot() * CFrame.new(0, -1, 0))
+						end
+					end
+				end
+				task.wait(0.15)
+			end
+		end
+	end)
+end)
+AddToggle(AutomationTab, "AutoHotelIgnoreEntities", "Auto Hotel: Ignore Entities", "Skip all entity waits and pauses.", Ex.AutoHotelIgnoreEntities, function(v) Ex.AutoHotelIgnoreEntities = v end)
+
+-- ------------------------------------------------------------------------------------------
+-- Auto Rooms: camina y se esconde de las entidades en The Rooms
+-- ------------------------------------------------------------------------------------------
+Ex.RoomsAutoWalk = false
+Ex.RoomsAutoWalkIgnoreA60 = false
+Ex.RoomsAutoWalkShowPath = false
+Ex.RoomsAutoWalkSpoofFootsteps = false
+Ex.RoomsAutoWalkTimeout = 1
+
+local nodesFolder = Workspace:FindFirstChild("R4NS0M_RoomsNodes")
+if not nodesFolder then
+	nodesFolder = Instance.new("Folder")
+	nodesFolder.Name = "R4NS0M_RoomsNodes"
+	nodesFolder.Parent = Workspace
+end
+local pathColor = Color3.fromRGB(0, 255, 0)
+local walkActive = false
+
+local function ClearNodes(name)
+	for _, o in ipairs(nodesFolder:GetChildren()) do
+		if o.Name == name then o:Destroy() end
+	end
+end
+
+local ROOMS_ENTITIES = { "RushMoving", "AmbushMoving", "BackdoorRush", "A60", "A120", "CustomEntity", "GlitchRush", "GlitchAmbush" }
+
+local function NearestHidingSpot()
+	local lr = LatestRoomValue()
+	local rooms = RoomsFolder()
+	if not lr or not rooms then return nil end
+	local best, bestDist = nil, math.huge
+	for n = math.max(0, lr.Value - 1), lr.Value + 1 do
+		local room = rooms:FindFirstChild(tostring(n))
+		if room then
+			for _, o in ipairs(room:GetDescendants()) do
+				if o:IsA("Model") and o.PrimaryPart and o:FindFirstChild("HidePrompt") then
+					local dist = LocalPlayer:DistanceFromCharacter(o.PrimaryPart.Position)
+					if dist < bestDist and o.PrimaryPart.Position.Y > -10 then
+						local hp = o:FindFirstChild("HiddenPlayer", true)
+						if hp and not hp.Value then best, bestDist = o, dist end
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
+local function CurrentRoomExit()
+	local lr = LatestRoomValue()
+	local rooms = RoomsFolder()
+	local room = lr and rooms and rooms:FindFirstChild(tostring(lr.Value))
+	return room and room:FindFirstChild("RoomExit"), room
+end
+
+local function PathfindTarget()
+	for _, o in ipairs(Workspace:GetChildren()) do
+		if table.find(ROOMS_ENTITIES, o.Name) and o.PrimaryPart then
+			local y = o.PrimaryPart.Position.Y
+			if y > -10 and y < 150 then
+				if (o.Name == "A60" and not Ex.RoomsAutoWalkIgnoreA60) or o.Name ~= "A60" then
+					return NearestHidingSpot() or (CurrentRoomExit())
+				end
+			end
+		end
+	end
+	return (CurrentRoomExit())
+end
+
+AutomationTab:Section({ Title = "Auto Rooms" })
+AddToggle(AutomationTab, "RoomsAutoWalk", "Auto Rooms", "Automatically moves and hides from entities in The Rooms.", Ex.RoomsAutoWalk, function(v)
+	Ex.RoomsAutoWalk = v
+	ClearNodes("PathNode")
+end)
+AddSlider(AutomationTab, "RoomsAutoWalkTimeout", "Pathfind Timeout (x0.1s)", "How long to wait on a waypoint before marking it as stuck (5 = 0.5s ... 30 = 3s).", 5, 30, 10, function(v) Ex.RoomsAutoWalkTimeout = v / 10 end)
+AddToggle(AutomationTab, "RoomsAutoWalkIgnoreA60", "Ignore A-60", "Keeps walking if A-60 is present; turns Position Spoof on automatically.", Ex.RoomsAutoWalkIgnoreA60, function(v) Ex.RoomsAutoWalkIgnoreA60 = v end)
+AddToggle(AutomationTab, "RoomsAutoWalkShowPath", "Show Path", "Shows the current path of Auto Rooms.", Ex.RoomsAutoWalkShowPath, function(v)
+	Ex.RoomsAutoWalkShowPath = v
+	for _, o in ipairs(nodesFolder:GetChildren()) do
+		if o.Name == "PathNode" then o.Transparency = v and 0.5 or 1 end
+	end
+end)
+AddToggle(AutomationTab, "RoomsAutoWalkSpoofFootsteps", "Spoof Footsteps", "Makes it look as if your character is walking normally (needs hookmetamethod).", Ex.RoomsAutoWalkSpoofFootsteps, function(v) Ex.RoomsAutoWalkSpoofFootsteps = v end)
+
+if hookmetamethod and newcclosure then
+	pcall(function()
+		local oldIndex
+		oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, prop)
+			local real = oldIndex(self, prop)
+			if prop == "MoveDirection" and walkActive and Ex.RoomsAutoWalkSpoofFootsteps and Mode.Name == "Rooms" then
+				local hum, root, ch = Hum(), Root(), Char()
+				if self == hum and root and ch and not ch:GetAttribute("Hiding") then
+					return root.CFrame.LookVector
+				end
+			end
+			return real
+		end))
+	end)
+end
+
+RunService.Heartbeat:Connect(function()
+	if not Ex.RoomsAutoWalk or walkActive or Mode.Name ~= "Rooms" then return end
+	local lr = LatestRoomValue()
+	local col, root, hum, ch = Col(), Root(), Hum(), Char()
+	if not (lr and col and root and hum and ch) or lr.Value >= 1000 then return end
+	local rooms = RoomsFolder()
+	local curRoom = rooms and rooms:FindFirstChild(tostring(lr.Value))
+	if not curRoom then return end
+	walkActive = true
+
+	local ok = pcall(function()
+		if Ex.RoomsAutoWalkIgnoreA60 and not Ex.PositionSpoof then
+			pcall(SetFeature, "PositionSpoof", true)
+		end
+
+		local path = PathfindingService:CreatePath({
+			AgentCanJump = true, AgentCanClimb = false, WaypointSpacing = 4,
+			AgentRadius = 1.5, AgentHeight = 1.5, Costs = { StuckPart = 8 },
+		})
+
+		local target = PathfindTarget()
+		if not target then return end
+		local targetPos
+		if target.Name == "RoomExit" then
+			targetPos = target.Position
+		elseif target:FindFirstChild("HidePrompt") then
+			for _, part in ipairs(target:GetDescendants()) do
+				if part:IsA("BasePart") then part.CanCollide = false end
+			end
+			targetPos = target.PrimaryPart.Position
+		end
+
+		if col.Anchored and not target:FindFirstChild("HidePrompt") then
+			local rf = RS:FindFirstChild("RemotesFolder")
+			ch:SetAttribute("Hiding", true)
+			if rf and rf:FindFirstChild("CamLock") then rf.CamLock:FireServer() end
+			ch:SetAttribute("Hiding", false)
+		end
+
+		local door = curRoom:FindFirstChild("Door")
+		if door and door:FindFirstChild("Door") then door.Door.CanCollide = false end
+
+		if not targetPos or LocalPlayer:DistanceFromCharacter(targetPos) >= 750 then return end
+
+		path:ComputeAsync(col.Position, targetPos)
+		local waypoints = path:GetWaypoints()
+		if #waypoints == 0 then
+			local exitPart = curRoom:FindFirstChild("RoomExit")
+			if exitPart then hum:MoveTo(exitPart.Position) end
+			return
+		end
+
+		ClearNodes("PathNode")
+		for _, wp in ipairs(waypoints) do
+			local block = Instance.new("Part")
+			block.Transparency = Ex.RoomsAutoWalkShowPath and 0.5 or 1
+			block.Size = Vector3.one
+			block.Position = wp.Position
+			block.Shape = Enum.PartType.Ball
+			block.CanCollide = false
+			block.Anchored = true
+			block.Name = "PathNode"
+			block.Color = pathColor
+			block.Material = Enum.Material.Neon
+			block.Parent = nodesFolder
+		end
+
+		local stuck = false
+		for _, wp in ipairs(waypoints) do
+			if stuck or not Ex.RoomsAutoWalk then break end
+			local finished = false
+			local startedAt = tick()
+
+			local step = RunService.RenderStepped:Connect(function()
+				if stuck or not Ex.RoomsAutoWalk then finished = true return end
+				local newTarget = PathfindTarget()
+				if newTarget and newTarget:FindFirstChild("HidePrompt") and not target:FindFirstChild("HidePrompt") then
+					finished = true
+					return
+				end
+				if target:FindFirstChild("HidePrompt") then
+					local hp = target:FindFirstChild("HidePrompt")
+					if LocalPlayer:DistanceFromCharacter(targetPos) < hp.MaxActivationDistance and ch:GetAttribute("Hiding") ~= true then
+						Fire(hp)
+					end
+				end
+				local flat = Vector3.new(wp.Position.X, root.Position.Y, wp.Position.Z)
+				if LocalPlayer:DistanceFromCharacter(flat) < 5 then finished = true end
+				hum:MoveTo(wp.Position)
+			end)
+
+			while not finished do
+				if tick() - startedAt > Ex.RoomsAutoWalkTimeout then
+					local sb = Instance.new("Part")
+					sb.Transparency = 1
+					sb.Size = Vector3.one
+					sb.CFrame = col.CFrame
+					sb.Shape = Enum.PartType.Ball
+					sb.CanCollide = false
+					sb.Anchored = true
+					sb.Name = "StuckPart"
+					local mod = Instance.new("PathfindingModifier")
+					mod.Label = "StuckPart"
+					mod.Parent = sb
+					sb.Parent = nodesFolder
+					stuck = true
+					break
+				end
+				task.wait()
+			end
+			step:Disconnect()
+			hum:MoveTo(root.Position)
+		end
+	end)
+	walkActive = false
+end)
+
+do
+	local rooms = RoomsFolder()
+	if rooms then
+		rooms.ChildAdded:Connect(function() ClearNodes("StuckPart") end)
+	end
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Entity Chat: escribe en el chat cuando aparece una entidad (usa el filtro del Entity Notifier)
+-- ------------------------------------------------------------------------------------------
+Ex.EntityChat = false
+Ex.EntityChatMessage = "spawned!"
+
+local function SendChat(msg)
+	pcall(function()
+		local folder = RS:FindFirstChild("DefaultChatSystemEvents")
+		local event = folder and folder:FindFirstChild("SayMessageRequest")
+		if event then event:FireServer(msg, "All") end
+	end)
+	pcall(function()
+		local channels = TextChatService:FindFirstChild("TextChannels")
+		local general = channels and channels:FindFirstChild("RBXGeneral")
+		if general then general:SendAsync(msg) end
+	end)
+end
+
+AlertsTab:Section({ Title = "Entity Chat" })
+AddToggle(AlertsTab, "EntityChat", "Notify Chat", "Sends a message in the chat when a selected entity spawns (uses the 'Notify me about' list).", Ex.EntityChat, function(v) Ex.EntityChat = v end)
+AddInput(AlertsTab, "EntityChatMessage", "Chat Message", "Sent after the entity name, e.g. \"Rush spawned!\".", "spawned!", Ex.EntityChatMessage)
+
+local chatSeen = setmetatable({}, { __mode = "k" })
+local prevSeen = OnEntitySeen
+OnEntitySeen = function(label, inst)
+	if prevSeen then pcall(prevSeen, label, inst) end
+	if not Ex.EntityChat or not Ex.Notify or chatSeen[inst] then return end
+	if St and St.ReadyAt and os.clock() < St.ReadyAt then return end
+	chatSeen[inst] = true
+	if not Ex.NotifyFilter[label] then return end
+	local msg = tostring(Ex.EntityChatMessage or "")
+	if msg == "" then msg = "spawned!" end
+	SendChat(label .. " " .. msg)
+end
+end)()
 
 Window:SelectTab(1)
 print("[R4NS0M] Loaded Config System")
