@@ -12,6 +12,65 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
+-- ============================================================================================
+-- Idioma (English por defecto), deteccion de juego y auto ejecucion al teletransportar
+-- ============================================================================================
+if not game:IsLoaded() then game.Loaded:Wait() end
+R4N_KeyTab = {}
+R4N_LANG = "en"
+pcall(function()
+    if isfile and readfile and isfile("R4NS0M_Lang.txt") then
+        local l = readfile("R4NS0M_Lang.txt"):gsub("%s+", "")
+        if l == "es" or l == "ru" or l == "en" then R4N_LANG = l end
+    end
+end)
+
+do
+    local genv = (getgenv and getgenv()) or _G
+    local isDoors = game.PlaceId == 6516141723 or game.PlaceId == 6839171747 or game.GameId == 2440500124
+    if not isDoors then
+        -- ejecucion automatica tras teletransportarte a otro juego: no hacer nada
+        if genv.R4N_AUTOEXEC then genv.R4N_AUTOEXEC = nil return end
+        local msgs = {
+            en = "This script is only for DOORS. Join DOORS and execute it correctly.",
+            es = "Este script es solo para Doors, entra a doors y ejecútalo correctamente",
+            ru = "Этот скрипт только для DOORS. Зайдите в DOORS и запустите его правильно.",
+        }
+        pcall(function() LocalPlayer:Kick(msgs[R4N_LANG] or msgs.en) end)
+        return
+    end
+    genv.R4N_AUTOEXEC = nil
+end
+
+-- Auto ejecutar al teletransportar: guarda la config en R4NS0M_AutoExec.json (se cambia en la tab Configs)
+function R4N_QueueAutoExec()
+    pcall(function()
+        local qot = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+        if not qot or not (isfile and readfile) or not isfile("R4NS0M_AutoExec.json") then return end
+        local d = HttpService:JSONDecode(readfile("R4NS0M_AutoExec.json"))
+        if type(d) ~= "table" or not d.on then return end
+        local s = (tostring(d.src or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+        if s == "" then
+            for _, f in ipairs({ "R4NS0M-HUB-FINAL.lua", "R4NS0M-HUB.lua", "R4NS0M.lua" }) do
+                if isfile(f) then s = f break end
+            end
+        end
+        if s == "" then return end
+        local loader
+        if s:sub(1, 4):lower() == "http" then
+            loader = "loadstring(game:HttpGet(" .. string.format("%q", s) .. "))()"
+        else
+            loader = "loadstring(readfile(" .. string.format("%q", s) .. "))()"
+        end
+        local genv = (getgenv and getgenv()) or _G
+        if genv.R4N_QUEUED then return end
+        genv.R4N_QUEUED = true
+        qot("local g=(getgenv and getgenv()) or _G;g.R4N_QUEUED=nil;g.R4N_AUTOEXEC=true;if not game:IsLoaded() then game.Loaded:Wait() end;task.wait(1);" .. loader)
+    end)
+end
+R4N_QueueAutoExec()
+
+
 math.randomseed(os.time())
 
 print("[R4NS0M] Services Loaded")
@@ -263,6 +322,806 @@ end)()
 
 if not WindUI or not Window then
     return
+end
+
+-- Traduccion de la interfaz: se traducen los titulos (English es el idioma por defecto)
+R4N_I18N = {
+    es = {
+        ["ACM Button"] = "Botón ACM",
+        ["About R4NS0M CD-1"] = "Acerca de R4NS0M CD-1",
+        ["Alerts"] = "Alertas",
+        ["Alma"] = "Alma",
+        ["Anomaly ESP"] = "ESP de Anomalías",
+        ["Anomaly Notification"] = "Notificación de Anomalías",
+        ["Anti"] = "Anti",
+        ["Anti Closet Trash"] = "Anti Basura de Armario",
+        ["Anti Lag"] = "Anti Lag",
+        ["Anti Lag Level"] = "Nivel de Anti Lag",
+        ["Anti Noise"] = "Anti Noise",
+        ["Anti Ransom"] = "Anti Ransom",
+        ["Anticheat"] = "Anticheat",
+        ["Anticheat Bypass"] = "Bypass del Anticheat",
+        ["Anticheat Manipulator"] = "Manipulador de Anticheat",
+        ["Antis"] = "Antis",
+        ["Archives"] = "Archives",
+        ["Audio"] = "Audio",
+        ["Auto Alma Minigame"] = "Auto Minijuego de Alma",
+        ["Auto Breaker Box"] = "Auto Caja de Fusibles",
+        ["Auto Breaker Room"] = "Auto Sala de Fusibles",
+        ["Auto Bring Dropped Items"] = "Auto Traer Items Tirados",
+        ["Auto Closet"] = "Auto Armario",
+        ["Auto Closet Ignore List"] = "Lista de Ignorados del Auto Armario",
+        ["Auto Complete Cringle"] = "Auto Completar Cringle",
+        ["Auto Complete Dam Seek"] = "Auto Completar Dam Seek",
+        ["Auto Complete Honcho (experimental)"] = "Auto Completar Honcho (experimental)",
+        ["Auto Deposit"] = "Auto Depositar",
+        ["Auto Heartbeat Minigame"] = "Auto Minijuego del Latido",
+        ["Auto Hotel"] = "Auto Hotel",
+        ["Auto Interact"] = "Auto Interactuar",
+        ["Auto Interact Ignore List"] = "Lista de Ignorados del Auto Interactuar",
+        ["Auto Interact Ignored Items"] = "Items Ignorados del Auto Interactuar",
+        ["Auto Interact: why is it skipping?"] = "Auto Interactuar: ¿por qué se salta algo?",
+        ["Auto Library"] = "Auto Biblioteca",
+        ["Auto Performance"] = "Auto Rendimiento",
+        ["Auto Position Spoof"] = "Auto Position Spoof",
+        ["Auto Rooms"] = "Auto Rooms",
+        ["Auto Scrap Drops"] = "Auto Chatarra de Drops",
+        ["Auto Solve Anchors"] = "Auto Resolver Anclas",
+        ["Auto Split Rooms"] = "Auto Dividir Salas",
+        ["Auto Start On Move"] = "Iniciar Auto al Moverse",
+        ["Auto Stop At End Of Game"] = "Auto Parar al Final del Juego",
+        ["Auto Stop At Room"] = "Auto Parar en Sala",
+        ["Auto Tp Next Door"] = "Auto TP a la Siguiente Puerta",
+        ["Auto Unlock Padlock"] = "Auto Abrir Candado",
+        ["Auto-enable ESP for this Mode"] = "Activar ESP Automático para este Modo",
+        ["Automation"] = "Automatización",
+        ["Bring Dropped Items"] = "Traer Items Tirados",
+        ["Bug Out Creak (needs 5+ carts)"] = "Bug a Creak (requiere 5+ carritos)",
+        ["Bypass"] = "Bypass",
+        ["Bypass Alma"] = "Bypass de Alma",
+        ["Bypass Combos"] = "Combos de Bypass",
+        ["Bypass Drones"] = "Bypass de Drones",
+        ["Bypass Electric Water"] = "Bypass de Agua Eléctrica",
+        ["Bypass Figure"] = "Bypass de Figure",
+        ["Bypass Scribbles"] = "Bypass de Scribbles",
+        ["Bypass Seek"] = "Bypass de Seek",
+        ["Bypasses"] = "Bypasses",
+        ["Camera"] = "Cámara",
+        ["Chase Paths"] = "Rutas de Persecución",
+        ["Clear All"] = "Limpiar Todo",
+        ["Clear All Entities"] = "Limpiar Todas las Entidades",
+        ["Clear All Items"] = "Limpiar Todos los Items",
+        ["Clear Debug Log"] = "Limpiar Registro de Debug",
+        ["Closet & Anchors"] = "Armario y Anclas",
+        ["Coming soon"] = "Próximamente",
+        ["Config Selector"] = "Selector de Configs",
+        ["Configs"] = "Configs",
+        ["Cooldown per Entity (seconds)"] = "Enfriamiento por Entidad (segundos)",
+        ["Copy Character Info"] = "Copiar Info del Personaje",
+        ["Copy Debug Log"] = "Copiar Registro de Debug",
+        ["Copy Game Info"] = "Copiar Info del Juego",
+        ["Copy Nearby Objects (30 studs)"] = "Copiar Objetos Cercanos (30 studs)",
+        ["Correct Box ESP"] = "ESP de Cajas Correctas",
+        ["Creak"] = "Creak",
+        ["Creak Aggression Text"] = "Texto de Agresión de Creak",
+        ["Creak Text Range"] = "Rango del Texto de Creak",
+        ["Create New Config"] = "Crear Nueva Config",
+        ["Crouch Spoof"] = "Spoof de Agacharse",
+        ["Crushers & Meld"] = "Crushers y Meld",
+        ["Custom FOV"] = "FOV Personalizado",
+        ["Custom Icon ID (optional)"] = "ID de Icono Personalizado (opcional)",
+        ["Custom Sound ID (optional)"] = "ID de Sonido Personalizado (opcional)",
+        ["Death"] = "Muerte",
+        ["Debug"] = "Debug",
+        ["Debug Mode"] = "Modo Debug",
+        ["Debug Overlay"] = "Overlay de Debug",
+        ["Debug Tools"] = "Herramientas de Debug",
+        ["Delete Crushers"] = "Eliminar Crushers",
+        ["Delete Figure"] = "Eliminar Figure",
+        ["Delete Seek Trigger"] = "Eliminar Trigger de Seek",
+        ["Detected at load: "] = "Detectado al cargar: ",
+        ["Disable Crushers"] = "Desactivar Crushers",
+        ["Disable Glitch Jumpscare"] = "Desactivar Jumpscare de Glitch",
+        ["Disable Hide Vignette"] = "Desactivar Viñeta al Esconderse",
+        ["Disable Idle Kick"] = "Desactivar Kick por Inactividad",
+        ["Disable Timothy Jumpscare"] = "Desactivar Jumpscare de Timothy",
+        ["Disable Void Jumpscare"] = "Desactivar Jumpscare de Void",
+        ["Display"] = "Pantalla",
+        ["Distance Unit"] = "Unidad de Distancia",
+        ["Door Reach"] = "Alcance de Puertas",
+        ["Doors"] = "Puertas",
+        ["Dropped Items Counter"] = "Contador de Items Tirados",
+        ["Duration (seconds)"] = "Duración (segundos)",
+        ["ESP Performance"] = "Rendimiento del ESP",
+        ["ESP Performance Mode"] = "Modo de Rendimiento del ESP",
+        ["ESP Refresh Rate"] = "Frecuencia de Actualización del ESP",
+        ["ESP Summary"] = "Resumen del ESP",
+        ["ESP fixes"] = "Arreglos del ESP",
+        ["Effects"] = "Efectos",
+        ["Enable All ESP for Current Mode"] = "Activar Todo el ESP del Modo Actual",
+        ["Enable Jump"] = "Activar Salto",
+        ["Enable Slide"] = "Activar Deslizamiento",
+        ["Entities"] = "Entidades",
+        ["Entities to show"] = "Entidades a mostrar",
+        ["Entities with distance limit"] = "Entidades con Límite de Distancia",
+        ["Entity Despawn"] = "Desaparición de Entidades",
+        ["Entity Distance Limit"] = "Límite de Distancia de Entidades",
+        ["Entity Filter"] = "Filtro de Entidades",
+        ["Entity Notifier"] = "Notificador de Entidades",
+        ["Environment"] = "Entorno",
+        ["Error"] = "Error",
+        ["Exit Closet"] = "Salir del Armario",
+        ["Exploits / Anti"] = "Exploits / Anti",
+        ["FLY Button"] = "Botón FLY",
+        ["Farming"] = "Farmeo",
+        ["Field of View"] = "Campo de Visión",
+        ["Figure Godmode"] = "Godmode contra Figure",
+        ["Fill Opacity (%)"] = "Opacidad de Relleno (%)",
+        ["Floating Buttons"] = "Botones Flotantes",
+        ["Floor bypass"] = "Bypass de Piso",
+        ["Floors"] = "Pisos",
+        ["Fly"] = "Volar",
+        ["Fly & Noclip"] = "Volar y Noclip",
+        ["Fly Speed"] = "Velocidad de Vuelo",
+        ["Force Gamemode"] = "Forzar Modo de Juego",
+        ["Forget-Me-Not"] = "Forget-Me-Not",
+        ["Forget-Me-Not Skipper"] = "Saltar Forget-Me-Not",
+        ["Fullbright"] = "Fullbright",
+        ["Fullbright Ambient (%)"] = "Ambiente de Fullbright (%)",
+        ["Fullbright Brightness"] = "Brillo de Fullbright",
+        ["Game Mode"] = "Modo de Juego",
+        ["Generate 12-Char Share Code"] = "Generar Código de 12 Caracteres",
+        ["Get Current Floor"] = "Obtener Piso Actual",
+        ["Get Current Room"] = "Obtener Sala Actual",
+        ["Good to know"] = "Bueno saber",
+        ["Grab All Items (real pickup)"] = "Agarrar Todos los Items (real)",
+        ["Guess Library Code"] = "Adivinar Código de la Biblioteca",
+        ["Hide Looted Containers"] = "Ocultar Contenedores Saqueados",
+        ["Hiding Spot Transparency (%)"] = "Transparencia de Escondites (%)",
+        ["Honcho"] = "Honcho",
+        ["Hotel"] = "Hotel",
+        ["How Meld removal works"] = "Cómo funciona quitar Meld",
+        ["Hub"] = "Hub",
+        ["Ignore A-60"] = "Ignorar A-60",
+        ["Ignore Entities"] = "Ignorar Entidades",
+        ["Ignore List"] = "Lista de Ignorados",
+        ["Ignore all items"] = "Ignorar todos los items",
+        ["Ignore everything"] = "Ignorar todo",
+        ["Ignore no items"] = "No ignorar items",
+        ["Ignore nothing"] = "No ignorar nada",
+        ["Ignored Items"] = "Items Ignorados",
+        ["Import Code"] = "Importar Código",
+        ["Import Config from Code"] = "Importar Config desde Código",
+        ["Infinite Items"] = "Items Infinitos",
+        ["Infinite Items List"] = "Lista de Items Infinitos",
+        ["Infinite Jump"] = "Salto Infinito",
+        ["Infinite Revives"] = "Revivires Infinitos",
+        ["Info"] = "Info",
+        ["Instant Proximity Prompt"] = "Prompts Instantáneos",
+        ["Interaction"] = "Interacción",
+        ["Interval (seconds)"] = "Intervalo (segundos)",
+        ["Item Filter"] = "Filtro de Items",
+        ["Items"] = "Items",
+        ["Items to notify"] = "Items a notificar",
+        ["Items to show"] = "Items a mostrar",
+        ["Jump"] = "Salto",
+        ["Jump Power"] = "Fuerza de Salto",
+        ["Keybinds"] = "Teclas",
+        ["Knob Farm"] = "Farmeo de Perillas",
+        ["Ladder Softlock Fix"] = "Arreglo de Bloqueo en Escaleras",
+        ["Library"] = "Biblioteca",
+        ["Lighting"] = "Iluminación",
+        ["Live Session"] = "Sesión en Vivo",
+        ["Load Selected Config"] = "Cargar Config Seleccionada",
+        ["Main"] = "Principal",
+        ["Manipulation Method"] = "Método de Manipulación",
+        ["Max Distance"] = "Distancia Máxima",
+        ["Max ESP Objects"] = "Máx. Objetos del ESP",
+        ["Meld"] = "Meld",
+        ["Mines & Rooms"] = "Mines y Rooms",
+        ["Misc"] = "Varios",
+        ["Mobile Buttons"] = "Botones Móviles",
+        ["Mode Presets"] = "Preajustes de Modo",
+        ["Movement"] = "Movimiento",
+        ["Movement & Anticheat Manipulator"] = "Movimiento y Manipulador de Anticheat",
+        ["Movement Diagnostics"] = "Diagnóstico de Movimiento",
+        ["New Config Name"] = "Nombre de la Nueva Config",
+        ["No Scribbles Damage"] = "Sin Daño de Scribbles",
+        ["Noclip"] = "Noclip",
+        ["Noise TV & Carts"] = "TV de Noise y Carritos",
+        ["Noise TV Breaker"] = "Rompedor de TV de Noise",
+        ["Notification Settings"] = "Ajustes de Notificaciones",
+        ["Notification Style"] = "Estilo de Notificación",
+        ["Notify Despawn"] = "Avisar Desaparición",
+        ["Notify Haste Time"] = "Avisar Tiempo de Haste",
+        ["Notify Items"] = "Avisar Items",
+        ["Notify Library Code"] = "Avisar Código de Biblioteca",
+        ["Notify Oxygen Level"] = "Avisar Nivel de Oxígeno",
+        ["Notify Ransom"] = "Avisar Ransom",
+        ["Notify Teller On My Ticket"] = "Avisar Teller en Mi Ticket",
+        ["Notify Unlisted Items"] = "Avisar Items sin Lista",
+        ["Notify all items"] = "Avisar todos los items",
+        ["Notify me about"] = "Avisarme sobre",
+        ["Notify nothing"] = "No avisar nada",
+        ["Notify only essentials"] = "Avisar solo lo esencial",
+        ["Open / Close Hub"] = "Abrir / Cerrar Hub",
+        ["Open all Cubby Doors"] = "Abrir todas las Puertas de Cubby",
+        ["Orbit Distance"] = "Distancia de Órbita",
+        ["Orbit Dropped Items"] = "Orbitar Items Tirados",
+        ["Orbit Height"] = "Altura de Órbita",
+        ["Orbit Speed"] = "Velocidad de Órbita",
+        ["Overwrite Selected Config"] = "Sobrescribir Config Seleccionada",
+        ["Path Style"] = "Estilo de Ruta",
+        ["Pathfind Timeout"] = "Tiempo Límite de Ruta",
+        ["Per-category tracers"] = "Trazadores por Categoría",
+        ["Performance"] = "Rendimiento",
+        ["Play Again"] = "Jugar de Nuevo",
+        ["Play Sound"] = "Reproducir Sonido",
+        ["Player"] = "Jugador",
+        ["Player Information"] = "Información del Jugador",
+        ["Player Name Type"] = "Tipo de Nombre del Jugador",
+        ["Please collect some gold to earn knobs."] = "Recoge algo de oro para ganar perillas.",
+        ["Position Spoof"] = "Position Spoof",
+        ["Preset"] = "Preajuste",
+        ["Print ESP Summary"] = "Imprimir Resumen del ESP",
+        ["Prompt Clip"] = "Prompt a Través de Paredes",
+        ["Prompt Reach Multiplier"] = "Multiplicador de Alcance de Prompts",
+        ["Prompt Tools"] = "Herramientas de Prompts",
+        ["Prompts"] = "Prompts",
+        ["R4NS0M"] = "R4NS0M",
+        ["R4NS0M CD-1"] = "R4NS0M CD-1",
+        ["Re-detect Game Mode"] = "Re-detectar Modo de Juego",
+        ["Refresh Config List"] = "Actualizar Lista de Configs",
+        ["Remove"] = "Quitar",
+        ["Remove Acceleration"] = "Quitar Aceleración",
+        ["Remove Basement Gate"] = "Quitar Reja del Sótano",
+        ["Remove Camera Bobbing"] = "Quitar Balanceo de Cámara",
+        ["Remove Camera Shake"] = "Quitar Temblor de Cámara",
+        ["Remove Closet Delay"] = "Quitar Espera del Armario",
+        ["Remove Fog"] = "Quitar Niebla",
+        ["Remove Footstep Sounds"] = "Quitar Sonido de Pasos",
+        ["Remove Interacting Sounds"] = "Quitar Sonidos de Interacción",
+        ["Remove Jammin Music"] = "Quitar Música de Jammin",
+        ["Remove Meld (keep ropes & doors)"] = "Quitar Meld (conserva cuerdas y puertas)",
+        ["Remove Meld Walls & Data"] = "Quitar Paredes y Datos de Meld",
+        ["Remove Paintings Door"] = "Quitar Puerta de Cuadros",
+        ["Remove Skeleton Door"] = "Quitar Puerta de Esqueleto",
+        ["Reset"] = "Reiniciar",
+        ["Reset Character"] = "Reiniciar Personaje",
+        ["Restore Prompts"] = "Restaurar Prompts",
+        ["Restore default ignored items"] = "Restaurar items ignorados por defecto",
+        ["Return to Lobby"] = "Volver al Lobby",
+        ["Revive"] = "Revivir",
+        ["Room Process Time"] = "Tiempo de Proceso de Sala",
+        ["Run"] = "Correr",
+        ["Save New Config"] = "Guardar Nueva Config",
+        ["Scan Rooms for Entities"] = "Escanear Salas en Busca de Entidades",
+        ["Scrap"] = "Chatarra",
+        ["Scribbles"] = "Scribbles",
+        ["Script Information"] = "Información del Script",
+        ["Select All"] = "Seleccionar Todo",
+        ["Select All Entities"] = "Seleccionar Todas las Entidades",
+        ["Select All Items"] = "Seleccionar Todos los Items",
+        ["Select Recommended"] = "Seleccionar Recomendados",
+        ["Select Saved Config"] = "Seleccionar Config Guardada",
+        ["Session"] = "Sesión",
+        ["Share Code"] = "Código para Compartir",
+        ["Short Code Sharing (12 Chars)"] = "Compartir con Código Corto (12 caracteres)",
+        ["Show Buttons"] = "Mostrar Botones",
+        ["Show Distance"] = "Mostrar Distancia",
+        ["Show Eyestalk Path"] = "Mostrar Ruta de Eyestalk",
+        ["Show Names"] = "Mostrar Nombres",
+        ["Show Path"] = "Mostrar Ruta",
+        ["Show Seek Path"] = "Mostrar Ruta de Seek",
+        ["Show Speedrun Timer"] = "Mostrar Temporizador de Speedrun",
+        ["Show Splits"] = "Mostrar Splits",
+        ["Show Tips"] = "Mostrar Consejos",
+        ["Show Unlisted Entities"] = "Mostrar Entidades sin Lista",
+        ["Show Unlisted Items"] = "Mostrar Items sin Lista",
+        ["Skip Seek (Hotel)"] = "Saltar Seek (Hotel)",
+        ["Skip Seek (Mines)"] = "Saltar Seek (Mines)",
+        ["Slide"] = "Deslizar",
+        ["Slide Speed"] = "Velocidad de Deslizamiento",
+        ["Sounds"] = "Sonidos",
+        ["Spectate Entity"] = "Espectar Entidad",
+        ["Spectate Mode"] = "Modo Espectador",
+        ["Speed"] = "Velocidad",
+        ["Speed Boost"] = "Impulso de Velocidad",
+        ["Speed Hack"] = "Speed Hack",
+        ["Speed Hack Value"] = "Valor del Speed Hack",
+        ["Speed Method"] = "Método de Velocidad",
+        ["Speedrun Timer"] = "Temporizador de Speedrun",
+        ["Spoof Footsteps"] = "Spoof de Pasos",
+        ["Stairwell"] = "Stairwell",
+        ["Stairwell Extra ESP"] = "ESP Extra del Stairwell",
+        ["Start / Pause / Resume"] = "Iniciar / Pausar / Reanudar",
+        ["Start Knob Farm"] = "Iniciar Farmeo de Perillas",
+        ["Stop (finish run)"] = "Parar (terminar partida)",
+        ["Stop Meld Growth"] = "Detener Crecimiento de Meld",
+        ["Stop On Death"] = "Parar al Morir",
+        ["Stop Time / Anti Stampede"] = "Detener Tiempo / Anti Stampede",
+        ["Successfully disabled the anticheat."] = "Anticheat desactivado correctamente.",
+        ["TP All Drops to Nearest Grinder"] = "TP de Todos los Drops al Grinder Más Cercano",
+        ["TP Carts To Me"] = "TP de Carritos a Mí",
+        ["TP to Depot (Scrapper)"] = "TP al Depot (Scrapper)",
+        ["TP to Emergency Exit"] = "TP a la Salida de Emergencia",
+        ["TP to Fire Alarm"] = "TP a la Alarma de Incendios",
+        ["TP to Shopping Cart"] = "TP al Carrito de Compras",
+        ["TP to Trash and Drop It"] = "TP a la Basura y Soltarlo",
+        ["Teleports"] = "Teletransportes",
+        ["Teller"] = "Teller",
+        ["Teller Number ESP"] = "ESP de Número de Teller",
+        ["Test Notification"] = "Probar Notificación",
+        ["Text Font"] = "Fuente del Texto",
+        ["Text Size"] = "Tamaño del Texto",
+        ["The anticheat has been re-enabled."] = "El anticheat se reactivó.",
+        ["Third Person"] = "Tercera Persona",
+        ["Third Person X Offset"] = "Desplazamiento X de Tercera Persona",
+        ["Third Person Y Offset"] = "Desplazamiento Y de Tercera Persona",
+        ["Third Person Z Offset"] = "Desplazamiento Z de Tercera Persona",
+        ["Time Shower"] = "Time Shower",
+        ["Timer Background (%)"] = "Fondo del Temporizador (%)",
+        ["Timer Position"] = "Posición del Temporizador",
+        ["Timer Size (%)"] = "Tamaño del Temporizador (%)",
+        ["Timer: Reset"] = "Temporizador: Reiniciar",
+        ["Timer: Start / Pause"] = "Temporizador: Iniciar / Pausar",
+        ["Timer: Stop"] = "Temporizador: Parar",
+        ["Tp Next Door"] = "TP a la Siguiente Puerta",
+        ["Tracer Origin"] = "Origen de Trazadores",
+        ["Tracer Thickness"] = "Grosor de Trazadores",
+        ["Tracers"] = "Trazadores",
+        ["Transparent Hiding Spots"] = "Escondites Transparentes",
+        ["Unlock Distance"] = "Distancia de Desbloqueo",
+        ["User Profile"] = "Perfil de Usuario",
+        ["Verbose Logging"] = "Registro Detallado",
+        ["Viewmodel"] = "Viewmodel",
+        ["Viewmodel Offset"] = "Desplazamiento del Viewmodel",
+        ["Visuals"] = "Visuales",
+        ["Void"] = "Void",
+        ["Void Guard"] = "Guardia de Void",
+        ["Volume (%)"] = "Volumen (%)",
+        ["What it does"] = "Qué hace",
+        ["Where to find things"] = "Dónde encontrar cosas",
+        ["X Offset"] = "Desplazamiento X",
+        ["Y Offset"] = "Desplazamiento Y",
+        ["You must be in Room 0 to use this."] = "Debes estar en la Sala 0 para usar esto.",
+        ["You must have gold to do this."] = "Debes tener oro para hacer esto.",
+        ["Z Offset"] = "Desplazamiento Z",
+        ["Auto Steer Minecart"] = "Auto Dirigir Vagoneta",
+        ["Manage Configs"] = "Administrar Configs",
+        ["Rename To"] = "Renombrar a",
+        ["Rename Selected Config"] = "Renombrar Config Seleccionada",
+        ["Duplicate Selected Config"] = "Duplicar Config Seleccionada",
+        ["Delete Selected Config"] = "Eliminar Config Seleccionada",
+        ["Set Selected As Auto-Load"] = "Poner Seleccionada como Auto-Carga",
+        ["Clear Auto-Load"] = "Quitar Auto-Carga",
+        ["Load Scope"] = "Qué Cargar",
+        ["Share / Import"] = "Compartir / Importar",
+        ["Share Selected Config"] = "Compartir Config Seleccionada",
+        ["Share Current Settings"] = "Compartir Ajustes Actuales",
+        ["Upload Selected (Online Short Code)"] = "Subir Seleccionada (Código Corto Online)",
+        ["Upload Current (Online Short Code)"] = "Subir Actuales (Código Corto Online)",
+        ["Generated Code"] = "Código Generado",
+        ["Import & Apply"] = "Importar y Aplicar",
+        ["Import & Save As New"] = "Importar y Guardar como Nueva",
+        ["Save Imported As"] = "Guardar Importada Como",
+        ["Import From Clipboard (Apply)"] = "Importar del Portapapeles (Aplicar)",
+        ["Language"] = "Idioma",
+        ["Auto Execute"] = "Auto Ejecución",
+        ["Auto Execute On Teleport"] = "Auto Ejecutar al Teletransportar",
+        ["Loader (URL or file)"] = "Loader (URL o archivo)",
+    },
+    ru = {
+        ["ACM Button"] = "Кнопка ACM",
+        ["About R4NS0M CD-1"] = "О R4NS0M CD-1",
+        ["Alerts"] = "Оповещения",
+        ["Alma"] = "Альма",
+        ["Anomaly ESP"] = "ESP аномалий",
+        ["Anomaly Notification"] = "Уведомление об аномалиях",
+        ["Anti"] = "Анти",
+        ["Anti Closet Trash"] = "Анти мусор из шкафа",
+        ["Anti Lag"] = "Анти-лаг",
+        ["Anti Lag Level"] = "Уровень анти-лага",
+        ["Anti Noise"] = "Анти Noise",
+        ["Anti Ransom"] = "Анти Ransom",
+        ["Anticheat"] = "Античит",
+        ["Anticheat Bypass"] = "Обход античита",
+        ["Anticheat Manipulator"] = "Манипулятор античита",
+        ["Antis"] = "Анти",
+        ["Archives"] = "Archives",
+        ["Audio"] = "Звук",
+        ["Auto Alma Minigame"] = "Авто мини-игра Альмы",
+        ["Auto Breaker Box"] = "Авто щиток",
+        ["Auto Breaker Room"] = "Авто комната щитков",
+        ["Auto Bring Dropped Items"] = "Авто принос выброшенных предметов",
+        ["Auto Closet"] = "Авто шкаф",
+        ["Auto Closet Ignore List"] = "Список игнорирования авто шкафа",
+        ["Auto Complete Cringle"] = "Авто выполнение Cringle",
+        ["Auto Complete Dam Seek"] = "Авто выполнение Dam Seek",
+        ["Auto Complete Honcho (experimental)"] = "Авто выполнение Honcho (эксперимент.)",
+        ["Auto Deposit"] = "Авто депозит",
+        ["Auto Heartbeat Minigame"] = "Авто мини-игра сердцебиения",
+        ["Auto Hotel"] = "Авто отель",
+        ["Auto Interact"] = "Авто взаимодействие",
+        ["Auto Interact Ignore List"] = "Список игнорирования авто взаимодействия",
+        ["Auto Interact Ignored Items"] = "Игнорируемые предметы авто взаимодействия",
+        ["Auto Interact: why is it skipping?"] = "Авто взаимодействие: почему пропускает?",
+        ["Auto Library"] = "Авто библиотека",
+        ["Auto Performance"] = "Авто производительность",
+        ["Auto Position Spoof"] = "Авто подмена позиции",
+        ["Auto Rooms"] = "Авто Rooms",
+        ["Auto Scrap Drops"] = "Авто лом из дропа",
+        ["Auto Solve Anchors"] = "Авто решение якорей",
+        ["Auto Split Rooms"] = "Авто разделение комнат",
+        ["Auto Start On Move"] = "Авто старт при движении",
+        ["Auto Stop At End Of Game"] = "Авто стоп в конце игры",
+        ["Auto Stop At Room"] = "Авто стоп в комнате",
+        ["Auto Tp Next Door"] = "Авто ТП к следующей двери",
+        ["Auto Unlock Padlock"] = "Авто открытие замка",
+        ["Auto-enable ESP for this Mode"] = "Авто включение ESP для этого режима",
+        ["Automation"] = "Автоматизация",
+        ["Bring Dropped Items"] = "Принести выброшенные предметы",
+        ["Bug Out Creak (needs 5+ carts)"] = "Баг Creak (нужно 5+ тележек)",
+        ["Bypass"] = "Обход",
+        ["Bypass Alma"] = "Обход Альмы",
+        ["Bypass Combos"] = "Комбо обходов",
+        ["Bypass Drones"] = "Обход дронов",
+        ["Bypass Electric Water"] = "Обход электрической воды",
+        ["Bypass Figure"] = "Обход Figure",
+        ["Bypass Scribbles"] = "Обход Scribbles",
+        ["Bypass Seek"] = "Обход Seek",
+        ["Bypasses"] = "Обходы",
+        ["Camera"] = "Камера",
+        ["Chase Paths"] = "Пути погони",
+        ["Clear All"] = "Очистить всё",
+        ["Clear All Entities"] = "Очистить все сущности",
+        ["Clear All Items"] = "Очистить все предметы",
+        ["Clear Debug Log"] = "Очистить журнал отладки",
+        ["Closet & Anchors"] = "Шкаф и якоря",
+        ["Coming soon"] = "Скоро",
+        ["Config Selector"] = "Выбор конфигурации",
+        ["Configs"] = "Конфиги",
+        ["Cooldown per Entity (seconds)"] = "Перезарядка на сущность (сек)",
+        ["Copy Character Info"] = "Копировать инфо персонажа",
+        ["Copy Debug Log"] = "Копировать журнал отладки",
+        ["Copy Game Info"] = "Копировать инфо игры",
+        ["Copy Nearby Objects (30 studs)"] = "Копировать ближние объекты (30 studs)",
+        ["Correct Box ESP"] = "ESP правильных коробок",
+        ["Creak"] = "Creak",
+        ["Creak Aggression Text"] = "Текст агрессии Creak",
+        ["Creak Text Range"] = "Дальность текста Creak",
+        ["Create New Config"] = "Создать новый конфиг",
+        ["Crouch Spoof"] = "Подмена приседания",
+        ["Crushers & Meld"] = "Crushers и Meld",
+        ["Custom FOV"] = "Свой FOV",
+        ["Custom Icon ID (optional)"] = "Свой ID иконки (необязательно)",
+        ["Custom Sound ID (optional)"] = "Свой ID звука (необязательно)",
+        ["Death"] = "Смерть",
+        ["Debug"] = "Отладка",
+        ["Debug Mode"] = "Режим отладки",
+        ["Debug Overlay"] = "Оверлей отладки",
+        ["Debug Tools"] = "Инструменты отладки",
+        ["Delete Crushers"] = "Удалить Crushers",
+        ["Delete Figure"] = "Удалить Figure",
+        ["Delete Seek Trigger"] = "Удалить триггер Seek",
+        ["Detected at load: "] = "Определено при загрузке: ",
+        ["Disable Crushers"] = "Отключить Crushers",
+        ["Disable Glitch Jumpscare"] = "Отключить скример Glitch",
+        ["Disable Hide Vignette"] = "Отключить виньетку укрытия",
+        ["Disable Idle Kick"] = "Отключить кик за AFK",
+        ["Disable Timothy Jumpscare"] = "Отключить скример Timothy",
+        ["Disable Void Jumpscare"] = "Отключить скример Void",
+        ["Display"] = "Отображение",
+        ["Distance Unit"] = "Единица расстояния",
+        ["Door Reach"] = "Дальность дверей",
+        ["Doors"] = "Двери",
+        ["Dropped Items Counter"] = "Счётчик выброшенных предметов",
+        ["Duration (seconds)"] = "Длительность (сек)",
+        ["ESP Performance"] = "Производительность ESP",
+        ["ESP Performance Mode"] = "Режим производительности ESP",
+        ["ESP Refresh Rate"] = "Частота обновления ESP",
+        ["ESP Summary"] = "Сводка ESP",
+        ["ESP fixes"] = "Исправления ESP",
+        ["Effects"] = "Эффекты",
+        ["Enable All ESP for Current Mode"] = "Включить весь ESP текущего режима",
+        ["Enable Jump"] = "Включить прыжок",
+        ["Enable Slide"] = "Включить скольжение",
+        ["Entities"] = "Сущности",
+        ["Entities to show"] = "Сущности для показа",
+        ["Entities with distance limit"] = "Сущности с ограничением дистанции",
+        ["Entity Despawn"] = "Исчезновение сущностей",
+        ["Entity Distance Limit"] = "Лимит дистанции сущностей",
+        ["Entity Filter"] = "Фильтр сущностей",
+        ["Entity Notifier"] = "Уведомления о сущностях",
+        ["Environment"] = "Окружение",
+        ["Error"] = "Ошибка",
+        ["Exit Closet"] = "Выйти из шкафа",
+        ["Exploits / Anti"] = "Эксплойты / Анти",
+        ["FLY Button"] = "Кнопка FLY",
+        ["Farming"] = "Фарм",
+        ["Field of View"] = "Поле зрения",
+        ["Figure Godmode"] = "Годмод против Figure",
+        ["Fill Opacity (%)"] = "Непрозрачность заливки (%)",
+        ["Floating Buttons"] = "Плавающие кнопки",
+        ["Floor bypass"] = "Обход этажа",
+        ["Floors"] = "Этажи",
+        ["Fly"] = "Полёт",
+        ["Fly & Noclip"] = "Полёт и Noclip",
+        ["Fly Speed"] = "Скорость полёта",
+        ["Force Gamemode"] = "Принудительный режим игры",
+        ["Forget-Me-Not"] = "Forget-Me-Not",
+        ["Forget-Me-Not Skipper"] = "Пропуск Forget-Me-Not",
+        ["Fullbright"] = "Полная яркость",
+        ["Fullbright Ambient (%)"] = "Окружающий свет Fullbright (%)",
+        ["Fullbright Brightness"] = "Яркость Fullbright",
+        ["Game Mode"] = "Режим игры",
+        ["Generate 12-Char Share Code"] = "Создать 12-символьный код",
+        ["Get Current Floor"] = "Получить текущий этаж",
+        ["Get Current Room"] = "Получить текущую комнату",
+        ["Good to know"] = "Полезно знать",
+        ["Grab All Items (real pickup)"] = "Взять все предметы (реально)",
+        ["Guess Library Code"] = "Подбор кода библиотеки",
+        ["Hide Looted Containers"] = "Скрывать обысканные контейнеры",
+        ["Hiding Spot Transparency (%)"] = "Прозрачность укрытий (%)",
+        ["Honcho"] = "Honcho",
+        ["Hotel"] = "Отель",
+        ["How Meld removal works"] = "Как работает удаление Meld",
+        ["Hub"] = "Хаб",
+        ["Ignore A-60"] = "Игнорировать A-60",
+        ["Ignore Entities"] = "Игнорировать сущности",
+        ["Ignore List"] = "Список игнорирования",
+        ["Ignore all items"] = "Игнорировать все предметы",
+        ["Ignore everything"] = "Игнорировать всё",
+        ["Ignore no items"] = "Не игнорировать предметы",
+        ["Ignore nothing"] = "Ничего не игнорировать",
+        ["Ignored Items"] = "Игнорируемые предметы",
+        ["Import Code"] = "Импорт кода",
+        ["Import Config from Code"] = "Импорт конфига из кода",
+        ["Infinite Items"] = "Бесконечные предметы",
+        ["Infinite Items List"] = "Список бесконечных предметов",
+        ["Infinite Jump"] = "Бесконечный прыжок",
+        ["Infinite Revives"] = "Бесконечные возрождения",
+        ["Info"] = "Инфо",
+        ["Instant Proximity Prompt"] = "Мгновенные подсказки",
+        ["Interaction"] = "Взаимодействие",
+        ["Interval (seconds)"] = "Интервал (сек)",
+        ["Item Filter"] = "Фильтр предметов",
+        ["Items"] = "Предметы",
+        ["Items to notify"] = "Предметы для уведомления",
+        ["Items to show"] = "Предметы для показа",
+        ["Jump"] = "Прыжок",
+        ["Jump Power"] = "Сила прыжка",
+        ["Keybinds"] = "Клавиши",
+        ["Knob Farm"] = "Фарм ручек",
+        ["Ladder Softlock Fix"] = "Исправление зависания на лестнице",
+        ["Library"] = "Библиотека",
+        ["Lighting"] = "Освещение",
+        ["Live Session"] = "Текущая сессия",
+        ["Load Selected Config"] = "Загрузить выбранный конфиг",
+        ["Main"] = "Главная",
+        ["Manipulation Method"] = "Метод манипуляции",
+        ["Max Distance"] = "Макс. дистанция",
+        ["Max ESP Objects"] = "Макс. объектов ESP",
+        ["Meld"] = "Meld",
+        ["Mines & Rooms"] = "Mines и Rooms",
+        ["Misc"] = "Разное",
+        ["Mobile Buttons"] = "Мобильные кнопки",
+        ["Mode Presets"] = "Пресеты режимов",
+        ["Movement"] = "Движение",
+        ["Movement & Anticheat Manipulator"] = "Движение и манипулятор античита",
+        ["Movement Diagnostics"] = "Диагностика движения",
+        ["New Config Name"] = "Имя нового конфига",
+        ["No Scribbles Damage"] = "Без урона от Scribbles",
+        ["Noclip"] = "Noclip",
+        ["Noise TV & Carts"] = "ТВ Noise и тележки",
+        ["Noise TV Breaker"] = "Ломатель ТВ Noise",
+        ["Notification Settings"] = "Настройки уведомлений",
+        ["Notification Style"] = "Стиль уведомлений",
+        ["Notify Despawn"] = "Уведомлять об исчезновении",
+        ["Notify Haste Time"] = "Уведомлять о времени Haste",
+        ["Notify Items"] = "Уведомлять о предметах",
+        ["Notify Library Code"] = "Уведомлять о коде библиотеки",
+        ["Notify Oxygen Level"] = "Уведомлять об уровне кислорода",
+        ["Notify Ransom"] = "Уведомлять о Ransom",
+        ["Notify Teller On My Ticket"] = "Уведомлять о Teller на моём билете",
+        ["Notify Unlisted Items"] = "Уведомлять о предметах вне списка",
+        ["Notify all items"] = "Уведомлять обо всех предметах",
+        ["Notify me about"] = "Уведомлять меня о",
+        ["Notify nothing"] = "Ничего не уведомлять",
+        ["Notify only essentials"] = "Только важные",
+        ["Open / Close Hub"] = "Открыть / закрыть хаб",
+        ["Open all Cubby Doors"] = "Открыть все дверцы Cubby",
+        ["Orbit Distance"] = "Дистанция орбиты",
+        ["Orbit Dropped Items"] = "Орбита выброшенных предметов",
+        ["Orbit Height"] = "Высота орбиты",
+        ["Orbit Speed"] = "Скорость орбиты",
+        ["Overwrite Selected Config"] = "Перезаписать выбранный конфиг",
+        ["Path Style"] = "Стиль пути",
+        ["Pathfind Timeout"] = "Тайм-аут поиска пути",
+        ["Per-category tracers"] = "Трейсеры по категориям",
+        ["Performance"] = "Производительность",
+        ["Play Again"] = "Играть снова",
+        ["Play Sound"] = "Проиграть звук",
+        ["Player"] = "Игрок",
+        ["Player Information"] = "Информация об игроке",
+        ["Player Name Type"] = "Тип имени игрока",
+        ["Please collect some gold to earn knobs."] = "Соберите немного золота, чтобы получить ручки.",
+        ["Position Spoof"] = "Подмена позиции",
+        ["Preset"] = "Пресет",
+        ["Print ESP Summary"] = "Вывести сводку ESP",
+        ["Prompt Clip"] = "Подсказки сквозь стены",
+        ["Prompt Reach Multiplier"] = "Множитель дальности подсказок",
+        ["Prompt Tools"] = "Инструменты подсказок",
+        ["Prompts"] = "Подсказки",
+        ["R4NS0M"] = "R4NS0M",
+        ["R4NS0M CD-1"] = "R4NS0M CD-1",
+        ["Re-detect Game Mode"] = "Определить режим заново",
+        ["Refresh Config List"] = "Обновить список конфигов",
+        ["Remove"] = "Убрать",
+        ["Remove Acceleration"] = "Убрать ускорение",
+        ["Remove Basement Gate"] = "Убрать ворота подвала",
+        ["Remove Camera Bobbing"] = "Убрать качание камеры",
+        ["Remove Camera Shake"] = "Убрать тряску камеры",
+        ["Remove Closet Delay"] = "Убрать задержку шкафа",
+        ["Remove Fog"] = "Убрать туман",
+        ["Remove Footstep Sounds"] = "Убрать звук шагов",
+        ["Remove Interacting Sounds"] = "Убрать звуки взаимодействия",
+        ["Remove Jammin Music"] = "Убрать музыку Jammin",
+        ["Remove Meld (keep ropes & doors)"] = "Убрать Meld (оставить верёвки и двери)",
+        ["Remove Meld Walls & Data"] = "Убрать стены и данные Meld",
+        ["Remove Paintings Door"] = "Убрать дверь с картинами",
+        ["Remove Skeleton Door"] = "Убрать дверь со скелетом",
+        ["Reset"] = "Сброс",
+        ["Reset Character"] = "Сбросить персонажа",
+        ["Restore Prompts"] = "Восстановить подсказки",
+        ["Restore default ignored items"] = "Восстановить игнорируемые по умолчанию",
+        ["Return to Lobby"] = "Вернуться в лобби",
+        ["Revive"] = "Возродиться",
+        ["Room Process Time"] = "Время обработки комнаты",
+        ["Run"] = "Бег",
+        ["Save New Config"] = "Сохранить новый конфиг",
+        ["Scan Rooms for Entities"] = "Сканировать комнаты на сущности",
+        ["Scrap"] = "Лом",
+        ["Scribbles"] = "Scribbles",
+        ["Script Information"] = "Информация о скрипте",
+        ["Select All"] = "Выбрать всё",
+        ["Select All Entities"] = "Выбрать все сущности",
+        ["Select All Items"] = "Выбрать все предметы",
+        ["Select Recommended"] = "Выбрать рекомендуемые",
+        ["Select Saved Config"] = "Выбрать сохранённый конфиг",
+        ["Session"] = "Сессия",
+        ["Share Code"] = "Код для обмена",
+        ["Short Code Sharing (12 Chars)"] = "Обмен коротким кодом (12 символов)",
+        ["Show Buttons"] = "Показать кнопки",
+        ["Show Distance"] = "Показывать дистанцию",
+        ["Show Eyestalk Path"] = "Показать путь Eyestalk",
+        ["Show Names"] = "Показывать имена",
+        ["Show Path"] = "Показать путь",
+        ["Show Seek Path"] = "Показать путь Seek",
+        ["Show Speedrun Timer"] = "Показать таймер спидрана",
+        ["Show Splits"] = "Показать сплиты",
+        ["Show Tips"] = "Показать советы",
+        ["Show Unlisted Entities"] = "Показать сущности вне списка",
+        ["Show Unlisted Items"] = "Показать предметы вне списка",
+        ["Skip Seek (Hotel)"] = "Пропустить Seek (Отель)",
+        ["Skip Seek (Mines)"] = "Пропустить Seek (Шахты)",
+        ["Slide"] = "Скольжение",
+        ["Slide Speed"] = "Скорость скольжения",
+        ["Sounds"] = "Звуки",
+        ["Spectate Entity"] = "Наблюдать за сущностью",
+        ["Spectate Mode"] = "Режим наблюдения",
+        ["Speed"] = "Скорость",
+        ["Speed Boost"] = "Ускорение",
+        ["Speed Hack"] = "Спидхак",
+        ["Speed Hack Value"] = "Значение спидхака",
+        ["Speed Method"] = "Метод скорости",
+        ["Speedrun Timer"] = "Таймер спидрана",
+        ["Spoof Footsteps"] = "Подмена шагов",
+        ["Stairwell"] = "Stairwell",
+        ["Stairwell Extra ESP"] = "Доп. ESP Stairwell",
+        ["Start / Pause / Resume"] = "Старт / Пауза / Продолжить",
+        ["Start Knob Farm"] = "Запустить фарм ручек",
+        ["Stop (finish run)"] = "Стоп (закончить забег)",
+        ["Stop Meld Growth"] = "Остановить рост Meld",
+        ["Stop On Death"] = "Стоп при смерти",
+        ["Stop Time / Anti Stampede"] = "Остановка времени / Анти Stampede",
+        ["Successfully disabled the anticheat."] = "Античит успешно отключён.",
+        ["TP All Drops to Nearest Grinder"] = "ТП всех дропов к ближайшему измельчителю",
+        ["TP Carts To Me"] = "ТП тележек ко мне",
+        ["TP to Depot (Scrapper)"] = "ТП к Depot (Scrapper)",
+        ["TP to Emergency Exit"] = "ТП к аварийному выходу",
+        ["TP to Fire Alarm"] = "ТП к пожарной тревоге",
+        ["TP to Shopping Cart"] = "ТП к тележке",
+        ["TP to Trash and Drop It"] = "ТП к мусору и выбросить",
+        ["Teleports"] = "Телепорты",
+        ["Teller"] = "Teller",
+        ["Teller Number ESP"] = "ESP номера Teller",
+        ["Test Notification"] = "Проверить уведомление",
+        ["Text Font"] = "Шрифт текста",
+        ["Text Size"] = "Размер текста",
+        ["The anticheat has been re-enabled."] = "Античит снова включён.",
+        ["Third Person"] = "Третье лицо",
+        ["Third Person X Offset"] = "Смещение X третьего лица",
+        ["Third Person Y Offset"] = "Смещение Y третьего лица",
+        ["Third Person Z Offset"] = "Смещение Z третьего лица",
+        ["Time Shower"] = "Time Shower",
+        ["Timer Background (%)"] = "Фон таймера (%)",
+        ["Timer Position"] = "Позиция таймера",
+        ["Timer Size (%)"] = "Размер таймера (%)",
+        ["Timer: Reset"] = "Таймер: сброс",
+        ["Timer: Start / Pause"] = "Таймер: старт / пауза",
+        ["Timer: Stop"] = "Таймер: стоп",
+        ["Tp Next Door"] = "ТП к следующей двери",
+        ["Tracer Origin"] = "Начало трейсеров",
+        ["Tracer Thickness"] = "Толщина трейсеров",
+        ["Tracers"] = "Трейсеры",
+        ["Transparent Hiding Spots"] = "Прозрачные укрытия",
+        ["Unlock Distance"] = "Дистанция открытия",
+        ["User Profile"] = "Профиль пользователя",
+        ["Verbose Logging"] = "Подробный журнал",
+        ["Viewmodel"] = "Вьюмодель",
+        ["Viewmodel Offset"] = "Смещение вьюмодели",
+        ["Visuals"] = "Визуалы",
+        ["Void"] = "Void",
+        ["Void Guard"] = "Защита от Void",
+        ["Volume (%)"] = "Громкость (%)",
+        ["What it does"] = "Что это делает",
+        ["Where to find things"] = "Где что найти",
+        ["X Offset"] = "Смещение X",
+        ["Y Offset"] = "Смещение Y",
+        ["You must be in Room 0 to use this."] = "Для этого нужно быть в комнате 0.",
+        ["You must have gold to do this."] = "Для этого нужно золото.",
+        ["Z Offset"] = "Смещение Z",
+        ["Auto Steer Minecart"] = "Авто управление вагонеткой",
+        ["Manage Configs"] = "Управление конфигами",
+        ["Rename To"] = "Переименовать в",
+        ["Rename Selected Config"] = "Переименовать выбранный конфиг",
+        ["Duplicate Selected Config"] = "Дублировать выбранный конфиг",
+        ["Delete Selected Config"] = "Удалить выбранный конфиг",
+        ["Set Selected As Auto-Load"] = "Автозагрузка выбранного",
+        ["Clear Auto-Load"] = "Отключить автозагрузку",
+        ["Load Scope"] = "Что загружать",
+        ["Share / Import"] = "Поделиться / Импорт",
+        ["Share Selected Config"] = "Поделиться выбранным конфигом",
+        ["Share Current Settings"] = "Поделиться текущими настройками",
+        ["Upload Selected (Online Short Code)"] = "Загрузить выбранный (короткий онлайн-код)",
+        ["Upload Current (Online Short Code)"] = "Загрузить текущие (короткий онлайн-код)",
+        ["Generated Code"] = "Созданный код",
+        ["Import & Apply"] = "Импорт и применение",
+        ["Import & Save As New"] = "Импорт и сохранение как новый",
+        ["Save Imported As"] = "Сохранить импорт как",
+        ["Import From Clipboard (Apply)"] = "Импорт из буфера (применить)",
+        ["Language"] = "Язык",
+        ["Auto Execute"] = "Автозапуск",
+        ["Auto Execute On Teleport"] = "Автозапуск при телепорте",
+        ["Loader (URL or file)"] = "Загрузчик (URL или файл)",
+    },
+}
+do
+    local dict = R4N_LANG ~= "en" and R4N_I18N[R4N_LANG]
+    if dict then
+        local function tr(cfg)
+            if type(cfg) == "table" and type(cfg.Title) == "string" then
+                local t = dict[cfg.Title]
+                if t then cfg.Title = t end
+            end
+        end
+        local METHODS = { "Section", "Button", "Toggle", "Slider", "Dropdown", "Input", "Keybind", "Colorpicker", "ColorPicker", "Paragraph" }
+        local origTab = Window.Tab
+        Window.Tab = function(self, cfg, ...)
+            tr(cfg)
+            local tab = origTab(self, cfg, ...)
+            if type(tab) == "table" then
+                for _, m in ipairs(METHODS) do
+                    local f = tab[m]
+                    if type(f) == "function" then
+                        tab[m] = function(s, c, ...) tr(c) return f(s, c, ...) end
+                    end
+                end
+            end
+            return tab
+        end
+    end
 end
 
 -- Tabs (orden fijo)
@@ -2203,11 +3062,13 @@ Setters.EntityFilter = function() end
 Setters.FillPercent = function() end
 
 local function AddToggle(tab, id, title, desc, default, cb)
+    R4N_KeyTab[id] = tab
     local el = tab:Toggle({ Title = title, Desc = desc, Value = default, Callback = cb })
     Setters[id] = function(v) pcall(function() el:Set(v) end) end
 end
 
 local function AddSlider(tab, id, title, desc, min, max, default, cb)
+    R4N_KeyTab[id] = tab
     local el = tab:Slider({
         Title = title, Desc = desc, Step = 1,
         Value = { Min = min, Max = max, Default = default },
@@ -2217,11 +3078,13 @@ local function AddSlider(tab, id, title, desc, min, max, default, cb)
 end
 
 local function AddDropdown(tab, id, title, desc, values, default, cb)
+    R4N_KeyTab[id] = tab
     local el = tab:Dropdown({ Title = title, Desc = desc, Values = values, Value = default, Callback = cb })
     Setters[id] = function(v) pcall(function() el:Select(v) end) end
 end
 
 local function AddColor(tab, id, title, desc, default, cb)
+    R4N_KeyTab[id] = tab
     local el
     local ok = pcall(function()
         el = tab:Colorpicker({ Title = title, Desc = desc, Default = default, Callback = cb })
@@ -3561,6 +4424,7 @@ print("[R4NS0M] Loading Extra UI Helpers")
 local KEY_CHOICES = { "RightShift", "RightControl", "Insert", "Home", "X", "N", "G", "B", "Z", "V", "H", "J", "K", "L", "R", "T", "Y", "U", "M", "C", "F", "Q" }
 
 local function AddKeybind(tab, id, title, desc, default)
+    R4N_KeyTab[id] = tab
     local function set(v)
         local name = typeof(v) == "EnumItem" and v.Name or tostring(v)
         local ok = pcall(function() return Enum.KeyCode[name] end)
@@ -3580,6 +4444,7 @@ local function AddKeybind(tab, id, title, desc, default)
 end
 
 local function AddInput(tab, id, title, desc, placeholder, value)
+    R4N_KeyTab[id] = tab
     local el = tab:Input({
         Title = title, Desc = desc, Placeholder = placeholder, Value = value,
         Callback = function(t) Ex[id] = tostring(t or "") end
@@ -5245,44 +6110,65 @@ local function AIDist(pp, rp)
 	return math.huge
 end
 
-task.spawn(function()
+-- Auto Interact: cada prompt se procesa dentro de su propio pcall (antes UN prompt con error cortaba todo el
+-- ciclo y el Auto Interact "se paraba"), se reescanea mas seguido y un vigilante reinicia el ciclo si se cuelga.
+AI.Beat = os.clock()
+AI.LastRoom = nil
+AI.Rescan = function()
+	local k = 0
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		if d:IsA("ProximityPrompt") then AI.Set[d] = true end
+		k = k + 1
+		if k % 600 == 0 then task.wait() end
+	end
+end
+AI.Loop = function()
 	local lastScan = 0
 	while true do
 		task.wait(0.1)
+		AI.Beat = os.clock()
 		if Ex.AutoInteract and fireproximityprompt then
-			pcall(function()
-				local _, _, root = GetParts()
-				if not root then return end
+			local okp, _, _, root = pcall(GetParts)
+			if okp and root then
 				local cur = tonumber(LocalPlayer:GetAttribute("CurrentRoom"))
 				local rp = root.Position
 				local now = os.clock()
-				for pp in pairs(AI.Set) do
-					if not pp.Parent then
-						AI.Set[pp] = nil
-					elseif pp.Enabled and (not AI.Fired[pp] or now - AI.Fired[pp] > 0.25) then
-						-- primero la distancia (barata) y despues los filtros
-						if AIDist(pp, rp) <= pp.MaxActivationDistance + 0.5 and not AISkip(pp) then
-							local pr = tonumber(pp:GetAttribute("ParentRoom"))
-							if not (pr and cur and math.abs(pr - cur) > 1) then
-								AI.Fired[pp] = now
-								pcall(fireproximityprompt, pp)
+				local batch = {}
+				for pp in pairs(AI.Set) do batch[#batch + 1] = pp end
+				for _, pp in ipairs(batch) do
+					pcall(function()
+						if not pp.Parent then
+							AI.Set[pp] = nil
+						elseif pp.Enabled and (not AI.Fired[pp] or now - AI.Fired[pp] > 0.25) then
+							-- primero la distancia (barata) y despues los filtros
+							if AIDist(pp, rp) <= pp.MaxActivationDistance + 0.5 and not AISkip(pp) then
+								local pr = tonumber(pp:GetAttribute("ParentRoom"))
+								if not (pr and cur and math.abs(pr - cur) > 1) then
+									AI.Fired[pp] = now
+									fireproximityprompt(pp)
+								end
 							end
-						end
-					end
-				end
-				-- red de seguridad: si algun prompt se escapo del registro, se vuelve a escanear
-				if now - lastScan > 20 then
-					lastScan = now
-					task.spawn(function()
-						local k = 0
-						for _, d in ipairs(Workspace:GetDescendants()) do
-							if d:IsA("ProximityPrompt") then AI.Set[d] = true end
-							k = k + 1
-							if k % 600 == 0 then task.wait() end
 						end
 					end)
 				end
-			end)
+				-- red de seguridad: reescaneo periodico y cada vez que cambias de sala
+				if now - lastScan > 6 or cur ~= AI.LastRoom then
+					lastScan = now
+					AI.LastRoom = cur
+					task.spawn(function() pcall(AI.Rescan) end)
+				end
+			end
+		end
+	end
+end
+AI.Thread = task.spawn(AI.Loop)
+task.spawn(function()
+	while true do
+		task.wait(2)
+		if os.clock() - AI.Beat > 4 then
+			pcall(task.cancel, AI.Thread)
+			AI.Beat = os.clock()
+			AI.Thread = task.spawn(AI.Loop)
 		end
 	end
 end)
@@ -5764,6 +6650,7 @@ Ex.AIIgnore = {
 	["Terminals"] = true, ["Stems"] = true, ["Ladders"] = true, ["Locks (Key/Shears/Lockpick)"] = true,
 	["Chairs"] = true, ["Shopping Cart"] = true, ["Archives Box"] = true, ["Dropped Items"] = true,
 	["Cobbler Items"] = true, ["Stairwell Items/Salvage"] = true, ["Glitch Fragments"] = true,
+	["Forget Me Not"] = true, ["Sally's Toy"] = true,
 }
 
 -- ------------------------------------------------------------------------------------------
@@ -5794,6 +6681,8 @@ local function Category(pp)
 	local compact = flat:gsub("[^%a]", "")
 	local raw = table.concat(parts, " ")
 	local w = Words(raw)
+	if compact:find("forgetmenot", 1, true) then return "Forget Me Not" end
+	if compact:find("sally", 1, true) then return "Sally's Toy" end
 	if w.jeff or w.shop or compact:find("jeffshop", 1, true) then return "Jeff Items" end
 	if compact:find("meld", 1, true) and (compact:find("chord", 1, true) or w.chord or w.chords) then return "Meld Chords" end
 	if compact:find("tithing", 1, true) or compact:find("sharegold", 1, true) or compact:find("goldplate", 1, true) then return "Share Gold Plate" end
@@ -10356,22 +11245,39 @@ local EXTRA_KEYS = {
     "CreakText", "CreakRange", "HonchoESP", "HonchoAutoDeposit", "TimeShower", "StopTimeStampede", "AntiRansom", "AntiClosetTrash", "DropCounter", "DropIntervalSecs", "OrbitHeight", "OrbitDistance", "OrbitSpeed", "CrusherOff", "MeldWallRemove", "NoiseTVBreaker", "FMNAnomalyESP", "FMNAnomalyNotify", "AutoAlmaMinigame", "TellerNumber", "TellerNotify",
 }
 
+-- Lista de claves a guardar: la lista fija mas TODOS los controles de la interfaz (asi lo nuevo tambien se guarda)
+function R4N_ExKeys()
+    local never = { ACM = true, Fly = true, Noclip = true, KnobFarm = true }
+    local seen, list = {}, {}
+    for _, k in ipairs(EXTRA_KEYS) do
+        if not seen[k] then seen[k] = true list[#list + 1] = k end
+    end
+    for k in pairs(Setters) do
+        local t = type(Ex[k])
+        if type(k) == "string" and not seen[k] and not never[k] and (t == "boolean" or t == "number" or t == "string") then
+            seen[k] = true
+            list[#list + 1] = k
+        end
+    end
+    return list
+end
+
 ExtraSerialize = function()
     local out = { NotifyFilter = Ex.NotifyFilter }
-    for _, k in ipairs(EXTRA_KEYS) do out[k] = Ex[k] end
+    for _, k in ipairs(R4N_ExKeys()) do out[k] = Ex[k] end
     return out
 end
 
 ExtraApply = function(data)
     if type(data) ~= "table" then return end
-    for _, k in ipairs(EXTRA_KEYS) do
+    for _, k in ipairs(R4N_ExKeys()) do
         local v = data[k]
-        if v ~= nil and type(v) == type(Ex[k]) then
+        if v ~= nil and type(v) == type(Ex[k]) and (not R4N_SCOPE or (R4N_GroupOf and R4N_SCOPE[R4N_GroupOf(k)])) then
             Ex[k] = v
             if Setters[k] then Setters[k](v) end
         end
     end
-    if type(data.NotifyFilter) == "table" then
+    if type(data.NotifyFilter) == "table" and (not R4N_SCOPE or R4N_SCOPE.Alerts) then
         for name, on in pairs(data.NotifyFilter) do
             if type(on) == "boolean" then Ex.NotifyFilter[name] = on end
         end
@@ -10402,6 +11308,7 @@ end
 local function VisualsApply(data)
     if type(data) ~= "table" then return end
     if ExtraApply then pcall(ExtraApply, data.Extra) end
+    if R4N_SCOPE and not R4N_SCOPE.Visuals then return end
 
     for _, k in ipairs(SCALAR_KEYS) do
         if data[k] ~= nil and (k ~= "Font" or FONT_MAP[data[k]]) then
@@ -10459,64 +11366,255 @@ print("[R4NS0M] Loading Config System")
 ----------------------------------------------------
 -- CONFIG SYSTEM
 ----------------------------------------------------
-ConfigsTab:Section({ Title = "Config Selector" })
+do
+local L = R4N_LANG
+local function Msg(en, es, ru)
+    if L == "es" then return es elseif L == "ru" then return ru end
+    return en
+end
+
+local function Notify(title, content, dur)
+    pcall(function() WindUI:Notify({ Title = title, Content = content, Duration = dur or 3 }) end)
+end
 
 local configFolder = "R4NS0M_Configs"
-local codesFolder = "R4NS0M_Configs/Codes"
-
+local autoloadFile = configFolder .. "/_autoload.txt"
 if makefolder then
     if isfolder then
         if not isfolder(configFolder) then pcall(makefolder, configFolder) end
-        if not isfolder(codesFolder) then pcall(makefolder, codesFolder) end
     else
         pcall(makefolder, configFolder)
-        pcall(makefolder, codesFolder)
     end
 end
 
 local selectedConfig = ""
 local newConfigName = ""
-local configCodeInput = ""
+local renameTo = ""
+local importCode = ""
+local importName = ""
+local scopeName = "Everything"
+local pendingDelete = nil
 
-local currentConfigData = {
-    Version = "CD-1",
-    Settings = {
-        WalkSpeed = 16,
-        ESP = true,
-        AutoInteract = false
-    }
+-- ------------------------------------------------------------------------------------------
+-- Que parte de la config se carga (por pestana)
+-- ------------------------------------------------------------------------------------------
+local GROUPS = {
+    [MainTab] = "Main", [InfoTab] = "Info", [VisualsTab] = "Visuals", [PlayerTab] = "Player",
+    [AutomationTab] = "Automation", [AntiCheatTab] = "Anticheat", [AntisTab] = "Antis",
+    [AlertsTab] = "Alerts", [MiscTab] = "Misc", [KeybindsTab] = "Keybinds",
+}
+if ArchivesTab then GROUPS[ArchivesTab] = "Archives" end
+if StairwellTab then GROUPS[StairwellTab] = "Stairwell" end
+R4N_GroupOf = function(k)
+    local t = R4N_KeyTab[k]
+    return t and GROUPS[t] or "Other"
+end
+local SCOPE_NAMES = { "Everything", "Visuals / ESP", "Player", "Automation", "Anticheat & Antis", "Alerts", "Misc", "Archives & Stairwell", "Keybinds" }
+local SCOPES = {
+    ["Visuals / ESP"] = { Visuals = true },
+    ["Player"] = { Player = true },
+    ["Automation"] = { Automation = true },
+    ["Anticheat & Antis"] = { Anticheat = true, Antis = true },
+    ["Alerts"] = { Alerts = true },
+    ["Misc"] = { Misc = true },
+    ["Archives & Stairwell"] = { Archives = true, Stairwell = true },
+    ["Keybinds"] = { Keybinds = true },
 }
 
-local function Snapshot()
-    currentConfigData.Visuals = VisualsSerialize()
-    return HttpService:JSONEncode(currentConfigData)
+-- ------------------------------------------------------------------------------------------
+-- Codigo portable: JSON -> LZW -> base64. El codigo CONTIENE la config, asi que funciona en
+-- cualquier ejecutor y para cualquier persona (no depende de archivos locales).
+-- ------------------------------------------------------------------------------------------
+local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+local B64R = {}
+for i = 1, 64 do B64R[B64:sub(i, i)] = i - 1 end
+
+local function b64enc(s)
+    local out = {}
+    for i = 1, #s, 3 do
+        local a, b, c = s:byte(i, i + 2)
+        local v = a * 65536 + (b or 0) * 256 + (c or 0)
+        local c1 = math.floor(v / 262144) % 64
+        local c2 = math.floor(v / 4096) % 64
+        local c3 = math.floor(v / 64) % 64
+        local c4 = v % 64
+        out[#out + 1] = B64:sub(c1 + 1, c1 + 1) .. B64:sub(c2 + 1, c2 + 1)
+            .. (b and B64:sub(c3 + 1, c3 + 1) or "") .. (c and B64:sub(c4 + 1, c4 + 1) or "")
+    end
+    return table.concat(out)
 end
 
--- Limpia nombres: solo letras, numeros, espacios, _ y -
+local function b64dec(s)
+    s = s:gsub("[^%w%-_]", "")
+    local out = {}
+    for i = 1, #s, 4 do
+        local c1, c2 = B64R[s:sub(i, i)], B64R[s:sub(i + 1, i + 1)]
+        local c3, c4 = B64R[s:sub(i + 2, i + 2)], B64R[s:sub(i + 3, i + 3)]
+        if not (c1 and c2) then return nil end
+        local v = c1 * 262144 + c2 * 4096 + (c3 or 0) * 64 + (c4 or 0)
+        out[#out + 1] = string.char(math.floor(v / 65536) % 256)
+        if c3 then out[#out + 1] = string.char(math.floor(v / 256) % 256) end
+        if c4 then out[#out + 1] = string.char(v % 256) end
+    end
+    return table.concat(out)
+end
+
+local function lzwEncode(s)
+    local dict, size = {}, 256
+    for i = 0, 255 do dict[string.char(i)] = i end
+    local w, out = "", {}
+    for i = 1, #s do
+        local c = s:sub(i, i)
+        local wc = w .. c
+        if dict[wc] then
+            w = wc
+        else
+            out[#out + 1] = dict[w]
+            if size < 65535 then
+                dict[wc] = size
+                size = size + 1
+            end
+            w = c
+        end
+    end
+    if w ~= "" then out[#out + 1] = dict[w] end
+    return out
+end
+
+local function lzwDecode(codes)
+    local dict, size = {}, 256
+    for i = 0, 255 do dict[i] = string.char(i) end
+    local w = dict[codes[1]]
+    if not w then return nil end
+    local out = { w }
+    for i = 2, #codes do
+        local k = codes[i]
+        local entry
+        if dict[k] then
+            entry = dict[k]
+        elseif k == size then
+            entry = w .. w:sub(1, 1)
+        else
+            return nil
+        end
+        out[#out + 1] = entry
+        if size < 65535 then
+            dict[size] = w .. entry:sub(1, 1)
+            size = size + 1
+        end
+        w = entry
+    end
+    return table.concat(out)
+end
+
+local function PackCode(json)
+    local codes = lzwEncode(json)
+    local bytes = {}
+    for i, c in ipairs(codes) do
+        bytes[i] = string.char(math.floor(c / 256), c % 256)
+    end
+    return "R4N2-" .. b64enc(table.concat(bytes))
+end
+
+local function UnpackCode(code)
+    local body = tostring(code or ""):gsub("%s+", ""):match("^R4N2%-(.+)$")
+    if not body then return nil end
+    local raw = b64dec(body)
+    if not raw or #raw < 2 or #raw % 2 ~= 0 then return nil end
+    local codes = {}
+    for i = 1, #raw, 2 do
+        local a, b = raw:byte(i, i + 1)
+        codes[#codes + 1] = a * 256 + b
+    end
+    return lzwDecode(codes)
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Codigo corto online (opcional, necesita internet en el ejecutor)
+-- ------------------------------------------------------------------------------------------
+local function HttpReq(opts)
+    local f = (syn and syn.request) or request or http_request or (http and http.request) or (fluxus and fluxus.request)
+    if not f then return nil end
+    local ok, res = pcall(f, opts)
+    if ok and type(res) == "table" then return res end
+    return nil
+end
+
+local function UploadOnline(code)
+    local r = HttpReq({ Url = "https://paste.rs/", Method = "POST", Headers = { ["Content-Type"] = "text/plain" }, Body = code })
+    if r and type(r.Body) == "string" and (r.StatusCode == 200 or r.StatusCode == 201) then
+        local id = r.Body:match("paste%.rs/(%w+)")
+        if id then return "R4N2P-" .. id end
+    end
+    local r2 = HttpReq({
+        Url = "https://dpaste.org/api/", Method = "POST",
+        Headers = { ["Content-Type"] = "application/x-www-form-urlencoded" },
+        Body = "content=" .. HttpService:UrlEncode(code) .. "&expiry_days=30",
+    })
+    if r2 and type(r2.Body) == "string" then
+        local id = r2.Body:match("dpaste%.org/(%w+)")
+        if id then return "R4N2D-" .. id end
+    end
+    return nil
+end
+
+local function ResolveCode(raw)
+    raw = tostring(raw or ""):gsub("%s+", "")
+    local pid = raw:match("^R4N2P%-(%w+)$")
+    if pid then
+        local r = HttpReq({ Url = "https://paste.rs/" .. pid, Method = "GET" })
+        if r and type(r.Body) == "string" and (r.StatusCode or 200) == 200 then
+            return (r.Body:gsub("%s+", ""))
+        end
+        return nil
+    end
+    local did = raw:match("^R4N2D%-(%w+)$")
+    if did then
+        local r = HttpReq({ Url = "https://dpaste.org/" .. did .. "/raw", Method = "GET" })
+        if r and type(r.Body) == "string" and (r.StatusCode or 200) == 200 then
+            return (r.Body:gsub("%s+", ""))
+        end
+        return nil
+    end
+    return raw
+end
+
+local function Clip(text)
+    local f = setclipboard or toclipboard or set_clipboard or (Clipboard and Clipboard.set)
+    if not f then return false end
+    return (pcall(f, text))
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Archivos
+-- ------------------------------------------------------------------------------------------
+local function CfgPath(name) return configFolder .. "/" .. name .. ".json" end
+
 local function Sanitize(name)
-    return (tostring(name):gsub("[^%w_%- ]", ""):gsub("^%s+", ""):gsub("%s+$", ""))
+    return (tostring(name or ""):gsub("[^%w_%- ]", ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function BuildData(name)
+    return { Version = "CD-2", Name = name, Visuals = VisualsSerialize() }
 end
 
 local function GetConfigList()
     local files = {}
     if listfiles and isfolder and isfolder(configFolder) then
-        for _, file in ipairs(listfiles(configFolder)) do
-            if file:sub(-5) == ".json" then
+        local okl, list = pcall(listfiles, configFolder)
+        if okl and type(list) == "table" then
+            for _, file in ipairs(list) do
                 local fileName = file:match("([^/\\]+)%.json$")
-                if fileName then
-                    table.insert(files, fileName)
-                end
+                if fileName and fileName:sub(1, 1) ~= "_" then table.insert(files, fileName) end
             end
         end
     end
-    if #files == 0 then
-        table.insert(files, "No configs found")
-    end
+    table.sort(files)
+    if #files == 0 then table.insert(files, "No configs found") end
     return files
 end
 
 local function RefreshDropdown(dropdown, values)
-    -- WindUI usa :Refresh(); SetValues queda como respaldo
     if dropdown.Refresh then
         dropdown:Refresh(values)
     elseif dropdown.SetValues then
@@ -10525,179 +11623,518 @@ local function RefreshDropdown(dropdown, values)
 end
 
 local function ReadJson(path)
-    return pcall(function()
-        return HttpService:JSONDecode(readfile(path)) -- Decode, no Encode
-    end)
+    return pcall(function() return HttpService:JSONDecode(readfile(path)) end)
 end
 
+local function ApplyData(data, scopeNm)
+    if type(data) ~= "table" then return false end
+    R4N_SCOPE = SCOPES[scopeNm or "Everything"]
+    local ok = pcall(VisualsApply, data.Visuals)
+    R4N_SCOPE = nil
+    return ok
+end
+
+local function CanFiles()
+    return (writefile and readfile and isfile) and true or false
+end
+
+local function Valid()
+    return selectedConfig ~= "" and selectedConfig ~= "No configs found"
+end
+
+-- ------------------------------------------------------------------------------------------
+-- UI: selector
+-- ------------------------------------------------------------------------------------------
+ConfigsTab:Section({ Title = "Config Selector" })
+
 local initialList = GetConfigList()
+if initialList[1] ~= "No configs found" then selectedConfig = initialList[1] end
 
 local ConfigDropdown = ConfigsTab:Dropdown({
     Title = "Select Saved Config",
     Values = initialList,
     Value = initialList[1],
     Callback = function(option)
-        if option ~= "No configs found" then
-            selectedConfig = option
-        else
-            selectedConfig = ""
-        end
+        if option and option ~= "No configs found" then selectedConfig = option else selectedConfig = "" end
     end
 })
 
+local function Reload(pickName)
+    local list = GetConfigList()
+    RefreshDropdown(ConfigDropdown, list)
+    local pick = pickName
+    if not pick or not table.find(list, pick) then pick = list[1] end
+    selectedConfig = (pick ~= "No configs found") and pick or ""
+    pcall(function() ConfigDropdown:Select(pick) end)
+end
+
 ConfigsTab:Button({
     Title = "Refresh Config List",
-    Desc = "Reloads the list of saved configuration files.",
     Callback = function()
-        RefreshDropdown(ConfigDropdown, GetConfigList())
-        WindUI:Notify({ Title = "Configs", Content = "Config list refreshed!", Duration = 2 })
+        Reload(selectedConfig)
+        Notify("Configs", Msg("Config list refreshed.", "Lista de configs actualizada.", "Список конфигов обновлён."), 2)
     end
+})
+
+ConfigsTab:Dropdown({
+    Title = "Load Scope",
+    Desc = "What 'Load Selected Config' and the imports apply: everything, or only one tab's options.",
+    Values = SCOPE_NAMES,
+    Value = "Everything",
+    Callback = function(option) if option then scopeName = option end end
 })
 
 ConfigsTab:Button({
     Title = "Load Selected Config",
-    Desc = "Loads settings from the selected config.",
     Callback = function()
-        if selectedConfig == "" or selectedConfig == "No configs found" then
-            WindUI:Notify({ Title = "Error", Content = "Please select a valid config first.", Duration = 3 })
+        if not Valid() then
+            Notify("Error", Msg("Please select a valid config first.", "Primero selecciona una config válida.", "Сначала выберите конфиг."))
             return
         end
-
-        local filePath = configFolder .. "/" .. selectedConfig .. ".json"
-        if isfile and isfile(filePath) then
-            local success, data = ReadJson(filePath)
-            if success and type(data) == "table" then
-                currentConfigData = data
-                VisualsApply(data.Visuals)
-                WindUI:Notify({ Title = "Configs", Content = "Loaded '" .. selectedConfig .. "' successfully!", Duration = 3 })
-            else
-                WindUI:Notify({ Title = "Error", Content = "Failed to load configuration file.", Duration = 3 })
-            end
+        if not (isfile and readfile and isfile(CfgPath(selectedConfig))) then
+            Notify("Error", Msg("Config file not found.", "No se encontró el archivo de la config.", "Файл конфига не найден."))
+            return
+        end
+        local ok, data = ReadJson(CfgPath(selectedConfig))
+        if ok and type(data) == "table" and ApplyData(data, scopeName) then
+            Notify("Configs", Msg("Loaded '", "Cargada '", "Загружено '") .. selectedConfig .. "' (" .. scopeName .. ")")
         else
-            WindUI:Notify({ Title = "Error", Content = "Config file not found.", Duration = 3 })
+            Notify("Error", Msg("Failed to load configuration file.", "No se pudo cargar el archivo de la config.", "Не удалось загрузить конфиг."))
         end
     end
 })
 
 ConfigsTab:Button({
     Title = "Overwrite Selected Config",
-    Desc = "Overwrites the currently selected config with current settings.",
+    Desc = "Overwrites the selected config with the current settings.",
     Callback = function()
-        if selectedConfig == "" or selectedConfig == "No configs found" then
-            WindUI:Notify({ Title = "Error", Content = "Select a config from the dropdown to overwrite.", Duration = 3 })
+        if not Valid() then
+            Notify("Error", Msg("Select a config from the dropdown to overwrite.", "Selecciona una config para sobrescribir.", "Выберите конфиг для перезаписи."))
             return
         end
-
-        if writefile then
-            local filePath = configFolder .. "/" .. selectedConfig .. ".json"
-            writefile(filePath, Snapshot())
-            WindUI:Notify({ Title = "Configs", Content = "Overwrote '" .. selectedConfig .. "' successfully!", Duration = 3 })
-        else
-            WindUI:Notify({ Title = "Error", Content = "Your executor does not support file writing.", Duration = 3 })
+        if not writefile then
+            Notify("Error", Msg("Your executor does not support file writing.", "Tu ejecutor no permite escribir archivos.", "Ваш экзекутор не поддерживает запись файлов."))
+            return
         end
+        writefile(CfgPath(selectedConfig), HttpService:JSONEncode(BuildData(selectedConfig)))
+        Notify("Configs", Msg("Overwrote '", "Sobrescrita '", "Перезаписано '") .. selectedConfig .. "'")
     end
 })
 
+-- ------------------------------------------------------------------------------------------
+-- UI: crear
+-- ------------------------------------------------------------------------------------------
 ConfigsTab:Section({ Title = "Create New Config" })
 
 ConfigsTab:Input({
     Title = "New Config Name",
-    Placeholder = "Enter name for new config...",
-    Callback = function(text)
-        newConfigName = Sanitize(text)
-    end
+    Placeholder = "My config",
+    Value = "",
+    Callback = function(text) newConfigName = Sanitize(text) end
 })
 
 ConfigsTab:Button({
     Title = "Save New Config",
-    Desc = "Saves settings into a new file and adds it to the list.",
     Callback = function()
-        if newConfigName == "" or newConfigName == "No configs found" then
-            WindUI:Notify({ Title = "Error", Content = "Please enter a valid name (letters, numbers, - and _).", Duration = 3 })
+        if newConfigName == "" or newConfigName:sub(1, 1) == "_" then
+            Notify("Error", Msg("Type a valid name first (letters, numbers, spaces, _ and -).", "Escribe primero un nombre válido (letras, números, espacios, _ y -).", "Сначала введите имя (буквы, цифры, пробелы, _ и -)."))
             return
         end
-
-        if writefile then
-            local filePath = configFolder .. "/" .. newConfigName .. ".json"
-            writefile(filePath, Snapshot())
-
-            RefreshDropdown(ConfigDropdown, GetConfigList())
-            selectedConfig = newConfigName
-
-            WindUI:Notify({ Title = "Configs", Content = "Created new config '" .. newConfigName .. "'!", Duration = 3 })
-        else
-            WindUI:Notify({ Title = "Error", Content = "Your executor does not support file writing.", Duration = 3 })
+        if not CanFiles() then
+            Notify("Error", Msg("Your executor does not support file writing.", "Tu ejecutor no permite escribir archivos.", "Ваш экзекутор не поддерживает запись файлов."))
+            return
         end
+        if isfile(CfgPath(newConfigName)) then
+            Notify("Error", Msg("A config with that name already exists.", "Ya existe una config con ese nombre.", "Конфиг с таким именем уже существует."))
+            return
+        end
+        writefile(CfgPath(newConfigName), HttpService:JSONEncode(BuildData(newConfigName)))
+        Reload(newConfigName)
+        Notify("Configs", Msg("Saved '", "Guardada '", "Сохранено '") .. newConfigName .. "'")
     end
 })
 
-ConfigsTab:Section({ Title = "Short Code Sharing (12 Chars)" })
+-- ------------------------------------------------------------------------------------------
+-- UI: administrar (renombrar, duplicar, borrar, auto-carga)
+-- ------------------------------------------------------------------------------------------
+ConfigsTab:Section({ Title = "Manage Configs" })
 
-local function GenerateShortCode()
-    local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-    local code = "CD-"
-    for _ = 1, 9 do
-        local rand = math.random(1, #chars)
-        code = code .. chars:sub(rand, rand)
+ConfigsTab:Input({
+    Title = "Rename To",
+    Placeholder = "New name",
+    Value = "",
+    Callback = function(text) renameTo = Sanitize(text) end
+})
+
+ConfigsTab:Button({
+    Title = "Rename Selected Config",
+    Desc = "Type the new name above, then press this.",
+    Callback = function()
+        if not Valid() then
+            Notify("Error", Msg("Select a config first.", "Primero selecciona una config.", "Сначала выберите конфиг."))
+            return
+        end
+        if renameTo == "" or renameTo:sub(1, 1) == "_" then
+            Notify("Error", Msg("Type the new name first.", "Escribe primero el nuevo nombre.", "Сначала введите новое имя."))
+            return
+        end
+        if renameTo == selectedConfig then return end
+        if not CanFiles() then
+            Notify("Error", Msg("Your executor does not support file writing.", "Tu ejecutor no permite escribir archivos.", "Ваш экзекутор не поддерживает запись файлов."))
+            return
+        end
+        if isfile(CfgPath(renameTo)) then
+            Notify("Error", Msg("A config with that name already exists.", "Ya existe una config con ese nombre.", "Конфиг с таким именем уже существует."))
+            return
+        end
+        local okr, content = pcall(readfile, CfgPath(selectedConfig))
+        if not okr or type(content) ~= "string" then
+            Notify("Error", Msg("Could not read the config.", "No se pudo leer la config.", "Не удалось прочитать конфиг."))
+            return
+        end
+        local okj, data = pcall(function() return HttpService:JSONDecode(content) end)
+        if okj and type(data) == "table" then
+            data.Name = renameTo
+            content = HttpService:JSONEncode(data)
+        end
+        writefile(CfgPath(renameTo), content)
+        if delfile then pcall(delfile, CfgPath(selectedConfig)) end
+        if isfile(autoloadFile) then
+            local okA, cur = pcall(readfile, autoloadFile)
+            if okA and Sanitize(cur) == selectedConfig then pcall(writefile, autoloadFile, renameTo) end
+        end
+        local old = selectedConfig
+        Reload(renameTo)
+        Notify("Configs", "'" .. old .. "' -> '" .. renameTo .. "'")
     end
-    return code
+})
+
+ConfigsTab:Button({
+    Title = "Duplicate Selected Config",
+    Callback = function()
+        if not Valid() then
+            Notify("Error", Msg("Select a config first.", "Primero selecciona una config.", "Сначала выберите конфиг."))
+            return
+        end
+        if not CanFiles() then return end
+        local okr, content = pcall(readfile, CfgPath(selectedConfig))
+        if not okr then return end
+        local nm = selectedConfig .. " copy"
+        local n = 2
+        while isfile(CfgPath(nm)) do
+            nm = selectedConfig .. " copy " .. n
+            n = n + 1
+        end
+        local okj, data = pcall(function() return HttpService:JSONDecode(content) end)
+        if okj and type(data) == "table" then
+            data.Name = nm
+            content = HttpService:JSONEncode(data)
+        end
+        writefile(CfgPath(nm), content)
+        Reload(nm)
+        Notify("Configs", Msg("Created '", "Creada '", "Создано '") .. nm .. "'")
+    end
+})
+
+ConfigsTab:Button({
+    Title = "Delete Selected Config",
+    Desc = "Press twice within 5 seconds to confirm.",
+    Callback = function()
+        if not Valid() then
+            Notify("Error", Msg("Select a config first.", "Primero selecciona una config.", "Сначала выберите конфиг."))
+            return
+        end
+        if pendingDelete ~= selectedConfig then
+            pendingDelete = selectedConfig
+            local mine = selectedConfig
+            Notify("Configs", Msg("Press again to delete '", "Presiona otra vez para eliminar '", "Нажмите ещё раз, чтобы удалить '") .. mine .. "'", 5)
+            task.delay(5, function() if pendingDelete == mine then pendingDelete = nil end end)
+            return
+        end
+        pendingDelete = nil
+        if not delfile then
+            Notify("Error", Msg("Your executor cannot delete files.", "Tu ejecutor no puede borrar archivos.", "Ваш экзекутор не умеет удалять файлы."))
+            return
+        end
+        local gone = selectedConfig
+        pcall(delfile, CfgPath(gone))
+        Reload(nil)
+        Notify("Configs", Msg("Deleted '", "Eliminada '", "Удалено '") .. gone .. "'")
+    end
+})
+
+ConfigsTab:Button({
+    Title = "Set Selected As Auto-Load",
+    Desc = "This config loads by itself every time you execute the script.",
+    Callback = function()
+        if not Valid() or not writefile then
+            Notify("Error", Msg("Select a config first.", "Primero selecciona una config.", "Сначала выберите конфиг."))
+            return
+        end
+        pcall(writefile, autoloadFile, selectedConfig)
+        Notify("Configs", Msg("Auto-load: ", "Auto-carga: ", "Автозагрузка: ") .. selectedConfig)
+    end
+})
+
+ConfigsTab:Button({
+    Title = "Clear Auto-Load",
+    Callback = function()
+        if isfile and isfile(autoloadFile) and delfile then pcall(delfile, autoloadFile) end
+        if writefile then pcall(writefile, autoloadFile, "") end
+        Notify("Configs", Msg("Auto-load cleared.", "Auto-carga quitada.", "Автозагрузка отключена."))
+    end
+})
+
+-- ------------------------------------------------------------------------------------------
+-- UI: compartir / importar
+-- ------------------------------------------------------------------------------------------
+ConfigsTab:Section({ Title = "Share / Import" })
+
+local OutInput = ConfigsTab:Input({
+    Title = "Generated Code",
+    Desc = "The share code appears here (it is also copied to your clipboard when your executor allows it).",
+    Placeholder = "R4N2-...",
+    Value = "",
+    Callback = function() end
+})
+
+local function Deliver(code, kind)
+    local copied = Clip(code)
+    if #code < 30000 then pcall(function() OutInput:Set(code) end) end
+    if not copied then
+        print("[R4NS0M] Share code: " .. code)
+    end
+    Notify("Configs", (copied
+        and Msg("Code copied to clipboard (", "Código copiado al portapapeles (", "Код скопирован в буфер (")
+        or Msg("Code created, see the console / the field above (", "Código creado, míralo en la consola / el campo de arriba (", "Код создан, смотрите консоль / поле выше ("))
+        .. kind .. ", " .. #code .. " chars)", 5)
+end
+
+local function MakeCode(name)
+    local json
+    if name then
+        if not (isfile and readfile and isfile(CfgPath(name))) then
+            Notify("Error", Msg("Config file not found.", "No se encontró el archivo de la config.", "Файл конфига не найден."))
+            return nil
+        end
+        local okr, content = pcall(readfile, CfgPath(name))
+        if not okr then return nil end
+        json = content
+    else
+        json = HttpService:JSONEncode(BuildData("Shared"))
+    end
+    return PackCode(json)
+end
+
+local function ShareFlow(name, online)
+    local code = MakeCode(name)
+    if not code then return end
+    if online then
+        local short = UploadOnline(code)
+        if short then
+            Deliver(short, "online")
+        else
+            Notify("Error", Msg("Online upload failed (no internet access from the executor?). Sharing the normal code instead.", "Falló la subida online (¿sin internet en el ejecutor?). Se comparte el código normal.", "Не удалось загрузить онлайн. Используется обычный код."), 5)
+            Deliver(code, "portable")
+        end
+    else
+        Deliver(code, "portable")
+    end
 end
 
 ConfigsTab:Button({
-    Title = "Generate 12-Char Share Code",
-    Desc = "Generates a random 12-character code (Format: CD-XXXXXXXXX).",
+    Title = "Share Selected Config",
+    Desc = "Creates a code with the whole selected config. Anyone can import it, no files needed.",
     Callback = function()
-        local randomCode = GenerateShortCode()
-        local filePath = codesFolder .. "/" .. randomCode .. ".json"
-
-        if writefile then
-            writefile(filePath, Snapshot())
-
-            if setclipboard then
-                setclipboard(randomCode)
-                WindUI:Notify({ Title = "Share Code", Content = "Code '" .. randomCode .. "' copied to clipboard!", Duration = 3 })
-            else
-                print("Generated Code: " .. randomCode)
-                WindUI:Notify({ Title = "Share Code", Content = "Code printed to console: " .. randomCode, Duration = 3 })
-            end
-        else
-            WindUI:Notify({ Title = "Error", Content = "Your executor does not support file operations.", Duration = 3 })
+        if not Valid() then
+            Notify("Error", Msg("Select a config first.", "Primero selecciona una config.", "Сначала выберите конфиг."))
+            return
         end
+        ShareFlow(selectedConfig, false)
     end
+})
+
+ConfigsTab:Button({
+    Title = "Share Current Settings",
+    Desc = "Creates a code with what you have enabled right now (no need to save it first).",
+    Callback = function() ShareFlow(nil, false) end
+})
+
+ConfigsTab:Button({
+    Title = "Upload Selected (Online Short Code)",
+    Desc = "Uploads the selected config and gives you a short code. Needs internet access from the executor.",
+    Callback = function()
+        if not Valid() then
+            Notify("Error", Msg("Select a config first.", "Primero selecciona una config.", "Сначала выберите конфиг."))
+            return
+        end
+        ShareFlow(selectedConfig, true)
+    end
+})
+
+ConfigsTab:Button({
+    Title = "Upload Current (Online Short Code)",
+    Callback = function() ShareFlow(nil, true) end
 })
 
 ConfigsTab:Input({
     Title = "Import Code",
-    Placeholder = "Enter 12-char code (e.g. CD-a9X2kP1zL)...",
-    Callback = function(text)
-        configCodeInput = Sanitize(text)
+    Desc = "Paste a share code here (portable R4N2-... or online short code).",
+    Placeholder = "R4N2-...",
+    Value = "",
+    Callback = function(text) importCode = tostring(text or "") end
+})
+
+ConfigsTab:Input({
+    Title = "Save Imported As",
+    Placeholder = "Name for the imported config",
+    Value = "",
+    Callback = function(text) importName = Sanitize(text) end
+})
+
+local function ImportFlow(raw, saveAs, apply)
+    raw = tostring(raw or "")
+    if raw:gsub("%s+", "") == "" then
+        Notify("Error", Msg("Paste a code first.", "Primero pega un código.", "Сначала вставьте код."))
+        return
     end
+    local resolved = ResolveCode(raw)
+    if not resolved then
+        Notify("Error", Msg("Could not download that short code (internet?).", "No se pudo descargar ese código corto (¿internet?).", "Не удалось скачать короткий код."), 4)
+        return
+    end
+    local json = UnpackCode(resolved)
+    local okj, data = false, nil
+    if json then okj, data = pcall(function() return HttpService:JSONDecode(json) end) end
+    if not okj or type(data) ~= "table" or type(data.Visuals) ~= "table" then
+        Notify("Error", Msg("Invalid or corrupted code.", "Código inválido o dañado.", "Неверный или повреждённый код."))
+        return
+    end
+    if saveAs then
+        if not CanFiles() then
+            Notify("Error", Msg("Your executor does not support file writing.", "Tu ejecutor no permite escribir archivos.", "Ваш экзекутор не поддерживает запись файлов."))
+            return
+        end
+        local nm = (saveAs ~= "" and saveAs:sub(1, 1) ~= "_") and saveAs or ("Imported " .. os.date("%H%M%S"))
+        local base, n = nm, 2
+        while isfile(CfgPath(nm)) do
+            nm = base .. " " .. n
+            n = n + 1
+        end
+        data.Name = nm
+        writefile(CfgPath(nm), HttpService:JSONEncode(data))
+        Reload(nm)
+        Notify("Configs", Msg("Imported and saved as '", "Importada y guardada como '", "Импортировано и сохранено как '") .. nm .. "'")
+    end
+    if apply then
+        ApplyData(data, scopeName)
+        Notify("Configs", Msg("Config applied (", "Config aplicada (", "Конфиг применён (") .. scopeName .. ")")
+    end
+end
+
+ConfigsTab:Button({
+    Title = "Import & Apply",
+    Callback = function() ImportFlow(importCode, nil, true) end
 })
 
 ConfigsTab:Button({
-    Title = "Import Config from Code",
-    Desc = "Loads configuration matching the 12-character code.",
-    Callback = function()
-        if configCodeInput == "" then
-            WindUI:Notify({ Title = "Error", Content = "Please enter a valid code.", Duration = 3 })
-            return
-        end
+    Title = "Import & Save As New",
+    Callback = function() ImportFlow(importCode, importName, false) end
+})
 
-        local filePath = codesFolder .. "/" .. configCodeInput .. ".json"
-        if isfile and isfile(filePath) then
-            local success, data = ReadJson(filePath)
-            if success and type(data) == "table" then
-                currentConfigData = data
-                VisualsApply(data.Visuals)
-                WindUI:Notify({ Title = "Configs", Content = "Imported config from code '" .. configCodeInput .. "'!", Duration = 3 })
-            else
-                WindUI:Notify({ Title = "Error", Content = "Corrupted code file.", Duration = 3 })
-            end
-        else
-            WindUI:Notify({ Title = "Error", Content = "Code not found or invalid.", Duration = 3 })
+if getclipboard then
+    ConfigsTab:Button({
+        Title = "Import From Clipboard (Apply)",
+        Callback = function()
+            local okc, text = pcall(getclipboard)
+            ImportFlow(okc and text or "", nil, true)
         end
+    })
+end
+
+-- ------------------------------------------------------------------------------------------
+-- UI: idioma
+-- ------------------------------------------------------------------------------------------
+ConfigsTab:Section({ Title = "Language" })
+
+local LANG_NAMES = { en = "English", es = "Español", ru = "Русский" }
+ConfigsTab:Dropdown({
+    Title = "Language",
+    Desc = "English (default), Español, Русский. Titles are translated; re-execute the script to apply.",
+    Values = { "English", "Español", "Русский" },
+    Value = LANG_NAMES[R4N_LANG] or "English",
+    Callback = function(option)
+        local code = (option == "Español" and "es") or (option == "Русский" and "ru") or "en"
+        if code == R4N_LANG then return end
+        if writefile then pcall(writefile, "R4NS0M_Lang.txt", code) end
+        local m = {
+            en = "Language saved. Re-execute the script to apply it.",
+            es = "Idioma guardado. Vuelve a ejecutar el script para aplicarlo.",
+            ru = "Язык сохранён. Перезапустите скрипт, чтобы применить его.",
+        }
+        Notify("Language", m[code], 5)
     end
 })
+
+-- ------------------------------------------------------------------------------------------
+-- UI: auto ejecutar al teletransportar
+-- ------------------------------------------------------------------------------------------
+ConfigsTab:Section({ Title = "Auto Execute" })
+
+local ae = { on = false, src = "" }
+pcall(function()
+    if isfile and readfile and isfile("R4NS0M_AutoExec.json") then
+        local d = HttpService:JSONDecode(readfile("R4NS0M_AutoExec.json"))
+        if type(d) == "table" then
+            ae.on = d.on == true
+            ae.src = tostring(d.src or "")
+        end
+    end
+end)
+
+local function SaveAE()
+    if writefile then pcall(writefile, "R4NS0M_AutoExec.json", HttpService:JSONEncode(ae)) end
+    R4N_QueueAutoExec()
+end
+
+ConfigsTab:Toggle({
+    Title = "Auto Execute On Teleport",
+    Desc = "Runs the script again by itself when you teleport (lobby <-> run). Needs queue_on_teleport support and the loader below.",
+    Value = ae.on,
+    Callback = function(v)
+        ae.on = v == true
+        SaveAE()
+        Notify("Auto Execute", ae.on and Msg("Enabled.", "Activado.", "Включено.") or Msg("Disabled.", "Desactivado.", "Выключено."), 2)
+    end
+})
+
+ConfigsTab:Input({
+    Title = "Loader (URL or file)",
+    Desc = "Your script URL or its file name in the executor's workspace folder. Empty = R4NS0M-HUB-FINAL.lua if it exists. Re-execute after changing it.",
+    Placeholder = "https://... or R4NS0M-HUB-FINAL.lua",
+    Value = ae.src,
+    Callback = function(text)
+        ae.src = tostring(text or "")
+        SaveAE()
+    end
+})
+
+-- ------------------------------------------------------------------------------------------
+-- Auto-carga al ejecutar
+-- ------------------------------------------------------------------------------------------
+task.delay(6, function()
+    pcall(function()
+        if not (isfile and readfile and isfile(autoloadFile)) then return end
+        local name = Sanitize(readfile(autoloadFile))
+        if name == "" or not isfile(CfgPath(name)) then return end
+        local ok, data = ReadJson(CfgPath(name))
+        if ok and type(data) == "table" then
+            ApplyData(data, "Everything")
+            Notify("Configs", Msg("Auto-loaded '", "Auto-cargada '", "Автозагрузка '") .. name .. "'")
+        end
+    end)
+end)
+end
 
 
 print("[R4NS0M] Loading Main Port (bypass / automation)")
@@ -12526,6 +13963,7 @@ local function PTog(tab, id, title, desc)
 	AddToggle(tab, id, title, desc, Ex[id], function(v) Apply(id, v) end)
 end
 local function PSlider(tab, id, title, desc, min, max, step)
+	R4N_KeyTab[id] = tab
 	local el = tab:Slider({
 		Title = title, Desc = desc, Step = step or 1,
 		Value = { Min = min, Max = max, Default = Ex[id] },
