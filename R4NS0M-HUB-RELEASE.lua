@@ -3678,7 +3678,7 @@ print("[R4NS0M] Loaded Debug Mode")
 ----------------------------------------------------
 print("[R4NS0M] Loading Alerts")
 
-do
+;(function()
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local Lighting = game:GetService("Lighting")
@@ -11886,7 +11886,7 @@ ExtraApply = function(data)
     end
     FX.UpdateButtons()
 end
-end
+end)()
 
 ----------------------------------------------------
 -- Guardar / cargar config de Visuals
@@ -11967,7 +11967,7 @@ print("[R4NS0M] Loading Config System")
 ----------------------------------------------------
 -- CONFIG SYSTEM
 ----------------------------------------------------
-do
+;(function()
 local L = R4N_LANG
 local function Msg(en, es, ru)
     if L == "es" then return es elseif L == "ru" then return ru end
@@ -12728,7 +12728,7 @@ task.delay(6, function()
         end
     end)
 end)
-end
+end)()
 
 
 print("[R4NS0M] Loading Main Port (bypass / automation)")
