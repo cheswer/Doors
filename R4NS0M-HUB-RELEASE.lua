@@ -2,7 +2,7 @@ warn("--- [R4NS0M] EXECUTING SCRIPT ---")
 pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "R4NS0M", Text = "Script iniciado, cargando UI...", Duration = 6 }) end)
 --[[
   R4NS0M CD-1  |  Team CHX
-  Version 1.0.0
+  Version 1.0.2
   Tabs: Main, Info, Visuals, Player, Automation, Anticheat, Antis, Alerts, Misc, Keybinds, Configs
   Ransomity is real
 ]]
@@ -42,30 +42,52 @@ do
     genv.R4N_AUTOEXEC = nil
 end
 
--- Auto ejecutar al teletransportar: guarda la config en R4NS0M_AutoExec.json (se cambia en la tab Configs)
+-- Auto ejecutar al teletransportar: vuelve a ejecutar el MISMO codigo que ejecutaste (sin link).
+-- El codigo ejecutado se lee de la propia cadena del script y se guarda en R4NS0M_Cache.lua; si el ejecutor
+-- no lo expone, se usa la copia guardada de una ejecucion anterior.
+R4N_SRC = nil
+pcall(function()
+    local info = debug.getinfo and debug.getinfo(1, "S")
+    local s = info and info.source
+    if type(s) == "string" and #s > 20000 and s:sub(1, 1) ~= "@" and s:sub(1, 1) ~= "=" then R4N_SRC = s end
+end)
+R4N_AE_STATUS = "off"
 function R4N_QueueAutoExec()
     pcall(function()
+        local CACHE = "R4NS0M_Cache.lua"
         local qot = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
-        if not qot or not (isfile and readfile) or not isfile("R4NS0M_AutoExec.json") then return end
+        if not (isfile and readfile and isfile("R4NS0M_AutoExec.json")) then return end
         local d = HttpService:JSONDecode(readfile("R4NS0M_AutoExec.json"))
-        if type(d) ~= "table" or not d.on then return end
-        local s = (tostring(d.src or ""):gsub("^%s+", ""):gsub("%s+$", ""))
-        if s == "" then
-            for _, f in ipairs({ "R4NS0M-HUB-FINAL.lua", "R4NS0M-HUB.lua", "R4NS0M.lua" }) do
-                if isfile(f) then s = f break end
-            end
-        end
-        if s == "" then return end
+        if type(d) ~= "table" or not d.on then R4N_AE_STATUS = "off" return end
+        if not qot then R4N_AE_STATUS = "noqueue" return end
         local loader
-        if s:sub(1, 4):lower() == "http" then
-            loader = "loadstring(game:HttpGet(" .. string.format("%q", s) .. "))()"
+        if R4N_SRC then
+            if writefile then pcall(writefile, CACHE, R4N_SRC) end
+            if isfile(CACHE) then
+                loader = "loadstring(readfile(" .. string.format("%q", CACHE) .. "))()"
+            elseif #R4N_SRC < 2000000 then
+                loader = "loadstring(" .. string.format("%q", R4N_SRC) .. ")()"
+            end
+            R4N_AE_STATUS = loader and "ok" or "nosource"
+        elseif isfile(CACHE) then
+            loader = "loadstring(readfile(" .. string.format("%q", CACHE) .. "))()"
+            R4N_AE_STATUS = "cache"
         else
-            loader = "loadstring(readfile(" .. string.format("%q", s) .. "))()"
+            for _, f in ipairs({ "R4NS0M-HUB-FINAL.lua", "R4NS0M-HUB.lua", "R4NS0M.lua" }) do
+                if isfile(f) then
+                    loader = "loadstring(readfile(" .. string.format("%q", f) .. "))()"
+                    break
+                end
+            end
+            R4N_AE_STATUS = loader and "file" or "nosource"
         end
+        if not loader then return end
         local genv = (getgenv and getgenv()) or _G
         if genv.R4N_QUEUED then return end
         genv.R4N_QUEUED = true
-        qot("local g=(getgenv and getgenv()) or _G;g.R4N_QUEUED=nil;g.R4N_AUTOEXEC=true;if not game:IsLoaded() then game.Loaded:Wait() end;task.wait(1);" .. loader)
+        qot("local g=(getgenv and getgenv()) or _G;g.R4N_QUEUED=nil;"
+            .. "local okf,f=pcall(readfile,\"R4NS0M_AutoExec.json\");if okf and f and not f:find('\"on\":true',1,true) then return end;"
+            .. "g.R4N_AUTOEXEC=true;if not game:IsLoaded() then game.Loaded:Wait() end;task.wait(1);" .. loader)
     end)
 end
 R4N_QueueAutoExec()
@@ -327,6 +349,23 @@ end
 -- Traduccion de la interfaz: se traducen los titulos (English es el idioma por defecto)
 R4N_I18N = {
     es = {
+        ["Auto Doors (beta)"] = "Auto Doors (beta)",
+        ["Apply Recommended Setup"] = "Aplicar Configuración Recomendada",
+        ["Show Auto Doors Status"] = "Mostrar Estado de Auto Doors",
+        ["Auto Doors Settings"] = "Ajustes de Auto Doors",
+        ["Open Doors"] = "Abrir Puertas",
+        ["Grab Gold & Stardust"] = "Agarrar Oro y Polvo Estelar",
+        ["Loot Drawers"] = "Lootear Cajones",
+        ["Loot Chests & Lockers"] = "Lootear Cofres y Casilleros",
+        ["Grab Keys & Unlock Doors"] = "Agarrar Llaves y Abrir Puertas",
+        ["Grab Items"] = "Agarrar Items",
+        ["Avoid Entities (Auto Hide)"] = "Evitar Entidades (Esconderse Solo)",
+        ["Solve Puzzles (Library, Breakers, Anchors)"] = "Resolver Puzzles (Biblioteca, Fusibles, Anclas)",
+        ["Skip Seek"] = "Saltar Seek",
+        ["Action Delay (ms)"] = "Retraso entre Acciones (ms)",
+        ["Max Time Per Room (seconds)"] = "Tiempo Máx. por Sala (segundos)",
+        ["Stop At Room (0 = never)"] = "Parar en la Sala (0 = nunca)",
+        ["SPD Button"] = "Botón SPD",
         ["ACM Button"] = "Botón ACM",
         ["About R4NS0M CD-1"] = "Acerca de R4NS0M CD-1",
         ["Alerts"] = "Alertas",
@@ -613,6 +652,11 @@ R4N_I18N = {
         ["Show Names"] = "Mostrar Nombres",
         ["Show Path"] = "Mostrar Ruta",
         ["Show Seek Path"] = "Mostrar Ruta de Seek",
+        ["Infinite Crucifix"] = "Crucifijo Infinito",
+        ["Remove Cutscenes"] = "Quitar Cinemáticas",
+        ["Disable Entity Jumpscares"] = "Desactivar Jumpscares de Entidades",
+        ["Disable Firedamp Effect"] = "Desactivar Efecto de Firedamp",
+        ["Extras"] = "Extras",
         ["Show Speedrun Timer"] = "Mostrar Temporizador de Speedrun",
         ["Show Splits"] = "Mostrar Splits",
         ["Show Tips"] = "Mostrar Consejos",
@@ -712,6 +756,23 @@ R4N_I18N = {
         ["Loader (URL or file)"] = "Loader (URL o archivo)",
     },
     ru = {
+        ["Auto Doors (beta)"] = "Авто двери (бета)",
+        ["Apply Recommended Setup"] = "Применить рекомендуемые настройки",
+        ["Show Auto Doors Status"] = "Показать статус Авто дверей",
+        ["Auto Doors Settings"] = "Настройки Авто дверей",
+        ["Open Doors"] = "Открывать двери",
+        ["Grab Gold & Stardust"] = "Брать золото и звёздную пыль",
+        ["Loot Drawers"] = "Обыскивать ящики",
+        ["Loot Chests & Lockers"] = "Обыскивать сундуки и шкафчики",
+        ["Grab Keys & Unlock Doors"] = "Брать ключи и открывать двери",
+        ["Grab Items"] = "Брать предметы",
+        ["Avoid Entities (Auto Hide)"] = "Избегать сущностей (авто укрытие)",
+        ["Solve Puzzles (Library, Breakers, Anchors)"] = "Решать головоломки (библиотека, щитки, якоря)",
+        ["Skip Seek"] = "Пропускать Seek",
+        ["Action Delay (ms)"] = "Задержка между действиями (мс)",
+        ["Max Time Per Room (seconds)"] = "Макс. время на комнату (сек)",
+        ["Stop At Room (0 = never)"] = "Остановиться в комнате (0 = никогда)",
+        ["SPD Button"] = "Кнопка SPD",
         ["ACM Button"] = "Кнопка ACM",
         ["About R4NS0M CD-1"] = "О R4NS0M CD-1",
         ["Alerts"] = "Оповещения",
@@ -998,6 +1059,11 @@ R4N_I18N = {
         ["Show Names"] = "Показывать имена",
         ["Show Path"] = "Показать путь",
         ["Show Seek Path"] = "Показать путь Seek",
+        ["Infinite Crucifix"] = "Бесконечное распятие",
+        ["Remove Cutscenes"] = "Убрать катсцены",
+        ["Disable Entity Jumpscares"] = "Отключить скримеры сущностей",
+        ["Disable Firedamp Effect"] = "Отключить эффект Firedamp",
+        ["Extras"] = "Дополнительно",
         ["Show Speedrun Timer"] = "Показать таймер спидрана",
         ["Show Splits"] = "Показать сплиты",
         ["Show Tips"] = "Показать советы",
@@ -1204,7 +1270,7 @@ InfoTab:Section({ Title = "Script Information" })
 
 InfoTab:Paragraph({
     Title = "About R4NS0M CD-1",
-    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.0"
+    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.2"
 })
 
 InfoTab:Paragraph({
@@ -2464,7 +2530,42 @@ end
 local function RegisterDoor(room, door)
     if not door:IsA("Model") or door.Name ~= "Door" then return end
     local num = tonumber(room.Name)
-    Register(door, "doors", "Door " .. (num and (num + 1) or room.Name), {
+    local label = "Door " .. (num and (num + 1) or room.Name)
+    -- Puertas dobles: dos paneles "Door" dentro del modelo. Se resaltan solo los dos paneles
+    -- (un modelo auxiliar invisible) y no todo el marco, con la etiqueta centrada entre ambos.
+    local panels = {}
+    for _, c in ipairs(door:GetChildren()) do
+        if c.Name == "Door" and c:IsA("BasePart") then panels[#panels + 1] = c end
+    end
+    if #panels == 2 then
+        local hm = door:FindFirstChild("R4N_HighlightModel")
+        if not hm then
+            hm = Instance.new("Model")
+            hm.Name = "R4N_HighlightModel"
+            for _, p in ipairs(panels) do
+                local hp = Instance.new("Part")
+                hp.Name = "HighlightPart"
+                hp.Transparency = 0.999
+                hp.Size = p.Size
+                hp.CFrame = p.CFrame
+                hp.CanCollide, hp.CanQuery, hp.CanTouch, hp.CastShadow = false, false, false, false
+                hp.Massless = true
+                hp.Anchored = false
+                hp.Parent = hm
+                local w = Instance.new("WeldConstraint")
+                w.Part0, w.Part1 = hp, p
+                w.Parent = hp
+            end
+            hm.Parent = door
+        end
+        local first = hm:FindFirstChild("HighlightPart")
+        if first then
+            if Tracked[door] then RemoveEntry(door) end
+            Register(hm, "doors", label, { Part = first, RoomNum = num })
+            return
+        end
+    end
+    Register(door, "doors", label, {
         Part = door:FindFirstChild("Door") or GetPart(door),
         RoomNum = num,
     })
@@ -2472,9 +2573,16 @@ end
 
 local function ScanRoom(room)
     task.spawn(function()
-        room:WaitForChild("Door", 10)
+        local found = room:WaitForChild("Door", 10)
         for _, c in ipairs(room:GetChildren()) do RegisterDoor(room, c) end
-        room.ChildAdded:Connect(function(c) RegisterDoor(room, c) end)
+        -- OPT: la puerta aparece una sola vez por cuarto; si ya existe no se deja una conexion abierta por cada cuarto
+        if found and found.Parent == room then return end
+        local conn
+        conn = room.ChildAdded:Connect(function(c)
+            RegisterDoor(room, c)
+            if c.Name == "Door" and conn then conn:Disconnect() conn = nil end
+        end)
+        room.AncestryChanged:Once(function() if conn then conn:Disconnect() conn = nil end end)
     end)
 end
 
@@ -2727,6 +2835,7 @@ do
     local queue, head, tail = {}, 1, 0
     Workspace.DescendantAdded:Connect(function(d)
         if d:IsA("ProximityPrompt") or d:IsA("Model") or d:IsA("BasePart") or d:IsA("Humanoid") or d:IsA("AnimationController") then
+            if d.Name == "R4N_HighlightModel" or d.Name == "HighlightPart" then return end -- OPT: no procesar los auxiliares propios
             tail = tail + 1
             queue[tail] = d
         end
@@ -2739,7 +2848,7 @@ do
             queue[head] = nil
             head = head + 1
             if d.Parent then pcall(OnDescendant, d) end
-            if head % 10 == 0 and os.clock() - t0 > 0.003 then break end
+            if head % 5 == 0 and os.clock() - t0 > 0.0025 then break end -- OPT: reloj cada 5 objetos, ~2.5ms por frame (carga de cuartos mas suave)
         end
         if head > tail then head, tail = 1, 0 end
     end)
@@ -3597,7 +3706,7 @@ local ENTITY_TIPS = {
 
 local Ex = {
     -- Notifier
-    Notify = true, NotifyStyle = "Doors Achievement", NotifySound = true, NotifyVolume = 100,
+    Notify = false, NotifyStyle = "Doors Achievement", NotifySound = true, NotifyVolume = 100,
     NotifyDuration = 5, NotifyCooldown = 4, NotifyTips = true, NotifySoundId = "", NotifyIconId = "",
     NotifyFilter = {},
     -- Movement
@@ -3612,7 +3721,7 @@ local Ex = {
     Fly = false, FlySpeed = 40,
     Noclip = false, Fullbright = false, FBBrightness = 2, FBAmbient = 70, NoFog = false,
     -- Anticheat Manipulator
-    ACM = false, VoidGuard = true, -- ACM ahora usa el metodo Velocity Manipulation
+    ACM = false, VoidGuard = false, -- ACM ahora usa el metodo Velocity Manipulation
     FloatButtons = UserInputService.TouchEnabled, BtnACM = true, BtnFly = true, BtnSpeedHack = true,
     -- Automation
     InstantPrompt = false,
@@ -4405,8 +4514,8 @@ local function MakeFloat(text, y, onTap, getOn, flag)
 end
 
 MakeFloat("ACM", -70, function() Flip("ACM", "Anticheat Manipulator") end, function() return Ex.ACM end, "BtnACM")
-MakeFloat("FLY", 38, function() Flip("Fly", "Fly") end, function() return Ex.Fly end, "BtnFly")
-MakeFloat("SPD", 146, function() Flip("SpeedHack", "Speed Hack") end, function() return Ex.SpeedHack end, "BtnSpeedHack")
+MakeFloat("FLY", -16, function() Flip("Fly", "Fly") end, function() return Ex.Fly end, "BtnFly")
+MakeFloat("SPD", 38, function() Flip("SpeedHack", "Speed Hack") end, function() return Ex.SpeedHack end, "BtnSpeedHack")
 
 function FX.UpdateButtons()
     for _, f in ipairs(Floating) do
@@ -4583,6 +4692,38 @@ print("[R4NS0M] Loading Automation Tab")
 ----------------------------------------------------
 -- AUTOMATION TAB
 ----------------------------------------------------
+-- ----------------------------------------------------------------------------------------
+-- Auto Doors (beta): juega el piso por ti segun el modo detectado (la logica esta mas abajo)
+-- ----------------------------------------------------------------------------------------
+Ex.AutoDoors = false
+Ex.AD_Doors, Ex.AD_Gold, Ex.AD_Drawers, Ex.AD_Chests, Ex.AD_Keys = false, false, false, false, false
+Ex.AD_Items, Ex.AD_Avoid, Ex.AD_Puzzles, Ex.AD_SkipSeek, Ex.AD_StopOnDeath = false, false, false, false, false
+Ex.AD_Delay, Ex.AD_RoomTime, Ex.AD_StopRoom = 350, 30, 0
+
+AutomationTab:Section({ Title = "Auto Doors (beta)" })
+AddToggle(AutomationTab, "AutoDoors", "Auto Doors (beta)",
+    "Detects the game mode (Hotel, Mines, Backdoor, Outdoors, Rooms...) and plays the floor for you: loots, grabs keys, opens doors and hides from entities. Risky. If nothing below is selected it applies the recommended setup for the mode.",
+    Ex.AutoDoors, function(v) Apply("AutoDoors", v) end)
+AutomationTab:Button({ Title = "Apply Recommended Setup", Desc = "Selects the best options below for the mode you are in.",
+    Callback = function() if R4N_AD then R4N_AD.Recommended(true) end end })
+AutomationTab:Button({ Title = "Show Auto Doors Status", Desc = "Shows the detected mode, the room and what it is doing.",
+    Callback = function() if R4N_AD then R4N_AD.Status() end end })
+
+AutomationTab:Section({ Title = "Auto Doors Settings" })
+AddToggle(AutomationTab, "AD_Doors", "Open Doors", "Goes to the next door and opens it when the room is done.", Ex.AD_Doors, function(v) Apply("AD_Doors", v) end)
+AddToggle(AutomationTab, "AD_Gold", "Grab Gold & Stardust", "Collects every gold pile and stardust in the room.", Ex.AD_Gold, function(v) Apply("AD_Gold", v) end)
+AddToggle(AutomationTab, "AD_Drawers", "Loot Drawers", "Opens every drawer and takes what is inside.", Ex.AD_Drawers, function(v) Apply("AD_Drawers", v) end)
+AddToggle(AutomationTab, "AD_Chests", "Loot Chests & Lockers", "Opens chests, toolboxes and lockers (locked ones are skipped).", Ex.AD_Chests, function(v) Apply("AD_Chests", v) end)
+AddToggle(AutomationTab, "AD_Keys", "Grab Keys & Unlock Doors", "Takes the door key and uses it on locked doors.", Ex.AD_Keys, function(v) Apply("AD_Keys", v) end)
+AddToggle(AutomationTab, "AD_Items", "Grab Items", "Picks up items (uses the Auto Interact ignored items list).", Ex.AD_Items, function(v) Apply("AD_Items", v) end)
+AddToggle(AutomationTab, "AD_Avoid", "Avoid Entities (Auto Hide)", "Pauses and hides in a closet while Rush, Ambush, A-60, A-120 and similar are around.", Ex.AD_Avoid, function(v) Apply("AD_Avoid", v) end)
+AddToggle(AutomationTab, "AD_Puzzles", "Solve Puzzles (Library, Breakers, Anchors)", "Turns on Auto Library, Auto Padlock, Auto Breaker Room and Auto Anchors for the mode.", Ex.AD_Puzzles, function(v) Apply("AD_Puzzles", v) end)
+AddToggle(AutomationTab, "AD_SkipSeek", "Skip Seek", "Skips the Seek sections (Hotel / Mines).", Ex.AD_SkipSeek, function(v) Apply("AD_SkipSeek", v) end)
+AddToggle(AutomationTab, "AD_StopOnDeath", "Stop On Death", "Turns Auto Doors off when you die.", Ex.AD_StopOnDeath, function(v) Apply("AD_StopOnDeath", v) end)
+AddSlider(AutomationTab, "AD_Delay", "Action Delay (ms)", "Wait between actions. Lower is faster but riskier.", 100, 1500, Ex.AD_Delay, function(v) Ex.AD_Delay = v end)
+AddSlider(AutomationTab, "AD_RoomTime", "Max Time Per Room (seconds)", "After this long it stops looting the room and moves on.", 5, 90, Ex.AD_RoomTime, function(v) Ex.AD_RoomTime = v end)
+AddSlider(AutomationTab, "AD_StopRoom", "Stop At Room (0 = never)", "Turns Auto Doors off when this room is reached.", 0, 1000, Ex.AD_StopRoom, function(v) Ex.AD_StopRoom = v end)
+
 AutomationTab:Section({ Title = "Interaction" })
 AddToggle(AutomationTab, "InstantPrompt", "Instant Proximity Prompt",
     "Removes the hold time of every interaction prompt (doors, drawers, levers, items...). Turning it off restores the original times.",
@@ -6621,6 +6762,7 @@ AddToggle(AntiCheatTab, "FloatButtons", "Floating Buttons", "Small draggable but
 end)
 AddToggle(AntiCheatTab, "BtnACM", "ACM Button", "Show the ACM floating button.", Ex.BtnACM, function(v) Ex.BtnACM = v; FX.UpdateButtons() end)
 AddToggle(AntiCheatTab, "BtnFly", "FLY Button", "Show the FLY floating button.", Ex.BtnFly, function(v) Ex.BtnFly = v; FX.UpdateButtons() end)
+AddToggle(AntiCheatTab, "BtnSpeedHack", "SPD Button", "Show the SPD (Speed Hack) floating button.", Ex.BtnSpeedHack, function(v) Ex.BtnSpeedHack = v; FX.UpdateButtons() end)
 
 print("[R4NS0M] Loading Batch 2")
 -- ============================================================================================
@@ -7162,54 +7304,65 @@ local function PathColor(kind) return kind == "seek" and Color3.fromRGB(0, 255, 
 local function Enabled(kind) return kind == "seek" and Ex.ShowSeekPath or Ex.ShowEyestalkPath end
 
 local function Erase(p)
-	if p.folder then p.folder:Destroy() p.folder = nil end
+	if p.folder then pcall(function() p.folder:Destroy() end) p.folder = nil end
+end
+-- Segmento solido (Neon) + adorno AlwaysOnTop para que se vea a traves de paredes
+local function Segment(parent, a, b, color)
+	local dist = (b - a).Magnitude
+	if dist < 0.05 then return end
+	local seg = Instance.new("Part")
+	seg.Name = "Seg"
+	seg.Anchored = true
+	seg.CanCollide = false
+	seg.CanQuery = false
+	seg.CanTouch = false
+	seg.CastShadow = false
+	seg.Material = Enum.Material.Neon
+	seg.Color = color
+	seg.Transparency = 0.2
+	seg.Size = Vector3.new(0.3, 0.3, dist)
+	seg.CFrame = CFrame.lookAt(a, b) * CFrame.new(0, 0, -dist / 2)
+	seg.Parent = parent
+	local ad = Instance.new("BoxHandleAdornment")
+	ad.Adornee = seg
+	ad.AlwaysOnTop = true
+	ad.ZIndex = 5
+	ad.Size = seg.Size
+	ad.Color3 = color
+	ad.Transparency = 0.35
+	ad.Parent = seg
 end
 local function Render(p)
 	Erase(p)
-	if not Enabled(p.kind) or #p.points == 0 then return end
+	if not Enabled(p.kind) or not p.points or #p.points == 0 then return end
 	local f = Instance.new("Folder")
 	f.Name = "P"
 	f.Parent = PathRoot
 	p.folder = f
 	local color = PathColor(p.kind)
-	local lines = Ex.PathMode ~= "Nodes"
-	local prevAtt
-	for _, pos in ipairs(p.points) do
-		local part = Instance.new("Part")
-		part.Anchored = true
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-		part.CastShadow = false
-		part.Position = pos
-		if lines then
-			part.Size = Vector3.one * 0.3
-			part.Transparency = 1
-		else
+	if Ex.PathMode == "Nodes" then
+		for _, pos in ipairs(p.points) do
+			local part = Instance.new("Part")
+			part.Anchored, part.CanCollide, part.CanQuery, part.CanTouch, part.CastShadow = true, false, false, false, false
 			part.Shape = Enum.PartType.Ball
 			part.Size = Vector3.one * 1.5
 			part.Material = Enum.Material.Neon
 			part.Color = color
 			part.Transparency = 0.15
+			part.Position = pos
+			part.Parent = f
+			local ad = Instance.new("SphereHandleAdornment")
+			ad.Adornee = part
+			ad.AlwaysOnTop = true
+			ad.ZIndex = 5
+			ad.Radius = 0.75
+			ad.Color3 = color
+			ad.Transparency = 0.3
+			ad.Parent = part
 		end
-		part.Parent = f
-		if lines then
-			local att = Instance.new("Attachment")
-			att.Parent = part
-			if prevAtt then
-				local b = Instance.new("Beam")
-				b.Attachment0 = prevAtt
-				b.Attachment1 = att
-				b.FaceCamera = true
-				b.Width0, b.Width1 = 0.25, 0.25
-				b.Brightness = 10
-				b.LightInfluence = 0
-				b.LightEmission = 1
-				b.Color = ColorSequence.new(color)
-				b.Parent = part
-			end
-			prevAtt = att
-		end
+	else
+		for i = 2, #p.points do Segment(f, p.points[i - 1], p.points[i], color) end
+		if #p.points == 1 then Segment(f, p.points[1], p.points[1] + Vector3.new(0, 1, 0), color) end
 	end
 end
 local function SetPath(key, kind, points)
@@ -7218,67 +7371,42 @@ local function SetPath(key, kind, points)
 	p.points = points
 	Render(p)
 end
-local function RedrawAll() for _, p in pairs(Paths) do Render(p) end end
+local function RedrawAll() for _, p in pairs(Paths) do pcall(Render, p) end end
+local seekLights = {}   -- room -> { list = {Vector3}, seen = {inst=true} }
+local seekToken = {}
 Ex.ClearSeekPaths = function()
 	for k, p in pairs(Paths) do
 		if p.kind == "seek" then Erase(p) Paths[k] = nil end
 	end
+	seekLights = {}
 end
 
--- Seek: las luces guia (SeekGuidingLight) de cada cuarto, ordenadas siguiendo el camino mas cercano
+-- Seek: se guarda la posicion de cada SeekGuidingLight en el orden en que aparece (aunque el juego la borre despues)
 local function RoomOf(inst)
 	local rooms = Workspace:FindFirstChild("CurrentRooms")
 	local cur = inst
 	while cur and cur.Parent ~= rooms do cur = cur.Parent end
 	return cur
 end
-local seekToken = {}
-local function RebuildSeek(room)
-	if not room or not room.Parent then return end
-	local lights = {}
-	local folder = room:FindFirstChild("PathLights", true)
-	if folder then
-		-- orden real de aparicion de las luces (el juego las agrega en secuencia)
-		for _, d in ipairs(folder:GetChildren()) do
-			if d.Name == "SeekGuidingLight" then
-				local pos = d:IsA("BasePart") and d.Position or (d:IsA("Model") and d:GetPivot().Position)
-				if pos then lights[#lights + 1] = pos end
-			end
-		end
-		if #lights > 0 then
-			SetPath("seek:" .. room.Name, "seek", lights)
-			return
-		end
-	end
-	for _, d in ipairs(room:GetDescendants()) do
-		if d.Name == "SeekGuidingLight" then
-			local pos = d:IsA("BasePart") and d.Position or (d:IsA("Model") and d:GetPivot().Position)
-			if pos then lights[#lights + 1] = pos end
-		end
-	end
-	if #lights == 0 then return end
-	local entrance = room:FindFirstChild("RoomEntrance")
-	local start = entrance and entrance:IsA("BasePart") and entrance.Position or lights[1]
-	local ordered, cur = {}, start
-	while #lights > 0 do
-		local bi, bd = 1, math.huge
-		for i, p in ipairs(lights) do
-			local dd = (p - cur).Magnitude
-			if dd < bd then bi, bd = i, dd end
-		end
-		cur = table.remove(lights, bi)
-		ordered[#ordered + 1] = cur
-	end
-	SetPath("seek:" .. room.Name, "seek", ordered)
-end
 local function OnSeekLight(d)
 	if d.Name ~= "SeekGuidingLight" then return end
 	local room = RoomOf(d)
 	if not room then return end
+	local pos
+	if d:IsA("BasePart") then pos = d.Position
+	elseif d:IsA("Model") then pos = d:GetPivot().Position end
+	if not pos then return end
+	local rec = seekLights[room]
+	if not rec then rec = { list = {}, seen = setmetatable({}, { __mode = "k" }) } seekLights[room] = rec end
+	if rec.seen[d] then return end
+	rec.seen[d] = true
+	rec.list[#rec.list + 1] = pos
 	seekToken[room] = (seekToken[room] or 0) + 1
 	local tok = seekToken[room]
-	task.delay(0.5, function()
-		if seekToken[room] == tok then pcall(RebuildSeek, room) end
+	task.delay(0.3, function()
+		if seekToken[room] == tok and room.Parent then
+			SetPath("seek:" .. room.Name, "seek", table.clone(rec.list))
+		end
 	end)
 end
 
@@ -7290,27 +7418,33 @@ local function SetupEyestalk(room)
 	if not (type(raw) == "string" and raw:find("Eyestalk", 1, true)) then return end
 	eyeBusy[room] = true
 	task.spawn(function()
-		local exitPart = room:WaitForChild("RoomExit", 30)
-		room:WaitForChild("RoomEntrance", 30)
+		local exitPart = room:WaitForChild("RoomExit", 60)
+		room:WaitForChild("RoomEntrance", 60)
+		local fails = 0
 		while room.Parent and not room:GetAttribute("PathFoundR4N") do
-			if Ex.ShowEyestalkPath and exitPart then
+			if Ex.ShowEyestalkPath and exitPart and exitPart.Parent then
 				local char = LocalPlayer.Character
-				local root = char and char:FindFirstChild("HumanoidRootPart")
+				local root = char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Collision") or char.PrimaryPart)
 				if root then
 					local path = PathfindingService:CreatePath({
 						AgentCanJump = false, AgentCanClimb = false, WaypointSpacing = 2, AgentRadius = 1, AgentHeight = 1,
 					})
 					local ok = pcall(function() path:ComputeAsync(root.Position, exitPart.Position) end)
+					local pts = {}
 					if ok and path.Status == Enum.PathStatus.Success then
-						room:SetAttribute("PathFoundR4N", true)
-						local pts = {}
 						for _, w in ipairs(path:GetWaypoints()) do pts[#pts + 1] = w.Position end
+					else
+						fails = fails + 1
+						if fails >= 6 then pts = { root.Position, exitPart.Position } end -- sin ruta calculable: linea recta
+					end
+					if #pts > 0 then
+						room:SetAttribute("PathFoundR4N", true)
 						SetPath("eye:" .. room.Name, "eye", pts)
 						break
 					end
 				end
 			end
-			task.wait(0.5)
+			task.wait(0.4)
 		end
 	end)
 end
@@ -7322,11 +7456,12 @@ task.spawn(function()
 	for _, r in ipairs(rooms:GetChildren()) do SetupEyestalk(r) end
 	rooms.DescendantAdded:Connect(OnSeekLight)
 	rooms.ChildAdded:Connect(function(r)
-		task.wait(0.5)
+		task.wait(0.3)
 		SetupEyestalk(r)
 	end)
 	-- cuartos que se borran: se limpian sus caminos
 	rooms.ChildRemoved:Connect(function(r)
+		seekLights[r] = nil
 		for _, pre in ipairs({ "seek:", "eye:" }) do
 			local p = Paths[pre .. r.Name]
 			if p then Erase(p) Paths[pre .. r.Name] = nil end
@@ -7474,6 +7609,202 @@ Workspace.DescendantAdded:Connect(function(d)
 end)
 end)()
 
+print("[R4NS0M] Loading Batch 6")
+-- ============================================================================================
+-- BATCH 6 (1.0.2)
+--   Antis   : Infinite Crucifix, Remove Cutscenes, Disable Entity Jumpscares
+--   Visuals : Disable Firedamp Effect
+-- ============================================================================================
+;(function()
+local RS = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+Ex.InfCrucifix = false
+Ex.RemoveCutscenes = false
+Ex.DisableEntityJumpscares = false
+Ex.DisableFiredamp = false
+
+local function MainGame()
+	local pg = LocalPlayer:FindFirstChild("PlayerGui")
+	local mu = pg and pg:FindFirstChild("MainUI")
+	local ini = mu and mu:FindFirstChild("Initiator")
+	return ini and ini:FindFirstChild("Main_Game")
+end
+local function Listener()
+	local mg = MainGame()
+	return mg and mg:FindFirstChild("RemoteListener")
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Infinite Crucifix: suelta el crucifijo y lo recoge de nuevo cuando la entidad esta cerca y con linea de vista
+-- ------------------------------------------------------------------------------------------
+local DROP_DIST = { RushMoving = 54, AmbushMoving = 67, A60 = 70, GlitchRush = 120, GlitchAmbush = 155, A120 = 75 }
+local crucBusy = false
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+RunService.Heartbeat:Connect(function()
+	if not Ex.InfCrucifix or crucBusy then return end
+	local char = LocalPlayer.Character
+	if not char then return end
+	local body = char:FindFirstChild("Collision") or char:FindFirstChild("CollisionPart") or char:FindFirstChild("HumanoidRootPart")
+	if not body then return end
+	local tool = char:FindFirstChildOfClass("Tool")
+	if not tool or tool.Name ~= "Crucifix" then return end
+	rayParams.FilterDescendantsInstances = { char }
+	for name, maxDist in pairs(DROP_DIST) do
+		local ent = Workspace:FindFirstChild(name)
+		local pp = ent and ent.PrimaryPart
+		if pp and (body.Position - pp.Position).Magnitude < maxDist then
+			local hit = Workspace:Raycast(body.Position, pp.Position - body.Position, rayParams)
+			if hit and hit.Instance:IsDescendantOf(ent) then
+				crucBusy = true
+				task.spawn(function()
+					pcall(function()
+						local remotes = RS:FindFirstChild("RemotesFolder")
+						local drop = remotes and remotes:FindFirstChild("DropItem")
+						if drop then drop:FireServer(tool) end
+						task.wait(0.54)
+						local drops = Workspace:FindFirstChild("Drops")
+						local dropped = drops and drops:FindFirstChild("Crucifix")
+						local prompt = dropped and dropped:FindFirstChildWhichIsA("ProximityPrompt", true)
+						if prompt and fireproximityprompt then fireproximityprompt(prompt) end
+					end)
+					task.wait(0.6)
+					crucBusy = false
+				end)
+				return
+			end
+		end
+	end
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Remove Cutscenes / Disable Entity Jumpscares: se renombran los ModuleScripts para que el juego no los cargue
+-- ------------------------------------------------------------------------------------------
+local CUTSCENES = {
+	Figure = true, FigureEnd = true, FigureHotelEnd = true, FigureHotelFire = true,
+	SeekIntroFools = true, SeekIntroHotel = true, SeekIntroMines = true, SeekIntroMines2 = true,
+	SerewSeekDrain = true, SewerSeekLower = true, GrumbleNestEnd = true, EyestalkIntro = true,
+}
+local function Toggle(obj, base, on)
+	if not obj or not obj.Parent then return end
+	if obj:GetAttribute("R4N_Orig") == nil then obj:SetAttribute("R4N_Orig", base) end
+	local want = on and (base .. "_Disabled") or base
+	if obj.Name ~= want then obj.Name = want end
+end
+local function BaseName(obj)
+	local o = obj:GetAttribute("R4N_Orig")
+	if o then return o end
+	return (obj.Name:gsub("_Disabled$", ""))
+end
+local function ApplyCutscenes()
+	local on = Ex.RemoveCutscenes
+	local rl = Listener()
+	local c1, c2 = rl and rl:FindFirstChild("Cutscenes"), RS:FindFirstChild("FloorReplicated")
+	for i = 1, 2 do
+		local folder = i == 1 and c1 or c2
+		if folder then for _, o in ipairs(folder:GetChildren()) do
+			if o:IsA("ModuleScript") then
+				local base = BaseName(o)
+				if CUTSCENES[base] then Toggle(o, base, on) end
+			end
+		end end
+	end
+end
+local function IsJumpscareModule(o)
+	if not o:IsA("ModuleScript") then return false end
+	local b = BaseName(o)
+	return b:find("Jumpscare", 1, true) and not b:find("Eyestalk", 1, true) and not b:find("Groundskeeper", 1, true) and not b:find("Monument", 1, true)
+end
+local function ApplyJumpscares()
+	local on = Ex.DisableEntityJumpscares
+	local rl = Listener()
+	local js = rl and (rl:FindFirstChild("Jumpscares") or rl:FindFirstChild("Jumpscares_Disabled"))
+	if js then Toggle(js, "Jumpscares", on) end
+	local fr = RS:FindFirstChild("FloorReplicated")
+	if fr then
+		for _, o in ipairs(fr:GetDescendants()) do
+			if IsJumpscareModule(o) then Toggle(o, BaseName(o), on) end
+		end
+	end
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Disable Firedamp Effect
+-- ------------------------------------------------------------------------------------------
+local function ApplyFiredamp()
+	local rooms = Workspace:FindFirstChild("CurrentRooms")
+	if not rooms then return end
+	local on = Ex.DisableFiredamp
+	for _, r in ipairs(rooms:GetChildren()) do
+		if on then
+			if r:GetAttribute("Firedamp_Old_R4N") == nil then
+				local v = r:GetAttribute("Firedamp")
+				r:SetAttribute("Firedamp_Old_R4N", v ~= nil and v or false)
+			end
+			if r:GetAttribute("Firedamp") ~= false then r:SetAttribute("Firedamp", false) end
+		else
+			local old = r:GetAttribute("Firedamp_Old_R4N")
+			if old ~= nil then
+				r:SetAttribute("Firedamp", old)
+				r:SetAttribute("Firedamp_Old_R4N", nil)
+			end
+		end
+	end
+	if on then
+		local cam = Workspace.CurrentCamera
+		if cam then
+			for _, o in ipairs(cam:GetChildren()) do
+				if o.Name == "LiveFiredamp" then pcall(function() o:Destroy() end) end
+			end
+		end
+	end
+end
+
+local function Safe(f) return function() pcall(f) end end
+local function Kick(f, flag)
+	-- se reaplica unos segundos: los modulos/cuartos pueden cargarse despues de activar el toggle
+	task.spawn(function()
+		for _ = 1, 20 do
+			pcall(f)
+			task.wait(0.5)
+		end
+	end)
+end
+Hooks.RemoveCutscenes = function() Kick(ApplyCutscenes) end
+Hooks.DisableEntityJumpscares = function() Kick(ApplyJumpscares) end
+Hooks.DisableFiredamp = function()
+	pcall(ApplyFiredamp)
+	if Ex.DisableFiredamp then
+		-- fuerza al juego a reevaluar el cuarto actual
+		pcall(function()
+			local old = LocalPlayer:GetAttribute("CurrentRoom")
+			if old then
+				LocalPlayer:SetAttribute("CurrentRoom", 0)
+				task.wait()
+				LocalPlayer:SetAttribute("CurrentRoom", old)
+			end
+		end)
+	end
+end
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if Ex.RemoveCutscenes then pcall(ApplyCutscenes) end
+		if Ex.DisableEntityJumpscares then pcall(ApplyJumpscares) end
+		if Ex.DisableFiredamp then pcall(ApplyFiredamp) end
+	end
+end)
+
+AntisTab:Section({ Title = "Extras" })
+AddToggle(AntisTab, "InfCrucifix", "Infinite Crucifix", "Risky! Drops and picks the Crucifix up again when an entity is close so it never breaks. You can die or lose it; low ping recommended.", Ex.InfCrucifix, function(v) Ex.InfCrucifix = v end)
+AddToggle(AntisTab, "RemoveCutscenes", "Remove Cutscenes", "Skips the Figure, Seek and Eyestalk cutscenes.", Ex.RemoveCutscenes, function(v) Apply("RemoveCutscenes", v) end)
+AddToggle(AntisTab, "DisableEntityJumpscares", "Disable Entity Jumpscares", "Disables the jumpscares of entities like Rush and Ambush.", Ex.DisableEntityJumpscares, function(v) Apply("DisableEntityJumpscares", v) end)
+VisualsTab:Section({ Title = "Effects" })
+AddToggle(VisualsTab, "DisableFiredamp", "Disable Firedamp Effect", "Removes the firedamp screen effect.", Ex.DisableFiredamp, function(v) Apply("DisableFiredamp", v) end)
+end)()
+
 print("[R4NS0M] Loading Batch 5")
 -- ============================================================================================
 -- BATCH 5
@@ -7486,7 +7817,7 @@ local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(25
 
 Ex.BypassSeek = false
 Ex.BypassFigure = false
-Ex.NotifyRansom = true
+Ex.NotifyRansom = false
 Ex.AutoPositionSpoof = false
 
 -- entidades tipo Rush: mientras exista una activa en el Workspace hace falta el spoof
@@ -7655,7 +7986,7 @@ local RunSvc = game:GetService("RunService")
 local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
 
 Ex.PerfMode = false
-Ex.AutoPerf = true
+Ex.AutoPerf = false
 Ex.NotifyDespawn = false
 Cfg.RefreshRate = Cfg.RefreshRate or 4
 
@@ -7799,14 +8130,14 @@ local HttpSvc = game:GetService("HttpService")
 local RS = game:GetService("ReplicatedStorage")
 local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
 
-Ex.TimerShow = true
+Ex.TimerShow = false
 Ex.TimerPosition = "Top Right"
 Ex.TimerScale = 100
 Ex.TimerOpacity = 80
 Ex.TimerSplits = true
 Ex.TimerButtons = true
-Ex.TimerAutoStart = true
-Ex.TimerAutoSplit = true
+Ex.TimerAutoStart = false
+Ex.TimerAutoSplit = false
 Ex.TimerStopRoom = 0
 Ex.Key_TimerToggle = "K"
 Ex.Key_TimerStop = "O"
@@ -8278,7 +8609,7 @@ Layout()
 -- ------------------------------------------------------------------------------------------
 -- Parada automatica cuando el juego termina (cinematica final, pantalla de fin, muerte o regreso al lobby)
 -- ------------------------------------------------------------------------------------------
-Ex.TimerAutoEnd = true
+Ex.TimerAutoEnd = false
 Ex.TimerStopOnDeath = true
 do
 	local FINAL_ROOM = { Hotel = 100, Mines = 200 }
@@ -8937,7 +9268,7 @@ end)()
 -- ------------------------------------------------------------------------------------------
 ;(function()
 local B = FX.B8
-Ex.StairwellExtraESP = true
+Ex.StairwellExtraESP = false
 
 -- Glitch: cuando el cubo ya no tiene prompt (lo agarraste) o esta en tu personaje, se quita su ESP
 task.spawn(function()
@@ -11228,6 +11559,276 @@ MiscTab:Button({
 FX.UpdateButtons()
 
 print("[R4NS0M] Loaded Keybinds Tab")
+-- ------------------------------------------------------------------------------------------
+-- Auto Doors (beta): logica
+-- ------------------------------------------------------------------------------------------
+do
+local AD = { Gen = 0, Turned = {}, Tries = setmetatable({}, { __mode = "k" }), Status = "Off", Room = nil, RoomT = 0, CalmAt = 0 }
+R4N_AD = AD
+local RSv = game:GetService("ReplicatedStorage")
+
+local OPTS = { "AD_Doors", "AD_Gold", "AD_Drawers", "AD_Chests", "AD_Keys", "AD_Items", "AD_Avoid", "AD_Puzzles", "AD_SkipSeek" }
+local REC = {
+    Hotel     = { "AD_Doors", "AD_Gold", "AD_Drawers", "AD_Chests", "AD_Keys", "AD_Items", "AD_Avoid", "AD_Puzzles", "AD_SkipSeek" },
+    Mines     = { "AD_Doors", "AD_Gold", "AD_Drawers", "AD_Chests", "AD_Keys", "AD_Items", "AD_Avoid", "AD_Puzzles", "AD_SkipSeek" },
+    Backdoor  = { "AD_Doors", "AD_Gold", "AD_Keys", "AD_Items", "AD_Avoid" },
+    Outdoors  = { "AD_Doors", "AD_Gold", "AD_Items", "AD_Avoid" },
+    Rooms     = { "AD_Doors", "AD_Avoid" },
+    Stairwell = { "AD_Doors", "AD_Gold", "AD_Items", "AD_Avoid" },
+    Archives  = { "AD_Doors", "AD_Gold", "AD_Keys", "AD_Items", "AD_Avoid" },
+}
+local DANGER = {
+    RushMoving = true, AmbushMoving = true, A60 = true, A120 = true, GlitchRush = true,
+    GlitchAmbush = true, BackdoorRush = true,
+}
+local KIND = {
+    gold = "AD_Gold", stardust = "AD_Gold", keys = "AD_Keys", drawers = "AD_Drawers",
+    chests = "AD_Chests", lockers = "AD_Chests", items = "AD_Items",
+}
+
+local function Say(text)
+    pcall(function() WindUI:Notify({ Title = "Auto Doors", Content = text, Duration = 4 }) end)
+end
+local function ModeNm()
+    local n = Mode.Name
+    if n == "Fools" then n = "Hotel" end
+    return n
+end
+local function CurRoom() return tonumber(LocalPlayer:GetAttribute("CurrentRoom")) end
+local function Latest()
+    local gd = RSv:FindFirstChild("GameData")
+    local lv = gd and gd:FindFirstChild("LatestRoom")
+    return lv and lv.Value
+end
+local function RoomOf(inst)
+    local rooms = Workspace:FindFirstChild("CurrentRooms")
+    local cur = inst
+    while cur and cur.Parent do
+        if cur.Parent == rooms then return tonumber(cur.Name) end
+        cur = cur.Parent
+    end
+    return nil
+end
+local function DangerNow()
+    for _, c in ipairs(Workspace:GetChildren()) do
+        if DANGER[c.Name] then return c.Name end
+    end
+    return nil
+end
+
+-- activa una funcion del hub solo si estaba apagada y recuerda apagarla al terminar
+local function Need(id)
+    if Ex[id] ~= true then
+        AD.Turned[id] = true
+        SetFeature(id, true)
+    end
+end
+local function Release()
+    for id in pairs(AD.Turned) do pcall(SetFeature, id, false) end
+    AD.Turned = {}
+end
+
+-- funciones del hub que Auto Doors usa segun las opciones y el modo
+local function Sync()
+    local m = ModeNm()
+    if m == "Rooms" then
+        Need("RoomsAutoWalk")
+        return true
+    end
+    if Ex.AD_Avoid then Need("AutoClosetToggle") end
+    if Ex.AD_SkipSeek then
+        if m == "Hotel" then Need("SkipSeekHotel") elseif m == "Mines" then Need("SkipSeekMines") end
+    end
+    if Ex.AD_Puzzles then
+        if m == "Hotel" then
+            Need("AutoLibrary")
+            Need("AutoUnlockPadlockToggle")
+            Need("AutoBreakerRoom")
+        elseif m == "Mines" then
+            Need("AutoSolveAnchors")
+        end
+    end
+    return false
+end
+
+AD.Recommended = function(announce)
+    local m = ModeNm()
+    local list = REC[m] or REC.Hotel
+    local want = {}
+    for _, k in ipairs(list) do want[k] = true end
+    for _, k in ipairs(OPTS) do SetFeature(k, want[k] == true) end
+    if announce then Say("Recommended setup for " .. m .. " applied.") end
+end
+
+AD.Status = function()
+    Say(string.format("Mode: %s | Room: %s | %s", ModeNm(), tostring(CurRoom() or "?"), tostring(AD.Info or (Ex.AutoDoors and "Running" or "Off"))))
+end
+
+local function PromptOf(e)
+    local p = e.Prompt
+    if p and p.Parent and p:IsA("ProximityPrompt") then return p end
+    local inst = e.Inst
+    if inst and inst.Parent then
+        for _, d in ipairs(inst:GetDescendants()) do
+            if d:IsA("ProximityPrompt") and d.Enabled and d.Name ~= "HidePrompt" then return d end
+        end
+    end
+    return nil
+end
+
+local function NextTarget(cur, rp)
+    local best, bestPrompt, bestD = nil, nil, math.huge
+    for inst, e in pairs(Tracked) do
+        local opt = KIND[e.Cat]
+        if opt and Ex[opt] and inst.Parent and (AD.Tries[inst] or 0) < 3 and RoomOf(inst) == cur then
+            local skip = e.Cat == "items" and Ex.AIItemIgnore and Ex.AIItemIgnore[e.Label]
+            if (e.Cat == "chests" or e.Cat == "lockers") and inst:GetAttribute("Locked") == true then skip = true end
+            if not skip then
+                local pp = PromptOf(e)
+                if pp and pp.Enabled and e.Part and e.Part.Parent then
+                    local d = (e.Part.Position - rp).Magnitude
+                    if d < bestD then best, bestPrompt, bestD = e, pp, d end
+                end
+            end
+        end
+    end
+    return best, bestPrompt
+end
+
+local function Fire(pp, times)
+    pcall(function()
+        pp.HoldDuration = 0
+        pp.RequiresLineOfSight = false
+    end)
+    for _ = 1, times or 3 do
+        if not pp.Parent or not pp.Enabled then break end
+        pcall(fireproximityprompt, pp)
+        task.wait(0.12)
+    end
+end
+
+local function TP(cf, hold)
+    local B8 = FX.B8
+    if B8 and B8.SafeTP then return B8.SafeTP(cf, hold) end
+    local char = LocalPlayer.Character
+    if char then char:PivotTo(cf) return true end
+    return false
+end
+
+local function Visit(e, pp)
+    AD.Tries[e.Inst] = (AD.Tries[e.Inst] or 0) + 1
+    local pos = e.Part.Position
+    TP(CFrame.new(pos + Vector3.new(0, 3, 0)), 0.5)
+    task.wait(0.25 + Ex.AD_Delay / 2000)
+    Fire(pp, 3)
+end
+
+local function DoorStep()
+    local door = NextClosedDoor()
+    if not door then AD.Info = "No closed door found" return false end
+    local lv0 = Latest()
+    if door:FindFirstChild("Lock") then
+        if not (Ex.AD_Keys and (HasItem("Key") or HasItem("KeyBackdoor"))) then
+            AD.Info = "Locked door: waiting for a key"
+            return false
+        end
+        TP(door:GetPivot() * CFrame.new(0, -1, 0), 0.5)
+        task.wait(0.3)
+        for _, d in ipairs(door:GetDescendants()) do
+            if d:IsA("ProximityPrompt") and d.Name == "UnlockPrompt" then Fire(d, 2) end
+        end
+    end
+    TP(door:GetPivot() * CFrame.new(0, -1, 0), 0.6)
+    task.wait(0.3)
+    local n = 0
+    for _, d in ipairs(door:GetDescendants()) do
+        if d:IsA("ProximityPrompt") and d.Enabled and d.Name ~= "UnlockPrompt" and d.Name ~= "HidePrompt" then
+            Fire(d, 2)
+            n = n + 1
+            if n >= 4 then break end
+        end
+    end
+    local t0 = os.clock()
+    while os.clock() - t0 < 4 and (Latest() or 0) <= (lv0 or 0) and Ex.AutoDoors do task.wait(0.2) end
+    return true
+end
+
+local function Step()
+    if IsLobby() then AD.Info = "In the lobby" return end
+    local char, hum, root = GetParts()
+    if not (char and hum and root) then return end
+    if hum.Health <= 0 then
+        if Ex.AD_StopOnDeath then
+            SetFeature("AutoDoors", false)
+            Say("You died: Auto Doors turned off.")
+        end
+        return
+    end
+    if Sync() then AD.Info = "Rooms: Auto Rooms is driving" return end
+
+    local danger = DangerNow()
+    if danger and Ex.AD_Avoid then
+        AD.Info = "Hiding from " .. danger
+        AD.CalmAt = os.clock() + 1.2
+        return
+    end
+    if os.clock() < AD.CalmAt then AD.Info = "Waiting for the entity to leave" return end
+    if char:GetAttribute("Hiding") then AD.Info = "Hidden" return end
+
+    local cur, latest = CurRoom(), Latest()
+    if not (cur and latest) then return end
+    if Ex.AD_StopRoom > 0 and latest >= Ex.AD_StopRoom then
+        SetFeature("AutoDoors", false)
+        Say("Reached room " .. latest .. ": Auto Doors turned off.")
+        return
+    end
+    if cur ~= AD.Room then
+        AD.Room, AD.RoomT = cur, os.clock()
+    end
+    if os.clock() - AD.RoomT < Ex.AD_RoomTime then
+        local e, pp = NextTarget(cur, root.Position)
+        if e then
+            AD.Info = "Looting " .. tostring(e.Label)
+            Visit(e, pp)
+            task.wait(Ex.AD_Delay / 1000)
+            return
+        end
+    end
+    if Ex.AD_Doors then
+        AD.Info = "Opening the next door"
+        DoorStep()
+        task.wait(Ex.AD_Delay / 1000)
+    else
+        AD.Info = "Idle (Open Doors is off)"
+    end
+end
+
+Hooks.AutoDoors = function(v)
+    AD.Gen = AD.Gen + 1
+    if v then
+        local any = false
+        for _, k in ipairs(OPTS) do
+            if Ex[k] then any = true break end
+        end
+        if not any then AD.Recommended(false) end
+        AD.Tries = setmetatable({}, { __mode = "k" })
+        AD.Room, AD.CalmAt, AD.Info = nil, 0, "Starting"
+        Say("Mode: " .. ModeNm() .. ". Auto Doors is running.")
+        local my = AD.Gen
+        task.spawn(function()
+            while Ex.AutoDoors and AD.Gen == my do
+                local ok, err = pcall(Step)
+                if not ok then AD.Info = "Error: " .. tostring(err) end
+                task.wait(0.25)
+            end
+        end)
+    else
+        Release()
+        AD.Info = "Off"
+    end
+end
+end
+
 print("[R4NS0M] Loading Config presets")
 ----------------------------------------------------
 -- Guardar / cargar (las teclas y ajustes se guardan; ACM, Fly y Noclip siempre arrancan apagados)
@@ -11235,7 +11836,7 @@ print("[R4NS0M] Loading Config presets")
 local EXTRA_KEYS = {
     "Notify", "NotifyStyle", "NotifySound", "NotifyVolume", "NotifyDuration", "NotifyCooldown", "NotifyTips",
     "NotifySoundId", "NotifyIconId",
-    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "NotifyLibraryCode", "GuessLibraryCode", "AutoSteerMinecart", "BypassSeek", "BypassFigure", "NotifyRansom", "TimerShow", "TimerPosition", "TimerScale", "TimerOpacity", "TimerSplits", "TimerButtons", "TimerAutoStart", "TimerAutoSplit", "TimerStopRoom", "AutoPositionSpoof", "NotifyDespawn", "PerfMode", "AutoPerf", "ShowSeekPath", "ShowEyestalkPath", "PathMode", "NotifyItems", "NotifyUnlistedItems", "BtnSpeedHack", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
+    "Speed", "SpeedValue", "SpeedMethod", "SpeedHack", "SpeedHackValue", "DisableAnticheat", "VelocityManipulationMode", "PositionSpoof", "CrouchSpoof", "AutoHeartbeatMinigame", "BypassGiggle", "BypassDupe", "BypassEyes", "BypassLookman", "BypassGloombatEggs", "BypassSeekObstructions", "BypassVacuum", "BypassKillbricks", "BypassSeekingWall", "BypassSnare", "BypassBanana", "BypassJeff", "RemoveScreech", "RemoveHalt", "RemoveA90", "RemoveDread", "RemoveSurge", "NoScreechDamage", "NoHaltDamage", "NoA90Damage", "NoSurgeDamage", "RemoveSeekTrigger", "RemoveFigure", "AutoRevive", "FigureGodmode", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor", "Key_PosSpoof", "NotifyLibraryCode", "GuessLibraryCode", "AutoSteerMinecart", "BypassSeek", "BypassFigure", "NotifyRansom", "TimerShow", "TimerPosition", "TimerScale", "TimerOpacity", "TimerSplits", "TimerButtons", "TimerAutoStart", "TimerAutoSplit", "TimerStopRoom", "AutoPositionSpoof", "NotifyDespawn", "PerfMode", "AutoPerf", "ShowSeekPath", "ShowEyestalkPath", "PathMode", "InfCrucifix", "RemoveCutscenes", "DisableEntityJumpscares", "DisableFiredamp", "NotifyItems", "NotifyUnlistedItems", "BtnSpeedHack", "Jump", "JumpPower", "InfJump", "Slide", "SlideSpeed", "FlySpeed",
     "Fullbright", "VoidGuard", "AutoBreakerBox", "InfiniteItems", "InfiniteItemsList", "AutoInteract", "PromptReach", "PromptClip", "DisableIdleKick", "MeldStopGrowth", "MeldRemove", "FloatButtons", "BtnACM", "BtnFly", "InstantPrompt",
     "NotifyOxygen", "NotifyHaste", "NoClosetDelay", "NoAcceleration", "DoorReach", "NoFootsteps", "NoPromptSounds",
     "Key_ACM", "Key_Noclip", "Key_Fly", "Key_Speed", "Key_SpeedHack", "Key_TimerToggle", "Key_TimerStop", "Key_TimerReset", "Key_Slide", "Key_Hub", "Key_RestorePrompts",
@@ -12081,41 +12682,34 @@ ConfigsTab:Dropdown({
 -- ------------------------------------------------------------------------------------------
 ConfigsTab:Section({ Title = "Auto Execute" })
 
-local ae = { on = false, src = "" }
+local ae = { on = false }
 pcall(function()
     if isfile and readfile and isfile("R4NS0M_AutoExec.json") then
         local d = HttpService:JSONDecode(readfile("R4NS0M_AutoExec.json"))
-        if type(d) == "table" then
-            ae.on = d.on == true
-            ae.src = tostring(d.src or "")
-        end
+        if type(d) == "table" then ae.on = d.on == true end
     end
 end)
 
-local function SaveAE()
-    if writefile then pcall(writefile, "R4NS0M_AutoExec.json", HttpService:JSONEncode(ae)) end
-    R4N_QueueAutoExec()
-end
-
 ConfigsTab:Toggle({
     Title = "Auto Execute On Teleport",
-    Desc = "Runs the script again by itself when you teleport (lobby <-> run). Needs queue_on_teleport support and the loader below.",
+    Desc = "Runs this same script again by itself when you teleport (lobby <-> run). It re-runs the exact code you executed, no link needed.",
     Value = ae.on,
     Callback = function(v)
         ae.on = v == true
-        SaveAE()
-        Notify("Auto Execute", ae.on and Msg("Enabled.", "Activado.", "Включено.") or Msg("Disabled.", "Desactivado.", "Выключено."), 2)
-    end
-})
-
-ConfigsTab:Input({
-    Title = "Loader (URL or file)",
-    Desc = "Your script URL or its file name in the executor's workspace folder. Empty = R4NS0M-HUB-FINAL.lua if it exists. Re-execute after changing it.",
-    Placeholder = "https://... or R4NS0M-HUB-FINAL.lua",
-    Value = ae.src,
-    Callback = function(text)
-        ae.src = tostring(text or "")
-        SaveAE()
+        if writefile then pcall(writefile, "R4NS0M_AutoExec.json", HttpService:JSONEncode({ on = ae.on })) end
+        R4N_QueueAutoExec()
+        if not ae.on then
+            Notify("Auto Execute", Msg("Disabled.", "Desactivado.", "Выключено."), 2)
+            return
+        end
+        local st = R4N_AE_STATUS
+        if st == "noqueue" then
+            Notify("Auto Execute", Msg("Your executor does not support queue_on_teleport.", "Tu ejecutor no soporta queue_on_teleport.", "Ваш экзекутор не поддерживает queue_on_teleport."), 5)
+        elseif st == "nosource" then
+            Notify("Auto Execute", Msg("Your executor does not expose the executed code. Save the script as R4NS0M-HUB-FINAL.lua in your workspace folder.", "Tu ejecutor no expone el código ejecutado. Guarda el script como R4NS0M-HUB-FINAL.lua en tu carpeta workspace.", "Ваш экзекутор не отдаёт выполненный код. Сохраните скрипт как R4NS0M-HUB-FINAL.lua в папке workspace."), 7)
+        else
+            Notify("Auto Execute", Msg("Enabled. The script will run again after you teleport.", "Activado. El script se ejecutará otra vez al teletransportarte.", "Включено. Скрипт запустится снова после телепорта."), 3)
+        end
     end
 })
 
