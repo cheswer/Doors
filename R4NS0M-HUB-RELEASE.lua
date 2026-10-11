@@ -2,7 +2,7 @@ warn("--- [R4NS0M] EXECUTING SCRIPT ---")
 pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "R4NS0M", Text = "Script iniciado, cargando UI...", Duration = 6 }) end)
 --[[
   R4NS0M CD-1  |  Team CHX
-  Version 1.0.2
+  Version 1.0.3
   Tabs: Main, Info, Visuals, Player, Automation, Anticheat, Antis, Alerts, Misc, Keybinds, Configs
   Ransomity is real
 ]]
@@ -353,6 +353,26 @@ R4N_I18N = {
         ["Apply Recommended Setup"] = "Aplicar Configuración Recomendada",
         ["Show Auto Doors Status"] = "Mostrar Estado de Auto Doors",
         ["Auto Doors Settings"] = "Ajustes de Auto Doors",
+        ["Auto Doors"] = "Auto Doors",
+        ["What's New"] = "Lo nuevo",
+        ["Profile"] = "Perfil",
+        ["Apply Profile"] = "Aplicar Perfil",
+        ["Force Unstuck Now"] = "Desatascar Ahora",
+        ["Reset Statistics"] = "Reiniciar Estadísticas",
+        ["Keep Searching For Keys"] = "Seguir Buscando Llaves",
+        ["Force Open Fallback"] = "Apertura Forzada de Respaldo",
+        ["Auto Doors Timing"] = "Tiempos de Auto Doors",
+        ["Max Retries Per Target"] = "Reintentos Máximos por Objetivo",
+        ["Loot Order"] = "Orden de Botín",
+        ["Auto Doors Safety"] = "Seguridad de Auto Doors",
+        ["Anti-Stuck Watchdog"] = "Vigilante Anti-Atasco",
+        ["Stuck Timeout (seconds)"] = "Tiempo de Atasco (segundos)",
+        ["Max Hide Time (seconds)"] = "Tiempo Máx. Escondido (segundos)",
+        ["Stop After (minutes, 0 = never)"] = "Parar Tras (minutos, 0 = nunca)",
+        ["Stop Below Health % (0 = off)"] = "Parar con Vida Bajo % (0 = off)",
+        ["Auto Doors Display"] = "Pantalla de Auto Doors",
+        ["Auto Doors Notifications"] = "Notificaciones de Auto Doors",
+        ["Status HUD"] = "HUD de Estado",
         ["Open Doors"] = "Abrir Puertas",
         ["Grab Gold & Stardust"] = "Agarrar Oro y Polvo Estelar",
         ["Loot Drawers"] = "Lootear Cajones",
@@ -760,6 +780,26 @@ R4N_I18N = {
         ["Apply Recommended Setup"] = "Применить рекомендуемые настройки",
         ["Show Auto Doors Status"] = "Показать статус Авто дверей",
         ["Auto Doors Settings"] = "Настройки Авто дверей",
+        ["Auto Doors"] = "Авто двери",
+        ["What's New"] = "Что нового",
+        ["Profile"] = "Профиль",
+        ["Apply Profile"] = "Применить профиль",
+        ["Force Unstuck Now"] = "Исправить зависание",
+        ["Reset Statistics"] = "Сбросить статистику",
+        ["Keep Searching For Keys"] = "Продолжать поиск ключей",
+        ["Force Open Fallback"] = "Принудительное открытие",
+        ["Auto Doors Timing"] = "Тайминги Авто дверей",
+        ["Max Retries Per Target"] = "Макс. повторов на цель",
+        ["Loot Order"] = "Порядок сбора",
+        ["Auto Doors Safety"] = "Безопасность Авто дверей",
+        ["Anti-Stuck Watchdog"] = "Защита от зависаний",
+        ["Stuck Timeout (seconds)"] = "Таймаут зависания (сек)",
+        ["Max Hide Time (seconds)"] = "Макс. время укрытия (сек)",
+        ["Stop After (minutes, 0 = never)"] = "Стоп через (мин, 0 = никогда)",
+        ["Stop Below Health % (0 = off)"] = "Стоп при здоровье ниже % (0 = выкл)",
+        ["Auto Doors Display"] = "Отображение Авто дверей",
+        ["Auto Doors Notifications"] = "Уведомления Авто дверей",
+        ["Status HUD"] = "HUD статуса",
         ["Open Doors"] = "Открывать двери",
         ["Grab Gold & Stardust"] = "Брать золото и звёздную пыль",
         ["Loot Drawers"] = "Обыскивать ящики",
@@ -1270,7 +1310,7 @@ InfoTab:Section({ Title = "Script Information" })
 
 InfoTab:Paragraph({
     Title = "About R4NS0M CD-1",
-    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.2"
+    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.3"
 })
 
 InfoTab:Paragraph({
@@ -3302,6 +3342,31 @@ print("[R4NS0M] Loading Main Tab")
 ----------------------------------------------------
 -- MAIN TAB: estado del modo
 ----------------------------------------------------
+MainTab:Section({ Title = "What's New" })
+do
+    local NOTES = {
+        en = "NEW: Infinite Crucifix (Antis tab). Your Crucifix no longer breaks.\n"
+            .. "REWORKED: Auto Doors. Anti-stuck watchdog, key search, force-open fallback, safe closet exit, profiles, status HUD and statistics.\n"
+            .. "NEW: more Auto Doors settings (profile, retries, loot order, hide time, stop by room / time / health, notifications).\n"
+            .. "IMPROVED: performance. Lighter ESP refresh, ESP Performance Mode and Anti Lag.\n"
+            .. "FIXED: the script not executing (too many local variables) and Auto Doors stopping by itself.\n"
+            .. "Many small fixes and stability improvements.",
+        es = "NUEVO: Crucifijo Infinito (pestaña Antis). Tu Crucifijo ya no se rompe.\n"
+            .. "REHECHO: Auto Doors. Vigilante anti-atasco, búsqueda de llaves, apertura forzada de respaldo, salida segura del closet, perfiles, HUD de estado y estadísticas.\n"
+            .. "NUEVO: más ajustes de Auto Doors (perfil, reintentos, orden de botín, tiempo de escondite, parar por cuarto / tiempo / vida, notificaciones).\n"
+            .. "MEJORADO: rendimiento. ESP más ligero, Modo Rendimiento de ESP y Anti Lag.\n"
+            .. "ARREGLADO: el script no ejecutaba (demasiadas variables locales) y Auto Doors se detenía solo.\n"
+            .. "Muchos arreglos pequeños y mejoras de estabilidad.",
+        ru = "НОВОЕ: Бесконечное распятие (вкладка Antis). Распятие больше не ломается.\n"
+            .. "ПЕРЕРАБОТАНО: Авто двери. Защита от зависаний, поиск ключей, принудительное открытие, безопасный выход из шкафа, профили, HUD статуса и статистика.\n"
+            .. "НОВОЕ: больше настроек Авто дверей (профиль, повторы, порядок сбора, время укрытия, остановка по комнате / времени / здоровью, уведомления).\n"
+            .. "УЛУЧШЕНО: производительность. Облегчённый ESP, режим производительности ESP и Anti Lag.\n"
+            .. "ИСПРАВЛЕНО: скрипт не запускался (слишком много локальных переменных), Авто двери останавливались сами.\n"
+            .. "Множество мелких исправлений и улучшений стабильности.",
+    }
+    local TITLES = { en = "Version 1.0.3", es = "Versión 1.0.3", ru = "Версия 1.0.3" }
+    MainTab:Paragraph({ Title = TITLES[R4N_LANG] or TITLES.en, Desc = NOTES[R4N_LANG] or NOTES.en })
+end
 MainTab:Section({ Title = "Game Mode" })
 ModeParagraph = MainTab:Paragraph({
     Title = "Detected at load: " .. Mode.Name,
@@ -4699,15 +4764,34 @@ Ex.AutoDoors = false
 Ex.AD_Doors, Ex.AD_Gold, Ex.AD_Drawers, Ex.AD_Chests, Ex.AD_Keys = false, false, false, false, false
 Ex.AD_Items, Ex.AD_Avoid, Ex.AD_Puzzles, Ex.AD_SkipSeek, Ex.AD_StopOnDeath = false, false, false, false, false
 Ex.AD_Delay, Ex.AD_RoomTime, Ex.AD_StopRoom = 350, 30, 0
+Ex.AD_Profile, Ex.AD_LootOrder = "Balanced", "Nearest First"
+Ex.AD_Retries, Ex.AD_StuckTime, Ex.AD_MaxHide = 3, 15, 40
+Ex.AD_StopMinutes, Ex.AD_LowHP = 0, 0
+Ex.AD_Watchdog, Ex.AD_KeyWait, Ex.AD_ForceOpen, Ex.AD_Notify, Ex.AD_HUD = true, true, true, true, false
 
-AutomationTab:Section({ Title = "Auto Doors (beta)" })
-AddToggle(AutomationTab, "AutoDoors", "Auto Doors (beta)",
-    "Detects the game mode (Hotel, Mines, Backdoor, Outdoors, Rooms...) and plays the floor for you: loots, grabs keys, opens doors and hides from entities. Risky. If nothing below is selected it applies the recommended setup for the mode.",
+AutomationTab:Section({ Title = "Auto Doors" })
+AddToggle(AutomationTab, "AutoDoors", "Auto Doors",
+    "Detects the game mode (Hotel, Mines, Backdoor, Outdoors, Rooms...) and plays the floor for you: loots, grabs keys, opens doors and hides from entities. Includes an anti-stuck watchdog that fixes itself. Risky. If nothing below is selected it applies the recommended setup for the mode.",
     Ex.AutoDoors, function(v) Apply("AutoDoors", v) end)
+AddDropdown(AutomationTab, "AD_Profile", "Profile",
+    "Preset of options and timings. Press Apply Profile to use it (it only enables what exists in the current mode).",
+    { "Safe", "Balanced", "Fast", "Speedrun", "Max Loot" }, Ex.AD_Profile, function(v) Ex.AD_Profile = v end)
+AutomationTab:Button({ Title = "Apply Profile", Desc = "Applies the selected profile to the options and sliders below.",
+    Callback = function() if R4N_AD then R4N_AD.ApplyProfile(Ex.AD_Profile, true) end end })
 AutomationTab:Button({ Title = "Apply Recommended Setup", Desc = "Selects the best options below for the mode you are in.",
     Callback = function() if R4N_AD then R4N_AD.Recommended(true) end end })
-AutomationTab:Button({ Title = "Show Auto Doors Status", Desc = "Shows the detected mode, the room and what it is doing.",
+AutomationTab:Button({ Title = "Show Auto Doors Status", Desc = "Shows the detected mode, the room, what it is doing and the session statistics.",
     Callback = function() if R4N_AD then R4N_AD.Status() end end })
+AutomationTab:Button({ Title = "Force Unstuck Now", Desc = "Runs the auto-fix right now (only while Auto Doors is on).",
+    Callback = function()
+        if R4N_AD and Ex.AutoDoors then
+            R4N_AD.RecoverWhy = "manual"
+        else
+            pcall(function() WindUI:Notify({ Title = "Auto Doors", Content = "Turn Auto Doors on first.", Duration = 3 }) end)
+        end
+    end })
+AutomationTab:Button({ Title = "Reset Statistics", Desc = "Resets the doors / loot / auto-fix counters and the timer.",
+    Callback = function() if R4N_AD then R4N_AD.ResetStats() end end })
 
 AutomationTab:Section({ Title = "Auto Doors Settings" })
 AddToggle(AutomationTab, "AD_Doors", "Open Doors", "Goes to the next door and opens it when the room is done.", Ex.AD_Doors, function(v) Apply("AD_Doors", v) end)
@@ -4715,14 +4799,32 @@ AddToggle(AutomationTab, "AD_Gold", "Grab Gold & Stardust", "Collects every gold
 AddToggle(AutomationTab, "AD_Drawers", "Loot Drawers", "Opens every drawer and takes what is inside.", Ex.AD_Drawers, function(v) Apply("AD_Drawers", v) end)
 AddToggle(AutomationTab, "AD_Chests", "Loot Chests & Lockers", "Opens chests, toolboxes and lockers (locked ones are skipped).", Ex.AD_Chests, function(v) Apply("AD_Chests", v) end)
 AddToggle(AutomationTab, "AD_Keys", "Grab Keys & Unlock Doors", "Takes the door key and uses it on locked doors.", Ex.AD_Keys, function(v) Apply("AD_Keys", v) end)
+AddToggle(AutomationTab, "AD_KeyWait", "Keep Searching For Keys", "When a door is locked it keeps looking for the key even after the room time is over (library, puzzles...).", Ex.AD_KeyWait, function(v) Apply("AD_KeyWait", v) end)
 AddToggle(AutomationTab, "AD_Items", "Grab Items", "Picks up items (uses the Auto Interact ignored items list).", Ex.AD_Items, function(v) Apply("AD_Items", v) end)
-AddToggle(AutomationTab, "AD_Avoid", "Avoid Entities (Auto Hide)", "Pauses and hides in a closet while Rush, Ambush, A-60, A-120 and similar are around.", Ex.AD_Avoid, function(v) Apply("AD_Avoid", v) end)
+AddToggle(AutomationTab, "AD_Avoid", "Avoid Entities (Auto Hide)", "Pauses and hides in a closet while Rush, Ambush, A-60, A-120 and similar are around, then leaves the closet by itself.", Ex.AD_Avoid, function(v) Apply("AD_Avoid", v) end)
 AddToggle(AutomationTab, "AD_Puzzles", "Solve Puzzles (Library, Breakers, Anchors)", "Turns on Auto Library, Auto Padlock, Auto Breaker Room and Auto Anchors for the mode.", Ex.AD_Puzzles, function(v) Apply("AD_Puzzles", v) end)
 AddToggle(AutomationTab, "AD_SkipSeek", "Skip Seek", "Skips the Seek sections (Hotel / Mines).", Ex.AD_SkipSeek, function(v) Apply("AD_SkipSeek", v) end)
-AddToggle(AutomationTab, "AD_StopOnDeath", "Stop On Death", "Turns Auto Doors off when you die.", Ex.AD_StopOnDeath, function(v) Apply("AD_StopOnDeath", v) end)
+AddToggle(AutomationTab, "AD_ForceOpen", "Force Open Fallback", "If a door does not open with its prompt, it asks the door to open directly.", Ex.AD_ForceOpen, function(v) Apply("AD_ForceOpen", v) end)
+
+AutomationTab:Section({ Title = "Auto Doors Timing" })
 AddSlider(AutomationTab, "AD_Delay", "Action Delay (ms)", "Wait between actions. Lower is faster but riskier.", 100, 1500, Ex.AD_Delay, function(v) Ex.AD_Delay = v end)
 AddSlider(AutomationTab, "AD_RoomTime", "Max Time Per Room (seconds)", "After this long it stops looting the room and moves on.", 5, 90, Ex.AD_RoomTime, function(v) Ex.AD_RoomTime = v end)
+AddSlider(AutomationTab, "AD_Retries", "Max Retries Per Target", "How many times it tries an item, drawer or chest before giving up on it.", 1, 6, Ex.AD_Retries, function(v) Ex.AD_Retries = v end)
+AddDropdown(AutomationTab, "AD_LootOrder", "Loot Order", "Nearest First goes to the closest target. Keys & Gold First takes keys, then gold, then everything else.",
+    { "Nearest First", "Keys & Gold First" }, Ex.AD_LootOrder, function(v) Ex.AD_LootOrder = v end)
+
+AutomationTab:Section({ Title = "Auto Doors Safety" })
+AddToggle(AutomationTab, "AD_Watchdog", "Anti-Stuck Watchdog", "Detects when nothing advances and fixes it step by step: resets targets, leaves the closet, restarts helpers, forces the door and re-places you in the room.", Ex.AD_Watchdog, function(v) Apply("AD_Watchdog", v) end)
+AddSlider(AutomationTab, "AD_StuckTime", "Stuck Timeout (seconds)", "Seconds without progress before the watchdog acts.", 5, 60, Ex.AD_StuckTime, function(v) Ex.AD_StuckTime = v end)
+AddSlider(AutomationTab, "AD_MaxHide", "Max Hide Time (seconds)", "Longest it waits for an entity before it carries on anyway.", 10, 120, Ex.AD_MaxHide, function(v) Ex.AD_MaxHide = v end)
+AddToggle(AutomationTab, "AD_StopOnDeath", "Stop On Death", "Turns Auto Doors off when you die.", Ex.AD_StopOnDeath, function(v) Apply("AD_StopOnDeath", v) end)
 AddSlider(AutomationTab, "AD_StopRoom", "Stop At Room (0 = never)", "Turns Auto Doors off when this room is reached.", 0, 1000, Ex.AD_StopRoom, function(v) Ex.AD_StopRoom = v end)
+AddSlider(AutomationTab, "AD_StopMinutes", "Stop After (minutes, 0 = never)", "Turns Auto Doors off after this much time running.", 0, 240, Ex.AD_StopMinutes, function(v) Ex.AD_StopMinutes = v end)
+AddSlider(AutomationTab, "AD_LowHP", "Stop Below Health % (0 = off)", "Turns Auto Doors off if your health drops under this percentage.", 0, 90, Ex.AD_LowHP, function(v) Ex.AD_LowHP = v end)
+
+AutomationTab:Section({ Title = "Auto Doors Display" })
+AddToggle(AutomationTab, "AD_Notify", "Auto Doors Notifications", "Shows notifications for mode, auto-fixes and when it stops. Important warnings always show.", Ex.AD_Notify, function(v) Apply("AD_Notify", v) end)
+AddToggle(AutomationTab, "AD_HUD", "Status HUD", "Small on-screen panel with the mode, room, current action and statistics.", Ex.AD_HUD, function(v) Apply("AD_HUD", v) end)
 
 AutomationTab:Section({ Title = "Interaction" })
 AddToggle(AutomationTab, "InstantPrompt", "Instant Proximity Prompt",
@@ -11563,7 +11665,15 @@ print("[R4NS0M] Loaded Keybinds Tab")
 -- Auto Doors (beta): logica
 -- ------------------------------------------------------------------------------------------
 do
-local AD = { Gen = 0, Turned = {}, Tries = setmetatable({}, { __mode = "k" }), Status = "Off", Room = nil, RoomT = 0, CalmAt = 0 }
+local function NewTries() return setmetatable({}, { __mode = "k" }) end
+local AD = {
+    Gen = 0, Turned = {}, Tries = NewTries(), Info = "Off", Room = nil, RoomT = 0, CalmAt = 0,
+    Progress = os.clock(), Beat = os.clock(), Stuck = 0, Errors = 0, RecoverWhy = nil,
+    WantKey = false, KeyWaitSince = nil, KeyReset = 0, NoLootUntil = 0,
+    DangerSince = nil, DangerName = nil, LastExit = 0, LastLatest = nil,
+    DoorFails = 0, WasDead = false, Running = false,
+    Stats = { Doors = 0, Loot = 0, Fixes = 0, Start = os.clock() },
+}
 R4N_AD = AD
 local RSv = game:GetService("ReplicatedStorage")
 
@@ -11577,6 +11687,17 @@ local REC = {
     Stairwell = { "AD_Doors", "AD_Gold", "AD_Items", "AD_Avoid" },
     Archives  = { "AD_Doors", "AD_Gold", "AD_Keys", "AD_Items", "AD_Avoid" },
 }
+local PROFILES = {
+    ["Safe"]     = { opts = { "AD_Doors", "AD_Gold", "AD_Keys", "AD_Avoid", "AD_Puzzles", "AD_SkipSeek" },
+                     AD_Delay = 600, AD_RoomTime = 20, AD_Retries = 2, AD_StuckTime = 20, AD_MaxHide = 60 },
+    ["Balanced"] = { opts = OPTS, AD_Delay = 350, AD_RoomTime = 30, AD_Retries = 3, AD_StuckTime = 15, AD_MaxHide = 40 },
+    ["Fast"]     = { opts = { "AD_Doors", "AD_Gold", "AD_Keys", "AD_Avoid", "AD_Puzzles", "AD_SkipSeek" },
+                     AD_Delay = 150, AD_RoomTime = 12, AD_Retries = 2, AD_StuckTime = 12, AD_MaxHide = 40 },
+    ["Speedrun"] = { opts = { "AD_Doors", "AD_Keys", "AD_Avoid", "AD_Puzzles", "AD_SkipSeek" },
+                     AD_Delay = 100, AD_RoomTime = 5, AD_Retries = 1, AD_StuckTime = 10, AD_MaxHide = 40 },
+    ["Max Loot"] = { opts = OPTS, AD_Delay = 400, AD_RoomTime = 60, AD_Retries = 4, AD_StuckTime = 20, AD_MaxHide = 40 },
+}
+local NUMS = { "AD_Delay", "AD_RoomTime", "AD_Retries", "AD_StuckTime", "AD_MaxHide" }
 local DANGER = {
     RushMoving = true, AmbushMoving = true, A60 = true, A120 = true, GlitchRush = true,
     GlitchAmbush = true, BackdoorRush = true,
@@ -11585,10 +11706,24 @@ local KIND = {
     gold = "AD_Gold", stardust = "AD_Gold", keys = "AD_Keys", drawers = "AD_Drawers",
     chests = "AD_Chests", lockers = "AD_Chests", items = "AD_Items",
 }
+local PRIO = { keys = 0, gold = 1, stardust = 1 }
+local PRIO_LABEL = "Keys & Gold First"
 
-local function Say(text)
+local function Say(text, force)
+    if not force and Ex.AD_Notify == false then return end
     pcall(function() WindUI:Notify({ Title = "Auto Doors", Content = text, Duration = 4 }) end)
 end
+local function Clock(s)
+    s = math.max(0, math.floor(s))
+    return string.format("%02d:%02d", math.floor(s / 60), s % 60)
+end
+local function StatsLine()
+    local s = AD.Stats
+    return string.format("Doors %d | Looted %d | Auto-fixes %d | Time %s", s.Doors, s.Loot, s.Fixes, Clock(os.clock() - s.Start))
+end
+local function Mark() AD.Progress = os.clock() AD.Stuck = 0 end   -- progreso real
+local function Idle() AD.Progress = os.clock() end                -- espera legitima (no cuenta como atasco)
+
 local function ModeNm()
     local n = Mode.Name
     if n == "Fools" then n = "Hotel" end
@@ -11614,6 +11749,11 @@ local function DangerNow()
         if DANGER[c.Name] then return c.Name end
     end
     return nil
+end
+local function ExitCloset()
+    local rf = RSv:FindFirstChild("RemotesFolder")
+    local cl = rf and rf:FindFirstChild("CamLock")
+    if cl and cl:IsA("RemoteEvent") then pcall(function() cl:FireServer() end) end
 end
 
 -- activa una funcion del hub solo si estaba apagada y recuerda apagarla al terminar
@@ -11657,11 +11797,71 @@ AD.Recommended = function(announce)
     local want = {}
     for _, k in ipairs(list) do want[k] = true end
     for _, k in ipairs(OPTS) do SetFeature(k, want[k] == true) end
-    if announce then Say("Recommended setup for " .. m .. " applied.") end
+    if announce then Say("Recommended setup for " .. m .. " applied.", true) end
+end
+
+AD.ApplyProfile = function(name, announce)
+    local p = PROFILES[name]
+    if not p then return end
+    local allowed = {}
+    for _, k in ipairs(REC[ModeNm()] or REC.Hotel) do allowed[k] = true end
+    local want = {}
+    for _, k in ipairs(p.opts) do want[k] = true end
+    for _, k in ipairs(OPTS) do SetFeature(k, want[k] == true and allowed[k] == true) end
+    for _, k in ipairs(NUMS) do
+        Ex[k] = p[k]
+        if Setters[k] then Setters[k](p[k]) end
+    end
+    if announce then Say("Profile '" .. name .. "' applied for " .. ModeNm() .. ".", true) end
 end
 
 AD.Status = function()
-    Say(string.format("Mode: %s | Room: %s | %s", ModeNm(), tostring(CurRoom() or "?"), tostring(AD.Info or (Ex.AutoDoors and "Running" or "Off"))))
+    Say(string.format("Mode: %s | Room: %s | %s\n%s", ModeNm(), tostring(CurRoom() or "?"),
+        tostring(AD.Info or (Ex.AutoDoors and "Running" or "Off")), StatsLine()), true)
+end
+
+AD.ResetStats = function()
+    AD.Stats = { Doors = 0, Loot = 0, Fixes = 0, Start = os.clock() }
+    Say("Statistics reset.", true)
+end
+
+-- HUD de estado en pantalla
+local HUD
+AD.UpdateHUD = function()
+    local show = Ex.AD_HUD == true and Ex.AutoDoors == true
+    if not show then
+        if HUD then HUD.Visible = false end
+        return
+    end
+    if not (HUD and HUD.Parent) then
+        local l = Instance.new("TextLabel")
+        l.Name = "R4NS0M_AutoDoorsHUD"
+        l.BackgroundColor3 = Color3.new(0, 0, 0)
+        l.BackgroundTransparency = 0.35
+        l.BorderSizePixel = 0
+        l.TextColor3 = Color3.fromRGB(235, 235, 235)
+        l.Font = Enum.Font.Code
+        l.TextSize = 13
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.TextYAlignment = Enum.TextYAlignment.Top
+        l.TextWrapped = true
+        l.AutomaticSize = Enum.AutomaticSize.Y
+        l.Size = UDim2.fromOffset(240, 10)
+        l.AnchorPoint = Vector2.new(1, 0)
+        l.Position = UDim2.new(1, -8, 0, 70)
+        local pad = Instance.new("UIPadding")
+        pad.PaddingTop, pad.PaddingBottom = UDim.new(0, 6), UDim.new(0, 6)
+        pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 8), UDim.new(0, 8)
+        pad.Parent = l
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 6)
+        corner.Parent = l
+        l.Parent = Gui
+        HUD = l
+    end
+    HUD.Visible = true
+    HUD.Text = string.format("AUTO DOORS  [ON]\nMode:  %s\nRoom:  %s\nState: %s\n%s",
+        ModeNm(), tostring(CurRoom() or "?"), tostring(AD.Info or "-"), StatsLine())
 end
 
 local function PromptOf(e)
@@ -11676,18 +11876,22 @@ local function PromptOf(e)
     return nil
 end
 
-local function NextTarget(cur, rp)
-    local best, bestPrompt, bestD = nil, nil, math.huge
+local function NextTarget(cur, rp, keysOnly)
+    local best, bestPrompt, bestScore = nil, nil, math.huge
+    local maxTry = Ex.AD_Retries or 3
+    local prio = Ex.AD_LootOrder == PRIO_LABEL
     for inst, e in pairs(Tracked) do
         local opt = KIND[e.Cat]
-        if opt and Ex[opt] and inst.Parent and (AD.Tries[inst] or 0) < 3 and RoomOf(inst) == cur then
+        if opt and Ex[opt] and inst.Parent and (AD.Tries[inst] or 0) < maxTry
+            and (not keysOnly or e.Cat == "keys") and (keysOnly or RoomOf(inst) == cur) then
             local skip = e.Cat == "items" and Ex.AIItemIgnore and Ex.AIItemIgnore[e.Label]
             if (e.Cat == "chests" or e.Cat == "lockers") and inst:GetAttribute("Locked") == true then skip = true end
             if not skip then
                 local pp = PromptOf(e)
                 if pp and pp.Enabled and e.Part and e.Part.Parent then
-                    local d = (e.Part.Position - rp).Magnitude
-                    if d < bestD then best, bestPrompt, bestD = e, pp, d end
+                    local score = (e.Part.Position - rp).Magnitude
+                    if prio then score = score + (PRIO[e.Cat] or 2) * 100000 end
+                    if score < bestScore then best, bestPrompt, bestScore = e, pp, score end
                 end
             end
         end
@@ -11716,29 +11920,72 @@ local function TP(cf, hold)
 end
 
 local function Visit(e, pp)
-    AD.Tries[e.Inst] = (AD.Tries[e.Inst] or 0) + 1
-    local pos = e.Part.Position
-    TP(CFrame.new(pos + Vector3.new(0, 3, 0)), 0.5)
-    task.wait(0.25 + Ex.AD_Delay / 2000)
+    local inst, part = e.Inst, e.Part
+    AD.Tries[inst] = (AD.Tries[inst] or 0) + 1
+    if not (part and part.Parent) then return false end
+    TP(CFrame.new(part.Position + Vector3.new(0, 3, 0)), 0.5)
+    task.wait(0.25 + (Ex.AD_Delay or 350) / 2000)
     Fire(pp, 3)
+    if not pp.Parent or not pp.Enabled or not inst.Parent then
+        AD.Tries[inst] = 99
+        AD.Stats.Loot = AD.Stats.Loot + 1
+        Mark()
+        return true
+    end
+    return false
+end
+
+local function IsOpen(door, lv0)
+    return (Latest() or 0) > lv0 or door:GetAttribute("Opened") == true or door:GetAttribute("Open") == true
+end
+local function WaitOpen(door, lv0, secs)
+    local t0 = os.clock()
+    while os.clock() - t0 < secs and Ex.AutoDoors do
+        if IsOpen(door, lv0) then return true end
+        task.wait(0.15)
+    end
+    return IsOpen(door, lv0)
 end
 
 local function DoorStep()
     local door = NextClosedDoor()
-    if not door then AD.Info = "No closed door found" return false end
-    local lv0 = Latest()
+    if not door then
+        AD.Info = "Waiting for the next room to load"
+        task.wait(0.4)
+        return false
+    end
+    local lv0 = Latest() or 0
     if door:FindFirstChild("Lock") then
-        if not (Ex.AD_Keys and (HasItem("Key") or HasItem("KeyBackdoor"))) then
-            AD.Info = "Locked door: waiting for a key"
+        if not Ex.AD_Keys then
+            AD.Info = "Locked door: turn on Grab Keys & Unlock Doors"
+            Idle()
             return false
         end
+        if not (HasItem("Key") or HasItem("KeyBackdoor")) then
+            if Ex.AD_KeyWait then
+                AD.WantKey = true
+                AD.KeyWaitSince = AD.KeyWaitSince or os.clock()
+                if os.clock() - AD.KeyReset > 15 then
+                    AD.KeyReset = os.clock()
+                    AD.Tries = NewTries()
+                end
+                local waited = os.clock() - AD.KeyWaitSince
+                AD.Info = string.format("Locked door: searching for a key (%ds)", math.floor(waited))
+                if waited < 120 then Idle() end
+            else
+                AD.Info = "Locked door: waiting for a key"
+                Idle()
+            end
+            return false
+        end
+        AD.WantKey, AD.KeyWaitSince = false, nil
         TP(door:GetPivot() * CFrame.new(0, -1, 0), 0.5)
         task.wait(0.3)
         for _, d in ipairs(door:GetDescendants()) do
             if d:IsA("ProximityPrompt") and d.Name == "UnlockPrompt" then Fire(d, 2) end
         end
     end
-    TP(door:GetPivot() * CFrame.new(0, -1, 0), 0.6)
+    TP(door:GetPivot() * CFrame.new(0, -1, AD.DoorFails >= 3 and 5 or 0), 0.6)
     task.wait(0.3)
     local n = 0
     for _, d in ipairs(door:GetDescendants()) do
@@ -11748,45 +11995,142 @@ local function DoorStep()
             if n >= 4 then break end
         end
     end
-    local t0 = os.clock()
-    while os.clock() - t0 < 4 and (Latest() or 0) <= (lv0 or 0) and Ex.AutoDoors do task.wait(0.2) end
-    return true
+    local opened = WaitOpen(door, lv0, 4)
+    if not opened and Ex.AD_ForceOpen then
+        local co = door:FindFirstChild("ClientOpen")
+        if co and co:IsA("RemoteEvent") then
+            AD.Info = "Door stuck: forcing it open"
+            pcall(function() co:FireServer() end)
+            opened = WaitOpen(door, lv0, 2.5)
+        end
+    end
+    if opened then
+        AD.DoorFails = 0
+        AD.Stats.Doors = AD.Stats.Doors + 1
+        Mark()
+    else
+        AD.DoorFails = AD.DoorFails + 1
+        AD.Info = "Door did not open (try " .. AD.DoorFails .. ")"
+    end
+    return opened
+end
+
+-- Recuperacion escalonada cuando no hay progreso
+AD.Recover = function(why)
+    AD.Stuck = AD.Stuck + 1
+    AD.Stats.Fixes = AD.Stats.Fixes + 1
+    local lvl = AD.Stuck
+    AD.Tries = NewTries()
+    AD.Room, AD.CalmAt, AD.WantKey, AD.KeyWaitSince, AD.DangerSince = nil, 0, false, nil, nil
+    AD.DoorFails = 0
+    if lvl >= 2 then
+        AD.NoLootUntil = os.clock() + 40
+        ExitCloset()
+    end
+    if lvl >= 3 then
+        Release()
+        task.wait(0.4)
+        pcall(Sync)
+        local door = NextClosedDoor()
+        if door then
+            TP(door:GetPivot() * CFrame.new(0, -1, 0), 0.8)
+            task.wait(0.4)
+            local co = door:FindFirstChild("ClientOpen")
+            if Ex.AD_ForceOpen and co and co:IsA("RemoteEvent") then pcall(function() co:FireServer() end) end
+        end
+    end
+    if lvl >= 5 then
+        local rooms = Workspace:FindFirstChild("CurrentRooms")
+        local latest = Latest()
+        local room = rooms and latest and rooms:FindFirstChild(tostring(latest))
+        local anchor = room and (room:FindFirstChild("RoomEntrance") or room:FindFirstChild("Door"))
+        if anchor then TP(anchor:GetPivot() * CFrame.new(0, 3, 0), 0.8) end
+    end
+    AD.Progress = os.clock()
+    if lvl == 8 then
+        Say("Still stuck after 8 auto-fixes. Check the room manually (puzzle / locked door?).", true)
+    else
+        Say("Auto-fix #" .. lvl .. " (" .. tostring(why) .. ")")
+    end
 end
 
 local function Step()
-    if IsLobby() then AD.Info = "In the lobby" return end
+    if IsLobby() then AD.Info = "In the lobby" Idle() return end
     local char, hum, root = GetParts()
-    if not (char and hum and root) then return end
+    if not (char and hum and root) then AD.Info = "Waiting for your character" Idle() return end
     if hum.Health <= 0 then
+        AD.WasDead = true
         if Ex.AD_StopOnDeath then
             SetFeature("AutoDoors", false)
-            Say("You died: Auto Doors turned off.")
+            Say("You died: Auto Doors turned off.", true)
+            return
         end
+        AD.Info = "Dead: waiting to respawn"
+        Idle()
         return
     end
-    if Sync() then AD.Info = "Rooms: Auto Rooms is driving" return end
+    if AD.WasDead then
+        AD.WasDead = false
+        AD.Room, AD.Tries, AD.WantKey, AD.DangerSince = nil, NewTries(), false, nil
+        AD.CalmAt = os.clock() + 1.5
+        Say("Back alive: Auto Doors resumed.")
+        Mark()
+    end
+    if (Ex.AD_LowHP or 0) > 0 and hum.MaxHealth > 0 and (hum.Health / hum.MaxHealth) * 100 < Ex.AD_LowHP then
+        SetFeature("AutoDoors", false)
+        Say("Health below " .. Ex.AD_LowHP .. "%: Auto Doors turned off.", true)
+        return
+    end
+    if (Ex.AD_StopMinutes or 0) > 0 and os.clock() - AD.Stats.Start >= Ex.AD_StopMinutes * 60 then
+        SetFeature("AutoDoors", false)
+        Say("Time limit reached: Auto Doors turned off.", true)
+        return
+    end
+    if Sync() then AD.Info = "Rooms: Auto Rooms is driving" Idle() return end
 
-    local danger = DangerNow()
-    if danger and Ex.AD_Avoid then
-        AD.Info = "Hiding from " .. danger
-        AD.CalmAt = os.clock() + 1.2
+    local now = os.clock()
+    local danger = Ex.AD_Avoid and DangerNow() or nil
+    if danger then
+        if AD.DangerName ~= danger or not AD.DangerSince then AD.DangerName, AD.DangerSince = danger, now end
+        if now - AD.DangerSince < (Ex.AD_MaxHide or 40) then
+            AD.Info = "Hiding from " .. danger
+            AD.CalmAt = now + 1.2
+            Idle()
+            return
+        end
+        AD.Info = danger .. " is taking too long, continuing"
+    else
+        AD.DangerSince, AD.DangerName = nil, nil
+    end
+    if now < AD.CalmAt then AD.Info = "Waiting for the entity to leave" Idle() return end
+    if char:GetAttribute("Hiding") then
+        if now - AD.LastExit > 1 then
+            AD.LastExit = now
+            ExitCloset()
+        end
+        AD.Info = "Leaving the closet"
         return
     end
-    if os.clock() < AD.CalmAt then AD.Info = "Waiting for the entity to leave" return end
-    if char:GetAttribute("Hiding") then AD.Info = "Hidden" return end
 
     local cur, latest = CurRoom(), Latest()
-    if not (cur and latest) then return end
+    if not (cur and latest) then AD.Info = "Waiting for game data" return end
+    if latest ~= AD.LastLatest then
+        AD.LastLatest = latest
+        Mark()
+    end
     if Ex.AD_StopRoom > 0 and latest >= Ex.AD_StopRoom then
         SetFeature("AutoDoors", false)
-        Say("Reached room " .. latest .. ": Auto Doors turned off.")
+        Say("Reached room " .. latest .. ": Auto Doors turned off.", true)
         return
     end
     if cur ~= AD.Room then
-        AD.Room, AD.RoomT = cur, os.clock()
+        AD.Room, AD.RoomT, AD.WantKey, AD.DoorFails = cur, now, false, 0
     end
-    if os.clock() - AD.RoomT < Ex.AD_RoomTime then
-        local e, pp = NextTarget(cur, root.Position)
+
+    if now >= AD.NoLootUntil then
+        local e, pp
+        if now - AD.RoomT < Ex.AD_RoomTime then e, pp = NextTarget(cur, root.Position, false) end
+        if not e and AD.WantKey then e, pp = NextTarget(cur, root.Position, true) end
         if e then
             AD.Info = "Looting " .. tostring(e.Label)
             Visit(e, pp)
@@ -11800,8 +12144,55 @@ local function Step()
         task.wait(Ex.AD_Delay / 1000)
     else
         AD.Info = "Idle (Open Doors is off)"
+        Idle()
     end
 end
+
+local function StartLoop()
+    AD.Gen = AD.Gen + 1
+    local my = AD.Gen
+    AD.Beat = os.clock()
+    task.spawn(function()
+        while Ex.AutoDoors and AD.Gen == my do
+            AD.Beat = os.clock()
+            if AD.RecoverWhy then
+                local why = AD.RecoverWhy
+                AD.RecoverWhy = nil
+                pcall(AD.Recover, why)
+            end
+            local ok, err = pcall(Step)
+            if ok then
+                AD.Errors = 0
+                task.wait(0.25)
+            else
+                AD.Errors = AD.Errors + 1
+                AD.Info = "Error: " .. tostring(err)
+                if AD.Errors % 5 == 0 then AD.RecoverWhy = "errors" end
+                task.wait(math.min(0.5 + AD.Errors * 0.25, 3))
+            end
+        end
+    end)
+    -- supervisor: HUD, deteccion de atasco y reinicio del bucle si se congela
+    task.spawn(function()
+        while Ex.AutoDoors and AD.Gen == my do
+            task.wait(0.5)
+            if not (Ex.AutoDoors and AD.Gen == my) then return end
+            pcall(AD.UpdateHUD)
+            if os.clock() - AD.Beat > 30 then
+                AD.Stats.Fixes = AD.Stats.Fixes + 1
+                AD.Progress = os.clock()
+                Say("The loop froze: restarting Auto Doors.", true)
+                StartLoop()
+                return
+            end
+            if Ex.AD_Watchdog and not AD.RecoverWhy and os.clock() - AD.Progress > (Ex.AD_StuckTime or 15) then
+                AD.RecoverWhy = "no progress for " .. tostring(Ex.AD_StuckTime) .. "s"
+            end
+        end
+    end)
+end
+
+Hooks.AD_HUD = function() pcall(AD.UpdateHUD) end
 
 Hooks.AutoDoors = function(v)
     AD.Gen = AD.Gen + 1
@@ -11811,20 +12202,25 @@ Hooks.AutoDoors = function(v)
             if Ex[k] then any = true break end
         end
         if not any then AD.Recommended(false) end
-        AD.Tries = setmetatable({}, { __mode = "k" })
+        AD.Tries = NewTries()
         AD.Room, AD.CalmAt, AD.Info = nil, 0, "Starting"
+        AD.Stuck, AD.Errors, AD.RecoverWhy = 0, 0, nil
+        AD.WantKey, AD.KeyWaitSince, AD.KeyReset, AD.NoLootUntil = false, nil, 0, 0
+        AD.DangerSince, AD.DangerName, AD.DoorFails, AD.WasDead = nil, nil, 0, false
+        AD.LastLatest = Latest()
+        AD.Progress = os.clock()
+        AD.Stats = { Doors = 0, Loot = 0, Fixes = 0, Start = os.clock() }
+        AD.Running = true
         Say("Mode: " .. ModeNm() .. ". Auto Doors is running.")
-        local my = AD.Gen
-        task.spawn(function()
-            while Ex.AutoDoors and AD.Gen == my do
-                local ok, err = pcall(Step)
-                if not ok then AD.Info = "Error: " .. tostring(err) end
-                task.wait(0.25)
-            end
-        end)
+        StartLoop()
     else
         Release()
         AD.Info = "Off"
+        if AD.Running then
+            AD.Running = false
+            Say("Stopped. " .. StatsLine())
+        end
+        pcall(AD.UpdateHUD)
     end
 end
 end
