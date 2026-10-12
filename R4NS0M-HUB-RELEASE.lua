@@ -2,8 +2,8 @@ warn("--- [R4NS0M] EXECUTING SCRIPT ---")
 pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "R4NS0M", Text = "Script iniciado, cargando UI...", Duration = 6 }) end)
 --[[
   R4NS0M CD-1  |  Team CHX
-  Version 1.0.4
-  Tabs: Main, Info, Visuals, Player, Automation, Anticheat, Antis, Alerts, Misc, Keybinds, Configs
+  Version 1.0.5
+  Tabs: Main, Info, Visuals, Player, Automation, Anticheat, Antis, Archives, Stairwell, Alerts, Misc, Fun, Keybinds, Configs
   Ransomity is real
 ]]
 print("[R4NS0M] Loading Services")
@@ -788,6 +788,20 @@ R4N_I18N = {
         ["Strong Position Spoof"] = "Position Spoof Fuerte",
         ["Ladder Safe Mode"] = "Modo Seguro de Escaleras",
         ["Knob Farm Auto Start"] = "Inicio Automático del Farmeo de Perillas",
+        ["Fun"] = "Diversión",
+        ["Morphs (Client Only)"] = "Morphs (Solo Cliente)",
+        ["How it works"] = "Cómo funciona",
+        ["Become Seek"] = "Convertirme en Seek",
+        ["Become Honcho"] = "Convertirme en Honcho",
+        ["Become Figure"] = "Convertirme en Figure",
+        ["Back To Normal"] = "Volver a la Normalidad",
+        ["Morph Settings"] = "Ajustes del Morph",
+        ["Morph Size (%)"] = "Tamaño del Morph (%)",
+        ["Third Person Camera"] = "Cámara en Tercera Persona",
+        ["Flip Facing"] = "Invertir Dirección",
+        ["Keep Morph After Respawn"] = "Mantener Morph al Reaparecer",
+        ["Rainbow ESP"] = "ESP Arcoíris",
+        ["Rainbow Speed"] = "Velocidad del Arcoíris",
     },
     ru = {
         ["Auto Doors (beta)"] = "Авто двери (бета)",
@@ -1229,6 +1243,20 @@ R4N_I18N = {
         ["Strong Position Spoof"] = "Сильная подмена позиции",
         ["Ladder Safe Mode"] = "Безопасный режим лестниц",
         ["Knob Farm Auto Start"] = "Автозапуск фарма ручек",
+        ["Fun"] = "Веселье",
+        ["Morphs (Client Only)"] = "Морфы (только клиент)",
+        ["How it works"] = "Как это работает",
+        ["Become Seek"] = "Стать Seek",
+        ["Become Honcho"] = "Стать Honcho",
+        ["Become Figure"] = "Стать Figure",
+        ["Back To Normal"] = "Вернуться в норму",
+        ["Morph Settings"] = "Настройки морфа",
+        ["Morph Size (%)"] = "Размер морфа (%)",
+        ["Third Person Camera"] = "Камера от третьего лица",
+        ["Flip Facing"] = "Развернуть модель",
+        ["Keep Morph After Respawn"] = "Сохранять морф после возрождения",
+        ["Rainbow ESP"] = "Радужный ESP",
+        ["Rainbow Speed"] = "Скорость радуги",
     },
 }
 do
@@ -1270,6 +1298,7 @@ ArchivesTab  = Window:Tab({ Title = "Archives",  Icon = "archive" }) -- global a
 StairwellTab = Window:Tab({ Title = "Stairwell", Icon = "layers" })  -- global a proposito (limite de locales)
 local AlertsTab     = Window:Tab({ Title = "Alerts",     Icon = "bell" })
 local MiscTab       = Window:Tab({ Title = "Misc",       Icon = "ellipsis" })
+FunTab          = Window:Tab({ Title = "Fun",        Icon = "ghost" }) -- global a proposito (limite de locales)
 local KeybindsTab   = Window:Tab({ Title = "Keybinds",   Icon = "keyboard" })
 local ConfigsTab    = Window:Tab({ Title = "Configs",    Icon = "settings" })
 
@@ -1338,14 +1367,14 @@ InfoTab:Section({ Title = "Script Information" })
 
 InfoTab:Paragraph({
     Title = "About R4NS0M CD-1",
-    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.4"
+    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.5"
 })
 
 InfoTab:Paragraph({
     Title = "Where to find things",
     Desc = "Visuals: ESP, chase paths (Seek / Eyestalk) and lighting.\n"
         .. "Player: movement, speed, jump, fly, noclip.\n"
-        .. "Automation: Auto Doors bot, Auto Interact (with ignore list), library code, minecart, Dam Seek, Cringle. Stairwell and Archives tabs.\n"
+        .. "Automation: Auto Doors bot, Auto Interact (with ignore list), library code, minecart, Dam Seek, Cringle. Stairwell and Archives tabs. Fun: client-side morphs (Seek, Honcho, Figure).\n"
         .. "Anticheat: position / crouch spoof (strong spoof), ladder safe mode and manipulation.\n"
         .. "Antis: entity bypasses and the Seek / Figure combos.\n"
         .. "Alerts: entity, item, library code and Ransom notifications.\n"
@@ -1696,7 +1725,7 @@ print("[R4NS0M] Loading ESP Config (3/4)")
 local GOLD_NAMES = { GoldPile = "Gold" }
 local HIDE_NAMES = { Wardrobe = "Closet", Bed = "Bed", Toolshed = "Tool Shed", Locker = "Locker" }
 
-local MAX_HIGHLIGHTS = 10 -- Roblox solo renderiza ~31 Highlights a la vez; menos = menos lag (el resto usa cajas)
+local MAX_HIGHLIGHTS = 28 -- Roblox solo renderiza ~31 Highlights a la vez; los objetos mas lejanos se ocultan
 
 local Cfg = {
     MaxDistance = 400,
@@ -1707,8 +1736,10 @@ local Cfg = {
     ShowName = true,
     ShowDistance = true,
     Unit = "Meters",
-    FillTransparency = 0.8,
+    FillTransparency = 0.75,
     OutlineTransparency = 0,
+    Rainbow = false,
+    RainbowSpeed = 0.25,
     TracerOrigin = "Bottom",
     TracerThickness = 1.5,
     UnlistedItems = true,
@@ -2047,31 +2078,25 @@ print("[R4NS0M] Loading Visual Instances")
 -- se va a dibujar y se liberan cuando lleva unos segundos oculto. Antes se creaban 5 instancias por
 -- cada objeto detectado aunque el ESP estuviera apagado.
 Mode.Free = function(e)
-    local hl, box, bb, line = e.HL, e.Box, e.BB, e.Line
-    e.HL, e.Box, e.BB, e.TL, e.Line = nil, nil, nil, nil, nil
-    e.Col, e.Fill, e.Out, e.Text, e.TS, e.TF, e.BoxT, e.HidSince = nil, nil, nil, nil, nil, nil, nil, nil
+    local hl, bb, line, px = e.HL, e.BB, e.Line, e.Proxy
+    e.HL, e.Box, e.BB, e.TL, e.Line, e.Proxy = nil, nil, nil, nil, nil, nil
+    e.Col, e.Fill, e.Out, e.Text, e.TS, e.TF, e.BoxT, e.HidSince, e.UsingProxy = nil, nil, nil, nil, nil, nil, nil, nil, nil
     if hl then pcall(hl.Destroy, hl) end
-    if box then pcall(box.Destroy, box) end
     if bb then pcall(bb.Destroy, bb) end
     if line then pcall(line.Destroy, line) end
+    if px then pcall(px.Destroy, px) end
 end
 
 Mode.Build = function(e)
     if e.HL then return end
+    -- Highlight: un Highlight por objeto, siempre visible a traves de paredes, relleno suave + borde solido
     local hl = Instance.new("Highlight")
     hl.Adornee = e.Inst
     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.FillTransparency = 0.75
+    hl.OutlineTransparency = 0
     hl.Enabled = false
     hl.Parent = Holder
-
-    -- Respaldo cuando Highlight no se ve (partes invisibles) o se pasa del limite
-    local box = Instance.new("BoxHandleAdornment")
-    box.Adornee = e.Part
-    box.AlwaysOnTop = true
-    box.ZIndex = 5
-    box.Size = e.Part.Size
-    box.Visible = false
-    box.Parent = Holder
 
     local bb = Instance.new("BillboardGui")
     bb.Adornee = e.Part
@@ -2091,7 +2116,44 @@ Mode.Build = function(e)
     tl.TextStrokeColor3 = Color3.new(0, 0, 0)
     tl.Parent = bb
 
-    e.HL, e.Box, e.BB, e.TL = hl, box, bb, tl
+    e.HL, e.BB, e.TL = hl, bb, tl
+end
+
+-- Objetos sin geometria visible (partes invisibles): se les pone una parte-proxy casi transparente para que
+-- el Highlight tenga algo que dibujar (misma tecnica que las puertas).
+Mode.UseProxy = function(e, on)
+    if on == (e.UsingProxy == true) then return end
+    e.UsingProxy = on
+    local hl = e.HL
+    if not hl then return end
+    if not on then
+        hl.Adornee = e.Inst
+        if e.Proxy then pcall(e.Proxy.Destroy, e.Proxy) e.Proxy = nil end
+        return
+    end
+    local ok, px = pcall(function()
+        local p = Instance.new("Part")
+        p.Name = "R4N_HLProxy"
+        p.Transparency = 0.999
+        p.CanCollide, p.CanQuery, p.CanTouch, p.Massless = false, false, false, true
+        p.Material = Enum.Material.Plastic
+        p.Anchored = false
+        if e.Inst:IsA("Model") then
+            local cf, size = e.Inst:GetBoundingBox()
+            p.Size, p.CFrame = size, cf
+        else
+            p.Size, p.CFrame = e.Part.Size, e.Part.CFrame
+        end
+        p.Parent = e.Part.Parent or Workspace
+        local w = Instance.new("WeldConstraint")
+        w.Part0, w.Part1 = p, e.Part
+        w.Parent = p
+        return p
+    end)
+    if ok and px then
+        e.Proxy = px
+        hl.Adornee = px
+    end
 end
 
 local function RemoveEntry(inst)
@@ -2107,7 +2169,6 @@ local function HideEntry(e)
     if not e.HL and not e.Line then return end
     if e.HL then
         e.HL.Enabled = false
-        e.Box.Visible = false
         e.BB.Enabled = false
     end
     if e.Line then e.Line.Visible = false end
@@ -3013,6 +3074,7 @@ local function Refresh()
             e.Shown = false
         end
         Mode.TracerList = nil
+        Mode.RainbowList = nil
         return
     end
 
@@ -3052,13 +3114,15 @@ local function Refresh()
     -- Orden (entidades primero, luego por distancia) solo si hace falta: limite de Highlights o de objetos
     local maxHL = Watch.MaxHL or MAX_HIGHLIGHTS
     local cap = math.min(Cfg.MaxObjects or 120, Watch.PerfCap or math.huge)
-    if n > maxHL or n > cap then
+    -- el limite real es el de Highlights (los que sobran no se dibujan): se quedan los mas cercanos
+    if cap > maxHL then cap = maxHL end
+    if n > cap then
         table.sort(list, Mode.Sort)
         for i = cap + 1, n do
             HideEntry(list[i])
             list[i] = nil
         end
-        if n > cap then n = cap end
+        n = cap
     end
 
     local now = os.clock()
@@ -3069,6 +3133,7 @@ local function Refresh()
     local fillT, outT = Cfg.FillTransparency, Cfg.OutlineTransparency
     local showName, showDist = Cfg.ShowName, Cfg.ShowDistance
     local tracers, tn = {}, 0
+    local rbList, rb = {}, 0
 
     for i = 1, n do
         local e = list[i]
@@ -3092,41 +3157,30 @@ local function Refresh()
             e.GeoT = now
             e.NoGeo = not HasVisibleGeometry(e.Inst)
         end
-        local useBox = e.NoGeo or i > maxHL
+        local hl, bb, tl = e.HL, e.BB, e.TL
+        Mode.UseProxy(e, e.NoGeo == true)
 
-        local hl, box, bb, tl = e.HL, e.Box, e.BB, e.TL
-
-        -- PERF: solo se escriben propiedades cuando cambian
-        if e.Col ~= color or e.Fill ~= fillT or e.Out ~= outT then
+        -- PERF: solo se escriben propiedades cuando cambian (con ESP arcoiris el color lo mueve el ciclo de abajo)
+        if Cfg.Rainbow then
+            rb = rb + 1
+            rbList[rb] = e
+            e.Col = nil
+        elseif e.Col ~= color or e.Fill ~= fillT or e.Out ~= outT then
             e.Col, e.Fill, e.Out = color, fillT, outT
             hl.FillColor = color
             hl.OutlineColor = color
             hl.FillTransparency = fillT
             hl.OutlineTransparency = outT
-            box.Color3 = color
-            box.Transparency = math.max(0.55, fillT)
             tl.TextColor3 = color
             if e.Line then e.Line.BackgroundColor3 = color end
         end
-
-        hl.Enabled = not useBox
-        box.Visible = useBox
-        if useBox then
-            -- las cajas de entidades/jugadores se actualizan siempre; el resto cada 1.5s
-            if cat == "entities" or cat == "players" or cat == "dupe" or now - (e.BoxT or 0) > 1.5 then
-                e.BoxT = now
-                if e.Inst:IsA("Model") then
-                    local okb, cf, size = pcall(e.Inst.GetBoundingBox, e.Inst)
-                    if okb then
-                        box.CFrame = e.Part.CFrame:ToObjectSpace(cf)
-                        box.Size = size
-                    end
-                else
-                    box.CFrame = CFrame.new()
-                    box.Size = e.Part.Size
-                end
-            end
+        if Cfg.Rainbow and (e.Fill ~= fillT or e.Out ~= outT) then
+            e.Fill, e.Out = fillT, outT
+            hl.FillTransparency = fillT
+            hl.OutlineTransparency = outT
         end
+
+        hl.Enabled = true
 
         local dtxt
         if showDist then
@@ -3170,7 +3224,29 @@ local function Refresh()
     end
 
     Mode.TracerList = tracers
+    Mode.RainbowList = rbList
 end
+
+-- ESP arcoiris: un solo ciclo ligero (20 veces por segundo) que solo toca los objetos que se estan dibujando
+task.spawn(function()
+    while true do
+        task.wait(0.05)
+        local list = Mode.RainbowList
+        if Cfg.Rainbow and list and #list > 0 then
+            local c = Color3.fromHSV((os.clock() * (Cfg.RainbowSpeed or 0.25)) % 1, 0.85, 1)
+            for i = 1, #list do
+                local e = list[i]
+                local hl, tl = e.HL, e.TL
+                if hl and e.Shown then
+                    hl.FillColor = c
+                    hl.OutlineColor = c
+                    if tl then tl.TextColor3 = c end
+                    if e.Line then e.Line.BackgroundColor3 = c end
+                end
+            end
+        end
+    end
+end)
 
 task.spawn(function()
     while true do
@@ -3373,32 +3449,35 @@ print("[R4NS0M] Loading Main Tab")
 MainTab:Section({ Title = "What's New" })
 do
     local NOTES = {
-        en = "+ NEW: Auto Doors is now a real bot. No more teleports: it walks, jumps, crouches and moves your camera.\n"
-            .. "+ NEW: smart hiding. The bot predicts when Rush / Ambush / A-60 / A-120 reach you and gets into a closet BEFORE they arrive.\n"
-            .. "+ NEW: locked doors. It loots (gold, drawers, chests) until it finds the key, then opens the door. Works on every floor.\n"
-            .. "+ NEW: Bot Speed (speed hack) slider, camera control, jump / crouch options and ladder use.\n"
-            .. "+ NEW: Knob Farm Mode in Auto Doors and Auto Start for the Knob Farm.\n"
-            .. "+ improved position spoof: Strong Position Spoof locks jumps, step-ups and ladders while an entity is in kill range.\n"
-            .. "+ NEW: Ladder Safe Mode. On a ladder the speed hacks pause and come back when you finish climbing (only the ones you have on).\n"
-            .. "+ FIXED: Auto Doors crashing when it reached a door (missing functions).",
-        es = "+ NUEVO: Auto Doors ahora es un bot de verdad. Sin teletransportes: camina, salta, se agacha y mueve tu cámara.\n"
-            .. "+ NUEVO: escondite inteligente. El bot predice cuándo Rush / Ambush / A-60 / A-120 te alcanzan y se mete en un armario ANTES de que lleguen.\n"
-            .. "+ NUEVO: puertas bloqueadas. Saquea (oro, cajones, cofres) hasta encontrar la llave y luego abre la puerta. Funciona en todos los pisos.\n"
-            .. "+ NUEVO: slider de Velocidad del Bot (speed hack), control de cámara, opciones de salto / agacharse y uso de escaleras.\n"
-            .. "+ NUEVO: Modo Knob Farm en Auto Doors y Inicio Automático del Knob Farm.\n"
-            .. "+ position spoof mejorado: el Position Spoof Fuerte bloquea saltos, escalones y escaleras mientras una entidad está a su rango de matar.\n"
-            .. "+ NUEVO: Modo Seguro de Escaleras. En una escalera las velocidades se pausan y vuelven al terminar de subir o bajar (solo las que tengas activadas).\n"
-            .. "+ ARREGLADO: Auto Doors fallaba al llegar a una puerta (faltaban funciones).",
-        ru = "+ НОВОЕ: Авто двери теперь настоящий бот. Без телепортов: ходит, прыгает, приседает и двигает камеру.\n"
-            .. "+ НОВОЕ: умное укрытие. Бот предсказывает, когда Rush / Ambush / A-60 / A-120 до вас доберутся, и прячется в шкаф ДО их прихода.\n"
-            .. "+ НОВОЕ: запертые двери. Бот собирает лут (золото, ящики, сундуки), пока не найдёт ключ, затем открывает дверь. Работает на всех этажах.\n"
-            .. "+ НОВОЕ: ползунок скорости бота (спидхак), управление камерой, прыжки / приседание и использование лестниц.\n"
-            .. "+ НОВОЕ: режим Knob Farm в Авто дверях и автозапуск Knob Farm.\n"
-            .. "+ улучшена подмена позиции: Сильная подмена блокирует прыжки, ступени и лестницы, пока сущность в зоне поражения.\n"
-            .. "+ НОВОЕ: безопасный режим лестниц. На лестнице скоростные функции ставятся на паузу и возвращаются после подъёма / спуска (только включённые).\n"
-            .. "+ ИСПРАВЛЕНО: Авто двери падали у двери (не хватало функций).",
+        en = "+ Added: new Fun tab (above Keybinds) with client-side morphs: become Seek, Honcho or Figure (size, third person camera, keep after respawn).\n"
+            .. "+ Added: Rainbow ESP option at the end of the Visuals tab.\n"
+            .. "+ Added: Anti Lag and Auto Performance now start turned on to keep the game smooth.\n"
+            .. "-+ Changed: Auto Doors now walks like real WASD / joystick input, so the character really moves instead of doing tiny teleports. Jumping and crouching only happen when something actually blocks the way.\n"
+            .. "-+ Changed: Bot Speed is now off by default (a speed above normal made the anticheat pull you back, which looked like tiny teleports).\n"
+            .. "-+ Changed: Auto Interact rebuilt: one light loop, only prompts from your current room, correct key / tool checks and floor-specific filters.\n"
+            .. "-+ Changed: ESP highlights use a soft fill with a solid outline that shows through walls for entities, players, gold, doors and everything else (your labels and colors stay).\n"
+            .. "-+ Changed: the ESP draws at most 28 highlights at once; farther objects hide instead of switching to boxes.\n"
+            .. "- Removed: the full-map prompt rescan of Auto Interact and the ESP box fallback (they caused lag and glitchy visuals).",
+        es = "+ Añadido: nueva pestaña Fun (arriba de Keybinds) con morphs solo para ti: conviértete en Seek, Honcho o Figure (tamaño, cámara en tercera persona, mantener al reaparecer).\n"
+            .. "+ Añadido: opción de ESP Arcoíris al final de la pestaña Visuals.\n"
+            .. "+ Añadido: Anti Lag y Auto Performance ahora inician activados para que el juego no se trabe.\n"
+            .. "-+ Cambiado: Auto Doors ahora camina como si usaras WASD / joystick, así que el personaje de verdad se mueve en vez de dar mini teletransportes. Saltar y agacharse solo pasa cuando algo bloquea el camino.\n"
+            .. "-+ Cambiado: la Velocidad del Bot ahora viene apagada (una velocidad mayor a la normal hacía que el anticheat te regresara, lo que parecían mini teletransportes).\n"
+            .. "-+ Cambiado: Auto Interact rehecho: un solo ciclo ligero, solo prompts de tu sala actual, revisión correcta de llaves / herramientas y filtros por piso.\n"
+            .. "-+ Cambiado: el highlight del ESP usa un relleno suave con borde sólido que se ve a través de paredes en entidades, jugadores, oro, puertas y todo lo demás (tus textos y colores se mantienen).\n"
+            .. "-+ Cambiado: el ESP dibuja máximo 28 highlights a la vez; los objetos más lejanos se ocultan en vez de pasar a cajas.\n"
+            .. "- Quitado: el reescaneo de todo el mapa del Auto Interact y las cajas de respaldo del ESP (causaban lag y visuales raros).",
+        ru = "+ Добавлено: новая вкладка Fun (над Keybinds) с морфами только для вас: станьте Seek, Honcho или Figure (размер, камера от третьего лица, сохранение после возрождения).\n"
+            .. "+ Добавлено: радужный ESP в конце вкладки Visuals.\n"
+            .. "+ Добавлено: Anti Lag и Auto Performance теперь включены по умолчанию, чтобы игра не лагала.\n"
+            .. "-+ Изменено: Авто двери теперь ходят как при вводе WASD / джойстика, поэтому персонаж действительно двигается, а не делает мелкие телепорты. Прыжки и приседания только когда что-то реально мешает.\n"
+            .. "-+ Изменено: скорость бота теперь выключена по умолчанию (скорость выше обычной заставляла античит возвращать вас назад, что выглядело как мелкие телепорты).\n"
+            .. "-+ Изменено: Auto Interact переделан: один лёгкий цикл, только подсказки текущей комнаты, правильная проверка ключей / инструментов и фильтры по этажам.\n"
+            .. "-+ Изменено: подсветка ESP использует мягкую заливку с чёткой обводкой, видимой сквозь стены, для сущностей, игроков, золота, дверей и всего остального (ваши надписи и цвета сохранены).\n"
+            .. "-+ Изменено: ESP рисует не более 28 подсветок одновременно; дальние объекты скрываются вместо рамок.\n"
+            .. "- Удалено: полное пересканирование карты в Auto Interact и запасные рамки ESP (они вызывали лаги и глюки).",
     }
-    local TITLES = { en = "Version 1.0.4", es = "Versión 1.0.4", ru = "Версия 1.0.4" }
+    local TITLES = { en = "Version 1.0.5", es = "Versión 1.0.5", ru = "Версия 1.0.5" }
     MainTab:Paragraph({ Title = TITLES[R4N_LANG] or TITLES.en, Desc = NOTES[R4N_LANG] or NOTES.en })
 end
 MainTab:Section({ Title = "Game Mode" })
@@ -4803,7 +4882,7 @@ Ex.AD_Retries, Ex.AD_StuckTime, Ex.AD_MaxHide = 3, 15, 40
 Ex.AD_StopMinutes, Ex.AD_LowHP = 0, 0
 Ex.AD_Watchdog, Ex.AD_KeyWait, Ex.AD_ForceOpen, Ex.AD_Notify, Ex.AD_HUD = true, true, true, true, false
 -- 1.0.4: bot
-Ex.Bot_SpeedOn, Ex.Bot_Speed, Ex.Bot_Camera, Ex.Bot_CamSpeed = true, 22, true, 9
+Ex.Bot_SpeedOn, Ex.Bot_Speed, Ex.Bot_Camera, Ex.Bot_CamSpeed = false, 16, true, 9
 Ex.Bot_Jump, Ex.Bot_Crouch, Ex.Bot_HideMargin = true, true, 4
 Ex.AD_Ladders, Ex.AD_KnobFarm, Ex.AD_TPFallback = true, false, false
 
@@ -4832,7 +4911,7 @@ AutomationTab:Button({ Title = "Reset Statistics", Desc = "Resets the doors / lo
     Callback = function() if R4N_AD then R4N_AD.ResetStats() end end })
 
 AutomationTab:Section({ Title = "Auto Doors Bot" })
-AddToggle(AutomationTab, "Bot_SpeedOn", "Use Bot Speed", "The bot walks with the Bot Speed below (a real walk speed hack). Turn it off to walk at your normal speed.", Ex.Bot_SpeedOn, function(v) Apply("Bot_SpeedOn", v) end)
+AddToggle(AutomationTab, "Bot_SpeedOn", "Use Bot Speed", "The bot walks with the Bot Speed below (a real walk speed hack). Off by default: a speed above normal can make the anticheat pull you back. Use it with the Anticheat Bypass.", Ex.Bot_SpeedOn, function(v) Apply("Bot_SpeedOn", v) end)
 AddSlider(AutomationTab, "Bot_Speed", "Bot Speed", "Walk speed of the bot in studs per second (4 - 100). Very high values can trigger the anticheat: use it with the Anticheat Bypass. It drops to a slow walk while sneaking past a Figure.", 4, 100, Ex.Bot_Speed, function(v) Ex.Bot_Speed = v end)
 AddToggle(AutomationTab, "Bot_Camera", "Bot Moves The Camera", "The bot turns your camera towards where it walks and what it interacts with. Turn it off if you want to keep control of the camera.", Ex.Bot_Camera, function(v) Apply("Bot_Camera", v) end)
 AddSlider(AutomationTab, "Bot_CamSpeed", "Camera Turn Speed", "How fast the camera turns (2 = slow and smooth, 30 = instant).", 2, 30, Ex.Bot_CamSpeed, function(v) Ex.Bot_CamSpeed = v end)
@@ -6488,8 +6567,19 @@ end)
 local AI_BLACKLIST = {
 	HidePrompt = true, RiftPrompt = true, StarRiftPrompt = true, InteractPrompt = true, ClimbPrompt = true,
 	DonatePrompt = true, DialoguePrompt = true, RevivePrompt = true, EnterPrompt = true, AnimatePrompt = true,
-	ToolEventPrompt = true, Prompt = true, PropPrompt = true, UnlockPrompt = true, SkullPrompt = true, LockPrompt = true,
-	ThingToEnable = true, FusesPrompt = true, LongPushPrompt = true, BigPropPrompt = true, PushPrompt = true,
+	ToolEventPrompt = true, Prompt = true, PropPrompt = true,
+}
+-- prompts de candados: solo se usan si tienes la llave / herramienta correcta (como Auto Interact normal)
+local AI_LOCKNAMES = { UnlockPrompt = true, SkullPrompt = true, LockPrompt = true, ThingToEnable = true, FusesPrompt = true }
+-- prompts de pisos especiales que no se tocan nunca (Archives / Stairwell)
+local AI_NEVER_PARENT = {
+	ArchivesStorageBox = true, Briefcase = true, Faucet = true, PaperPlanePickup = true, PaperPlane = true, Keyboard = true,
+	ArchivesTerminal = true, SeatPart = true, StairwellScrapper = true, MirrorTool = true, SecretLaptop = true,
+	StairwellFireAlarm = true, CobblerFriendly = true, StairwellTerminal = true, StarBottle = true,
+}
+local AI_NEVER_NAME = {
+	SinkPrompt = true, ManualOpenPrompt = true, EntryPrompt = true, TrashcanPrompt = true, CartPrompt = true,
+	VendorPrompt = true, SeatPrompt = true, PortraitDupePrompt = true, LaptopPrompt = true,
 }
 local AI = { Last = 0, Set = setmetatable({}, { __mode = "k" }), Static = setmetatable({}, { __mode = "k" }) }
 
@@ -6585,9 +6675,32 @@ local function AISkip(pp)
 	local function skip(r) AI.Reason[pp] = r return true end
 	if Ex.AIExtraSkip and Ex.AIExtraSkip(pp) then return skip("Ignore List (" .. tostring(Ex.AILastCat and Ex.AILastCat[pp] or "item/type") .. ")") end
 	if AI_BLACKLIST[pp.Name] then return skip("built-in blacklist: " .. pp.Name) end
+	if AI_NEVER_NAME[pp.Name] then return skip("floor-specific prompt: " .. pp.Name) end
 	if pp:GetAttribute("FakePrompt") or pp:GetAttribute("AutoInteractIgnore") then return skip("fake / AutoInteractIgnore") end
 	local par = pp.Parent
 	if not par then return skip("no parent") end
+	if AI_NEVER_PARENT[par.Name] or (par.Parent and (AI_NEVER_PARENT[par.Parent.Name] or par.Parent.Name == "ArchivesLargePrinter"
+		or par.Parent.Name == "ArchivesOfficeChair" or par.Parent.Name == "MeldChord")) then
+		return skip("floor-specific object: " .. par.Name)
+	end
+	-- candados: solo con la llave / herramienta correcta en la mano o en el inventario
+	if AI_LOCKNAMES[pp.Name] or par:GetAttribute("Locked") == true then
+		local has = false
+		for _, k in ipairs({ "Key", "GeneratorFuse", "KeyBackdoor", "KeyElectrical", "KeyIron", "Lockpick", "SkeletonKey", "Shears", "Multitool" }) do
+			if HasItem(k) or HasItem(k, true) then has = true break end
+		end
+		if not has then return skip("locked: you have no key / tool") end
+		local pn = par.Name
+		if pn == "SkullLock" and not (HasItem("SkeletonKey") or HasItem("SkeletonKey", true)) then return skip("needs the Skeleton Key") end
+		if (pn == "Lock1" or pn == "Lock2") and not (HasItem("Lockpick") or HasItem("Lockpick", true) or HasItem("Multitool") or HasItem("Multitool", true)) then
+			return skip("needs a Lockpick")
+		end
+	end
+	local pnm = par.Name
+	if (pnm == "CuttableVines" or pnm == "Chest_Vine" or pnm == "Cellar") and not (HasItem("Shears") or HasItem("Shears", true) or HasItem("Multitool") or HasItem("Multitool", true)) then
+		return skip("needs Shears")
+	end
+	if pp.Name == "PushPrompt" then return skip("minecart (use Auto Steer Minecart)") end
 	local now = os.clock()
 	local ent = AI.Static[pp]
 	if ent == nil or now - ent.t > AI_TTL then
@@ -6602,7 +6715,6 @@ local function AISkip(pp)
 		or n == "KeyObtainFake" or n == "TithingPlate" then return skip("special object: " .. n) end
 	if par.Parent and (par.Parent.Name == "DoorFake" or par.Parent.Name == "FakeDoor" or par.Parent.Name == "IndustrialGate") then return skip("fake door / gate") end
 	if par:GetAttribute("JeffShop") then return skip("Jeff shop") end
-	if par:GetAttribute("Locked") == true then return skip("locked") end
 	if pp.Name == "ActivateEventPrompt" and pp.ActionText == "Close" then return skip("close action") end
 	-- no recoger un item que ya tienes (llaves) ni vendas con la vida llena
 	if n == "KeyObtain" and (HasItem("Key") or HasItem("KeyBackdoor")) then return skip("you already have the key") end
@@ -6650,62 +6762,54 @@ end
 -- ciclo y el Auto Interact "se paraba"), se reescanea mas seguido y un vigilante reinicia el ciclo si se cuelga.
 AI.Beat = os.clock()
 AI.LastRoom = nil
-AI.Rescan = function()
-	local k = 0
-	for _, d in ipairs(Workspace:GetDescendants()) do
-		if d:IsA("ProximityPrompt") then AI.Set[d] = true end
-		k = k + 1
-		if k % 600 == 0 then task.wait() end
-	end
-end
-AI.Loop = function()
-	local lastScan = 0
-	while true do
-		task.wait(0.1)
+-- Estilo Main: un unico ciclo en Heartbeat, solo prompts de la sala actual y a distancia real de activacion,
+-- cada disparo en su propio hilo. La tabla AI.Set se llena por eventos (DescendantAdded): ya NO se recorre
+-- todo el Workspace cada pocos segundos (eso era lo que laggeaba).
+AI.Rescan = function() end
+AI.Debounce = false
+AI.Conn = nil
+AI.Start = function()
+	if AI.Conn then pcall(AI.Conn.Disconnect, AI.Conn) end
+	AI.Conn = RunService.Heartbeat:Connect(function()
 		AI.Beat = os.clock()
-		if Ex.AutoInteract and fireproximityprompt then
-			local okp, _, _, root = pcall(GetParts)
-			if okp and root then
-				local cur = tonumber(LocalPlayer:GetAttribute("CurrentRoom"))
-				local rp = root.Position
-				local now = os.clock()
-				local batch = {}
-				for pp in pairs(AI.Set) do batch[#batch + 1] = pp end
-				for _, pp in ipairs(batch) do
-					pcall(function()
-						if not pp.Parent then
-							AI.Set[pp] = nil
-						elseif pp.Enabled and (not AI.Fired[pp] or now - AI.Fired[pp] > 0.25) then
-							-- primero la distancia (barata) y despues los filtros
-							if AIDist(pp, rp) <= pp.MaxActivationDistance + 0.5 and not AISkip(pp) then
-								local pr = tonumber(pp:GetAttribute("ParentRoom"))
-								if not (pr and cur and math.abs(pr - cur) > 1) then
-									AI.Fired[pp] = now
+		if not Ex.AutoInteract or not fireproximityprompt then return end
+		local now = os.clock()
+		if now - AI.Last < 0.05 then return end
+		AI.Last = now
+		local okp, _, _, root = pcall(GetParts)
+		if not (okp and root) then return end
+		local cur = tonumber(LocalPlayer:GetAttribute("CurrentRoom"))
+		local rp = root.Position
+		for pp in pairs(AI.Set) do
+			if not pp.Parent then
+				AI.Set[pp] = nil
+			elseif pp.Enabled or pp.Name == "LongPushPrompt" or pp.Name == "BigPropPrompt" then
+				local pr = tonumber(pp:GetAttribute("ParentRoom"))
+				if not (pr and cur and pr ~= cur) then
+					local fired = AI.Fired[pp]
+					if not fired or now - fired > 0.25 then
+						if AIDist(pp, rp) <= pp.MaxActivationDistance + 0.5 then
+							task.spawn(function()
+								local okk = pcall(function()
+									if AISkip(pp) then return end
+									AI.Fired[pp] = os.clock()
 									fireproximityprompt(pp)
-								end
-							end
+								end)
+								if not okk then AI.Fired[pp] = os.clock() end
+							end)
 						end
-					end)
-				end
-				-- red de seguridad: reescaneo periodico y cada vez que cambias de sala
-				if now - lastScan > 6 or cur ~= AI.LastRoom then
-					lastScan = now
-					AI.LastRoom = cur
-					task.spawn(function() pcall(AI.Rescan) end)
+					end
 				end
 			end
 		end
-	end
+	end)
 end
-AI.Thread = task.spawn(AI.Loop)
+AI.Start()
+-- vigilante: si la conexion se pierde se vuelve a crear
 task.spawn(function()
 	while true do
-		task.wait(2)
-		if os.clock() - AI.Beat > 4 then
-			pcall(task.cancel, AI.Thread)
-			AI.Beat = os.clock()
-			AI.Thread = task.spawn(AI.Loop)
-		end
+		task.wait(3)
+		if os.clock() - AI.Beat > 4 and Ex.AutoInteract then AI.Start() end
 	end
 end)
 
@@ -8381,7 +8485,7 @@ local RunSvc = game:GetService("RunService")
 local function Toast(t, d) pcall(FX.ShowToast, t, d or "", "", Color3.fromRGB(255, 200, 80)) end
 
 Ex.PerfMode = false
-Ex.AutoPerf = false
+Ex.AutoPerf = true -- 1.0.5: activado por defecto
 Ex.NotifyDespawn = false
 Cfg.RefreshRate = Cfg.RefreshRate or 4
 
@@ -8389,7 +8493,7 @@ Cfg.RefreshRate = Cfg.RefreshRate or 4
 -- Rendimiento del ESP
 --   nivel 0: normal | 1-3: menos Highlights (se usan cajas, mas baratas), menos objetos y refresco mas lento
 -- ------------------------------------------------------------------------------------------
-local MAXHL    = { 20, 12, 8, 4 }
+local MAXHL    = { 28, 20, 12, 6 }
 local INTERVAL = { 0, 0.15, 0.3, 0.6 }
 local CAP      = { math.huge, 100, 60, 35 }
 local perfLevel = 0
@@ -11243,7 +11347,7 @@ local B = FX.B8
 -- ------------------------------------------------------------------------------------------
 -- ANTI LAG
 -- ------------------------------------------------------------------------------------------
-Ex.AntiLag = false
+Ex.AntiLag = true -- 1.0.5: activado por defecto
 Ex.AntiLagLevel = "Balanced"
 
 local LEVEL = {
@@ -11397,6 +11501,7 @@ end
 
 MiscTab:Section({ Title = "Performance" })
 AddToggle(MiscTab, "AntiLag", "Anti Lag", "Raises FPS without deleting textures or changing how the game looks up close: shadows of far lights and far particles are paused and come back as you get close. Turning it off restores everything.", Ex.AntiLag, function(v) Apply("AntiLag", v) end)
+if Ex.AntiLag then task.defer(function() pcall(Hooks.AntiLag, true) end) end
 AddDropdown(MiscTab, "AntiLagLevel", "Anti Lag Level", "Balanced: only far shadows and particles. Strong: closer limits, also pauses far trails/beams/smoke, turns off sun rays and depth of field and lowers the render quality a bit.", { "Balanced", "Strong" }, Ex.AntiLagLevel, function(v)
 	if type(v) == "table" then v = v[1] end
 	if v and LEVEL[v] then Ex.AntiLagLevel = v ApplyLevel() end
@@ -12254,9 +12359,38 @@ local function CanJump()
     return true
 end
 
+-- MOVIMIENTO REAL: el bot ya no usa Humanoid:MoveTo (el control del juego lo cancelaba cada frame y el personaje
+-- solo daba mini-tirones). Ahora escribe la direccion de movimiento con Humanoid:Move justo DESPUES del control
+-- del jugador en cada frame, igual que si mantuvieras WASD o el joystick en el celular.
+AD.Target = nil
+AD.Driving = false
+function AD.Drive(pos) AD.Target = pos end
+pcall(function() RunService:UnbindFromRenderStep("R4N_BotMove") end)
+RunService:BindToRenderStep("R4N_BotMove", Enum.RenderPriority.Input.Value + 1, function()
+    local pos = AD.Target
+    if not pos or Ex.AutoDoors ~= true then
+        if AD.Driving then
+            AD.Driving = false
+            local _, h = GetParts()
+            if h then pcall(function() h:Move(Vector3.zero, false) end) end
+        end
+        return
+    end
+    local _, h, r = GetParts()
+    if not (h and r) or h.Health <= 0 then return end
+    local d = Vector3.new(pos.X - r.Position.X, 0, pos.Z - r.Position.Z)
+    AD.Driving = true
+    if d.Magnitude < 0.6 then
+        h:Move(Vector3.zero, false)
+    else
+        h:Move(d.Unit, false) -- direccion en el mundo, sin depender de la camara
+    end
+end)
+
 local function StopMove()
-    local _, hum, root = GetParts()
-    if hum and root then pcall(function() hum:MoveTo(root.Position) end) end
+    AD.Target = nil
+    local _, hum = GetParts()
+    if hum then pcall(function() hum:Move(Vector3.zero, false) end) end
 end
 
 local function Fire(pp, times)
@@ -12321,7 +12455,7 @@ local function Follow(wp, dest, o, g, t0, timeout)
             if o.abort() then return "aborted" end
         end
         local wpos, rp = wp.Position, root.Position
-        hum:MoveTo(wpos)
+        AD.Drive(wpos)
         AD.Look = Vector3.new(wpos.X, rp.Y + 1.2, wpos.Z)
         local flat = Vector3.new(rp.X - wpos.X, 0, rp.Z - wpos.Z).Magnitude
         if flat < math.clamp(hum.WalkSpeed * 0.1, 2.2, 5) then return "ok" end
@@ -12337,10 +12471,12 @@ local function Follow(wp, dest, o, g, t0, timeout)
                 local dir = Vector3.new(wpos.X - rp.X, 0, wpos.Z - rp.Z)
                 if dir.Magnitude > 0.1 then
                     local low, head = Probe(root, dir.Unit)
-                    if head and not low then
-                        SetCrouch(true)             -- techo bajo: agacharse
-                    elseif CanJump() then
-                        hum.Jump = true             -- obstaculo bajo: saltar
+                    if hits >= 2 then
+                        if head and not low then
+                            SetCrouch(true)         -- techo bajo: agacharse
+                        elseif low and not head and CanJump() then
+                            hum.Jump = true         -- obstaculo bajo: saltar
+                        end
                     end
                 end
                 if hits >= 3 then SetCrouch(AD.Sneak) return "stuck" end
@@ -13005,6 +13141,7 @@ local function Cleanup()
         if FX.SpoofVote then FX.SpoofVote("bot", false) end
     end
     local _, hum = GetParts()
+    AD.Target = nil
     if hum then
         StopMove()
         if not Ex.SpeedHack and AD.OrigWS then pcall(function() hum.WalkSpeed = AD.OrigWS end) end
@@ -15899,6 +16036,19 @@ PSlider(VisualsTab, "ViewmodelOffsetX", "X Offset", "", -10, 10)
 PSlider(VisualsTab, "ViewmodelOffsetY", "Y Offset", "", -10, 10)
 PSlider(VisualsTab, "ViewmodelOffsetZ", "Z Offset", "", -10, 10)
 
+-- 1.0.5: ESP arcoiris (al final de Visuals)
+VisualsTab:Section({ Title = "Rainbow ESP" })
+AddToggle(VisualsTab, "RainbowESP", "Rainbow ESP", "Every ESP highlight, label and tracer cycles through the rainbow instead of using its category color.", Cfg.Rainbow,
+	function(v)
+		Cfg.Rainbow = v
+		if not v then
+			-- vuelve al color de cada categoria en el siguiente refresco
+			for _, e in pairs(Tracked) do e.Col = nil end
+		end
+	end)
+AddSlider(VisualsTab, "RainbowSpeed", "Rainbow Speed", "How fast the colors cycle (1 = slow, 10 = fast).", 1, 10, math.floor((Cfg.RainbowSpeed or 0.25) * 10 + 0.5),
+	function(v) Cfg.RainbowSpeed = v / 10 end)
+
 MiscTab:Section({ Title = "Debug Tools" })
 MiscTab:Button({ Title = "Ladder Softlock Fix", Desc = "Fixes getting stuck after a ladder.", Callback = function()
 	LocalPlayer:SetAttribute("Climbing", false)
@@ -15937,6 +16087,340 @@ MiscTab:Button({ Title = "Reset Character", Desc = "Kills your character on the 
 end })
 end)()
 print("[R4NS0M] Loaded Main Port")
+
+-- ============================================================================================
+-- 1.0.5  FUN: morphs de Seek, Honcho y Figure (solo cliente: nadie mas los ve)
+--   El modelo se toma de los archivos del propio juego (ReplicatedStorage / Workspace). Si todavia no esta
+--   cargado, se captura la primera vez que esa entidad aparece y se guarda para los siguientes usos.
+-- ============================================================================================
+;(function()
+local RS = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local function Notice(t, c) pcall(function() WindUI:Notify({ Title = t, Content = c, Duration = 4 }) end) end
+
+local COMMON_SKIP = { "eye", "arm", "hand", "obstruct", "flood", "chase", "light", "intro", "drain", "lower", "door", "trigger",
+	"sound", "node", "box", "mug", "terminal", "deposit", "sign", "desk", "room", "setup", "end", "fire", "skip", "button",
+	"hint", "prompt", "gui", "path", "board", "bridge", "spot", "cutscene", "scene", "effect", "particle" }
+local MORPHS = {
+	Seek   = { exact = { seek = true, seekrig = true, seekmoving = true }, word = "seek" },
+	Figure = { exact = { figurerig = true, figure = true, figureragdoll = true }, word = "figure" },
+	Honcho = { exact = { honcho = true, honchorig = true, honchoentity = true, honchomodel = true }, word = "honcho" },
+}
+
+local M = { Key = nil, Clone = nil, Conn = nil, Hidden = {}, Cache = {}, Size = 100, Third = true, Flip = false, Keep = true,
+	Tracks = {}, Cam = nil, CharConn = nil, Gen = 0 }
+
+local function CountParts(m)
+	local n = 0
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") then n = n + 1 end
+	end
+	return n
+end
+
+local function ShouldSkipName(lower)
+	for _, w in ipairs(COMMON_SKIP) do
+		if lower:find(w, 1, true) then return true end
+	end
+	return false
+end
+
+-- captura: cuando la entidad aparece en el Workspace se guarda una copia limpia para los morphs
+local function Capture(d, key)
+	if M.Cache[key] or not d.Parent then return end
+	local char = LocalPlayer.Character
+	if char and d:IsDescendantOf(char) then return end
+	if Players:GetPlayerFromCharacter(d) then return end
+	if CountParts(d) < 3 then return end
+	pcall(function()
+		d.Archivable = true
+		local c = d:Clone()
+		if c then M.Cache[key] = c end
+	end)
+end
+Workspace.DescendantAdded:Connect(function(d)
+	if not d:IsA("Model") then return end
+	local lower = d.Name:lower()
+	for key, info in pairs(MORPHS) do
+		if info.exact[lower] and not M.Cache[key] then
+			task.delay(0.6, function() pcall(Capture, d, key) end)
+			break
+		end
+	end
+end)
+
+local function FindIn(root, key, info)
+	local best, bestParts, bestExact = nil, 0, false
+	for _, d in ipairs(root:GetDescendants()) do
+		if d:IsA("Model") then
+			local lower = d.Name:lower()
+			local exact = info.exact[lower] == true
+			if exact or (lower:find(info.word, 1, true) and not ShouldSkipName(lower)) then
+				local parts = CountParts(d)
+				if parts >= 3 and not Players:GetPlayerFromCharacter(d) then
+					if (exact and not bestExact) or (exact == bestExact and parts > bestParts) then
+						best, bestParts, bestExact = d, parts, exact
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
+local function FindTemplate(key)
+	if M.Cache[key] then return M.Cache[key] end
+	local info = MORPHS[key]
+	local found = FindIn(RS, key, info) or FindIn(Workspace, key, info)
+	if found then
+		pcall(function() found.Archivable = true end)
+		local ok, c = pcall(function() return found:Clone() end)
+		if ok and c then M.Cache[key] = c return c end
+	end
+	return nil
+end
+
+local function GetChar()
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	return char, hum, root
+end
+
+-- ---------- ocultar / restaurar tu personaje ----------
+local function InTool(d, char)
+	local p = d.Parent
+	while p and p ~= char do
+		if p:IsA("Tool") then return true end
+		p = p.Parent
+	end
+	return false
+end
+local function HideOne(d, char)
+	if M.Hidden[d] ~= nil then return end
+	if d:IsA("BasePart") then
+		if d.Name == "HumanoidRootPart" or InTool(d, char) then return end
+		M.Hidden[d] = d.Transparency
+		d.Transparency = 1
+	elseif d:IsA("Decal") or d:IsA("Texture") then
+		if InTool(d, char) then return end
+		M.Hidden[d] = d.Transparency
+		d.Transparency = 1
+	end
+end
+local function HideChar(char)
+	for _, d in ipairs(char:GetDescendants()) do HideOne(d, char) end
+	if M.DescConn then M.DescConn:Disconnect() end
+	M.DescConn = char.DescendantAdded:Connect(function(d) task.defer(HideOne, d, char) end)
+end
+local function RestoreChar()
+	if M.DescConn then M.DescConn:Disconnect() M.DescConn = nil end
+	for d, v in pairs(M.Hidden) do
+		if d.Parent then pcall(function() d.Transparency = v end) end
+	end
+	M.Hidden = {}
+end
+
+-- ---------- camara en tercera persona (para verte como la entidad) ----------
+local function SetThird(on)
+	if on and not M.Cam then
+		M.Cam = { Mode = LocalPlayer.CameraMode, Min = LocalPlayer.CameraMinZoomDistance, Max = LocalPlayer.CameraMaxZoomDistance }
+		pcall(function()
+			LocalPlayer.CameraMode = Enum.CameraMode.Classic
+			LocalPlayer.CameraMaxZoomDistance = 40
+			LocalPlayer.CameraMinZoomDistance = 14
+		end)
+	elseif not on and M.Cam then
+		local c = M.Cam
+		M.Cam = nil
+		pcall(function()
+			LocalPlayer.CameraMinZoomDistance = c.Min
+			LocalPlayer.CameraMaxZoomDistance = c.Max
+			LocalPlayer.CameraMode = c.Mode
+		end)
+	end
+end
+
+-- ---------- deshacer ----------
+local function Revert(keepKey)
+	M.Gen = M.Gen + 1
+	if M.Conn then M.Conn:Disconnect() M.Conn = nil end
+	for _, t in pairs(M.Tracks) do pcall(function() t:Stop(0) t:Destroy() end) end
+	M.Tracks = {}
+	if M.Clone then pcall(M.Clone.Destroy, M.Clone) M.Clone = nil end
+	RestoreChar()
+	SetThird(false)
+	if not keepKey then M.Key = nil end
+end
+
+-- ---------- morph ----------
+local function PickRoot(clone)
+	if clone.PrimaryPart then return clone.PrimaryPart end
+	for _, n in ipairs({ "HumanoidRootPart", "RootPart", "Torso", "UpperTorso", "Body", "Main" }) do
+		local p = clone:FindFirstChild(n, true)
+		if p and p:IsA("BasePart") then return p end
+	end
+	local best, vol = nil, -1
+	for _, d in ipairs(clone:GetDescendants()) do
+		if d:IsA("BasePart") then
+			local v = d.Size.X * d.Size.Y * d.Size.Z
+			if v > vol then best, vol = d, v end
+		end
+	end
+	return best
+end
+
+local function LoadAnimations(clone)
+	local anims, idle, walk = {}, nil, nil
+	for _, d in ipairs(clone:GetDescendants()) do
+		if d:IsA("Animation") and d.AnimationId ~= "" then anims[#anims + 1] = d end
+	end
+	if #anims == 0 then return end
+	local ctrl = Instance.new("AnimationController")
+	ctrl.Parent = clone
+	local animator = Instance.new("Animator")
+	animator.Parent = ctrl
+	local function Pick(words)
+		for _, a in ipairs(anims) do
+			local n = a.Name:lower()
+			for _, w in ipairs(words) do
+				if n:find(w, 1, true) then return a end
+			end
+		end
+	end
+	local aIdle = Pick({ "idle", "stand", "float", "hover" }) or anims[1]
+	local aWalk = Pick({ "walk", "run", "move", "chase", "dash", "crawl" })
+	pcall(function()
+		idle = animator:LoadAnimation(aIdle)
+		idle.Looped = true
+		if aWalk then
+			walk = animator:LoadAnimation(aWalk)
+			walk.Looped = true
+		end
+	end)
+	M.Tracks = { Idle = idle, Walk = walk, State = nil }
+end
+
+local function Apply(key)
+	local char, hum, root = GetChar()
+	if not (char and hum and root) then Notice("Fun", "Your character is not ready yet.") return false end
+	local tpl = FindTemplate(key)
+	if not tpl then
+		Notice("Fun", key .. " model is not loaded yet. It will be saved the first time " .. key .. " appears in the game; then press the button again.")
+		return false
+	end
+	Revert(true)
+	M.Key = key
+	local gen = M.Gen
+	local clone = tpl:Clone()
+	clone.Name = "R4N_Morph_" .. key
+	for _, d in ipairs(clone:GetDescendants()) do
+		if d:IsA("BaseScript") or d:IsA("ProximityPrompt") or d:IsA("Sound") or d:IsA("Highlight") or d:IsA("Humanoid") then
+			pcall(d.Destroy, d)
+		elseif d:IsA("BasePart") then
+			d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch, d.Massless = false, false, false, false, true
+		end
+	end
+	local base = PickRoot(clone)
+	if not base then pcall(clone.Destroy, clone) Notice("Fun", "That model has no parts.") return false end
+	clone.PrimaryPart = base
+	pcall(function() clone:ScaleTo(math.clamp(M.Size / 100, 0.1, 5)) end)
+	clone.Parent = Workspace
+	base.Anchored = true
+	for _, d in ipairs(clone:GetDescendants()) do
+		if d:IsA("BasePart") and d ~= base and #d:GetJoints() == 0 then
+			local w = Instance.new("WeldConstraint")
+			w.Part0, w.Part1 = base, d
+			w.Parent = d
+		end
+	end
+	M.Clone = clone
+	pcall(LoadAnimations, clone)
+
+	local bbCF, bbSize = clone:GetBoundingBox()
+	local pivot = clone:GetPivot()
+	local bottomRel = (bbCF.Position.Y - bbSize.Y / 2) - pivot.Position.Y
+	local feet = (hum.HipHeight > 0 and hum.HipHeight or 2) + root.Size.Y / 2
+
+	HideChar(char)
+	if M.Third then SetThird(true) end
+
+	local lastHide = 0
+	M.Conn = RunService.RenderStepped:Connect(function()
+		if gen ~= M.Gen or not clone.Parent then return end
+		local c, h, r = GetChar()
+		if not (c and h and r) then return end
+		local cf = CFrame.new(r.Position.X, r.Position.Y - feet - bottomRel, r.Position.Z)
+			* (r.CFrame - r.CFrame.Position) * CFrame.Angles(0, M.Flip and math.pi or 0, 0)
+		clone:PivotTo(cf)
+		local tr = M.Tracks
+		if tr.Idle then
+			local moving = h.MoveDirection.Magnitude > 0.1 and tr.Walk
+			local want = moving and "Walk" or "Idle"
+			if tr.State ~= want then
+				tr.State = want
+				local on, off = tr[want], tr[want == "Walk" and "Idle" or "Walk"]
+				if off then pcall(function() off:Stop(0.2) end) end
+				if on then pcall(function() on:Play(0.2) end) end
+			end
+		end
+		local now = os.clock()
+		if now - lastHide > 0.5 then
+			lastHide = now
+			for d in pairs(M.Hidden) do
+				if d.Parent and d.Transparency < 1 then d.Transparency = 1 end
+			end
+		end
+	end)
+	return true
+end
+
+-- al reaparecer se vuelve a poner el morph
+LocalPlayer.CharacterAdded:Connect(function()
+	local key = M.Key
+	Revert(true)
+	if key and M.Keep then
+		task.delay(2, function()
+			if M.Key == key and not M.Clone then pcall(Apply, key) end
+		end)
+	end
+end)
+
+local function Rebuild()
+	local id = (M.RB or 0) + 1
+	M.RB = id
+	task.delay(0.4, function()
+		if M.RB == id and M.Key then pcall(Apply, M.Key) end
+	end)
+end
+
+FunTab:Section({ Title = "Morphs (Client Only)" })
+FunTab:Paragraph({
+	Title = "How it works",
+	Desc = "Turns you into the real model of the entity. Only YOU can see it (other players do not). The model comes from the game's own files; "
+		.. "if it is not loaded yet it is saved the first time that entity appears, then press the button again. Respawning keeps the morph if the option below is on.",
+})
+FunTab:Button({ Title = "Become Seek", Desc = "Morph into Seek.", Callback = function() pcall(Apply, "Seek") end })
+FunTab:Button({ Title = "Become Honcho", Desc = "Morph into Honcho (Archives).", Callback = function() pcall(Apply, "Honcho") end })
+FunTab:Button({ Title = "Become Figure", Desc = "Morph into Figure.", Callback = function() pcall(Apply, "Figure") end })
+FunTab:Button({ Title = "Back To Normal", Desc = "Removes the morph and shows your real character again.", Callback = function() Revert(false) end })
+
+FunTab:Section({ Title = "Morph Settings" })
+AddSlider(FunTab, "MorphSize", "Morph Size (%)", "Size of the morph compared to the original model (25 - 300). Changing it rebuilds the morph.", 25, 300, 100,
+	function(v) M.Size = v Rebuild() end)
+AddToggle(FunTab, "MorphThird", "Third Person Camera", "Zooms the camera out so you can see yourself as the entity. Turn it off to stay in first person (the model can block your view).", true,
+	function(v) M.Third = v if M.Clone then SetThird(v) end end)
+AddToggle(FunTab, "MorphFlip", "Flip Facing", "Turns the model 180 degrees if it looks backwards.", false,
+	function(v) M.Flip = v end)
+AddToggle(FunTab, "MorphKeep", "Keep Morph After Respawn", "Puts the morph back on automatically when you respawn.", true,
+	function(v) M.Keep = v end)
+
+R4N_Morph = M
+end)()
+
 
 Window:SelectTab(1)
 print("[R4NS0M] Loaded Config System")
