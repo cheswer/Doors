@@ -2,7 +2,7 @@ warn("--- [R4NS0M] EXECUTING SCRIPT ---")
 pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "R4NS0M", Text = "Script iniciado, cargando UI...", Duration = 6 }) end)
 --[[
   R4NS0M CD-1  |  Team CHX
-  Version 1.0.3
+  Version 1.0.4
   Tabs: Main, Info, Visuals, Player, Automation, Anticheat, Antis, Alerts, Misc, Keybinds, Configs
   Ransomity is real
 ]]
@@ -774,6 +774,20 @@ R4N_I18N = {
         ["Auto Execute"] = "Auto Ejecución",
         ["Auto Execute On Teleport"] = "Auto Ejecutar al Teletransportar",
         ["Loader (URL or file)"] = "Loader (URL o archivo)",
+        ["Auto Doors Bot"] = "Bot de Auto Doors",
+        ["Use Bot Speed"] = "Usar Velocidad del Bot",
+        ["Bot Speed"] = "Velocidad del Bot",
+        ["Bot Moves The Camera"] = "El Bot Mueve la Cámara",
+        ["Camera Turn Speed"] = "Velocidad de Giro de Cámara",
+        ["Bot Can Jump"] = "El Bot Puede Saltar",
+        ["Bot Can Crouch"] = "El Bot Puede Agacharse",
+        ["Hide Early (seconds)"] = "Esconderse con Antelación (segundos)",
+        ["Use Ladders"] = "Usar Escaleras",
+        ["Knob Farm Mode"] = "Modo Farmeo de Perillas",
+        ["Teleport Fallback (last resort)"] = "Teletransporte de Respaldo (último recurso)",
+        ["Strong Position Spoof"] = "Position Spoof Fuerte",
+        ["Ladder Safe Mode"] = "Modo Seguro de Escaleras",
+        ["Knob Farm Auto Start"] = "Inicio Automático del Farmeo de Perillas",
     },
     ru = {
         ["Auto Doors (beta)"] = "Авто двери (бета)",
@@ -1201,6 +1215,20 @@ R4N_I18N = {
         ["Auto Execute"] = "Автозапуск",
         ["Auto Execute On Teleport"] = "Автозапуск при телепорте",
         ["Loader (URL or file)"] = "Загрузчик (URL или файл)",
+        ["Auto Doors Bot"] = "Бот Авто дверей",
+        ["Use Bot Speed"] = "Скорость бота",
+        ["Bot Speed"] = "Скорость бота (значение)",
+        ["Bot Moves The Camera"] = "Бот двигает камеру",
+        ["Camera Turn Speed"] = "Скорость поворота камеры",
+        ["Bot Can Jump"] = "Бот может прыгать",
+        ["Bot Can Crouch"] = "Бот может приседать",
+        ["Hide Early (seconds)"] = "Прятаться заранее (секунды)",
+        ["Use Ladders"] = "Использовать лестницы",
+        ["Knob Farm Mode"] = "Режим фарма ручек",
+        ["Teleport Fallback (last resort)"] = "Телепорт как крайняя мера",
+        ["Strong Position Spoof"] = "Сильная подмена позиции",
+        ["Ladder Safe Mode"] = "Безопасный режим лестниц",
+        ["Knob Farm Auto Start"] = "Автозапуск фарма ручек",
     },
 }
 do
@@ -1310,15 +1338,15 @@ InfoTab:Section({ Title = "Script Information" })
 
 InfoTab:Paragraph({
     Title = "About R4NS0M CD-1",
-    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.3"
+    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.4"
 })
 
 InfoTab:Paragraph({
     Title = "Where to find things",
     Desc = "Visuals: ESP, chase paths (Seek / Eyestalk) and lighting.\n"
         .. "Player: movement, speed, jump, fly, noclip.\n"
-        .. "Automation: Auto Interact (with ignore list), library code, minecart, Dam Seek, Cringle. Stairwell and Archives tabs.\n"
-        .. "Anticheat: position / crouch spoof and manipulation.\n"
+        .. "Automation: Auto Doors bot, Auto Interact (with ignore list), library code, minecart, Dam Seek, Cringle. Stairwell and Archives tabs.\n"
+        .. "Anticheat: position / crouch spoof (strong spoof), ladder safe mode and manipulation.\n"
         .. "Antis: entity bypasses and the Seek / Figure combos.\n"
         .. "Alerts: entity, item, library code and Ransom notifications.\n"
         .. "Misc: revive and utilities.\n"
@@ -3345,26 +3373,32 @@ print("[R4NS0M] Loading Main Tab")
 MainTab:Section({ Title = "What's New" })
 do
     local NOTES = {
-        en = "NEW: Infinite Crucifix (Antis tab). Your Crucifix no longer breaks.\n"
-            .. "REWORKED: Auto Doors. Anti-stuck watchdog, key search, force-open fallback, safe closet exit, profiles, status HUD and statistics.\n"
-            .. "NEW: more Auto Doors settings (profile, retries, loot order, hide time, stop by room / time / health, notifications).\n"
-            .. "IMPROVED: performance. Lighter ESP refresh, ESP Performance Mode and Anti Lag.\n"
-            .. "FIXED: the script not executing (too many local variables) and Auto Doors stopping by itself.\n"
-            .. "Many small fixes and stability improvements.",
-        es = "NUEVO: Crucifijo Infinito (pestaña Antis). Tu Crucifijo ya no se rompe.\n"
-            .. "REHECHO: Auto Doors. Vigilante anti-atasco, búsqueda de llaves, apertura forzada de respaldo, salida segura del closet, perfiles, HUD de estado y estadísticas.\n"
-            .. "NUEVO: más ajustes de Auto Doors (perfil, reintentos, orden de botín, tiempo de escondite, parar por cuarto / tiempo / vida, notificaciones).\n"
-            .. "MEJORADO: rendimiento. ESP más ligero, Modo Rendimiento de ESP y Anti Lag.\n"
-            .. "ARREGLADO: el script no ejecutaba (demasiadas variables locales) y Auto Doors se detenía solo.\n"
-            .. "Muchos arreglos pequeños y mejoras de estabilidad.",
-        ru = "НОВОЕ: Бесконечное распятие (вкладка Antis). Распятие больше не ломается.\n"
-            .. "ПЕРЕРАБОТАНО: Авто двери. Защита от зависаний, поиск ключей, принудительное открытие, безопасный выход из шкафа, профили, HUD статуса и статистика.\n"
-            .. "НОВОЕ: больше настроек Авто дверей (профиль, повторы, порядок сбора, время укрытия, остановка по комнате / времени / здоровью, уведомления).\n"
-            .. "УЛУЧШЕНО: производительность. Облегчённый ESP, режим производительности ESP и Anti Lag.\n"
-            .. "ИСПРАВЛЕНО: скрипт не запускался (слишком много локальных переменных), Авто двери останавливались сами.\n"
-            .. "Множество мелких исправлений и улучшений стабильности.",
+        en = "+ NEW: Auto Doors is now a real bot. No more teleports: it walks, jumps, crouches and moves your camera.\n"
+            .. "+ NEW: smart hiding. The bot predicts when Rush / Ambush / A-60 / A-120 reach you and gets into a closet BEFORE they arrive.\n"
+            .. "+ NEW: locked doors. It loots (gold, drawers, chests) until it finds the key, then opens the door. Works on every floor.\n"
+            .. "+ NEW: Bot Speed (speed hack) slider, camera control, jump / crouch options and ladder use.\n"
+            .. "+ NEW: Knob Farm Mode in Auto Doors and Auto Start for the Knob Farm.\n"
+            .. "+ improved position spoof: Strong Position Spoof locks jumps, step-ups and ladders while an entity is in kill range.\n"
+            .. "+ NEW: Ladder Safe Mode. On a ladder the speed hacks pause and come back when you finish climbing (only the ones you have on).\n"
+            .. "+ FIXED: Auto Doors crashing when it reached a door (missing functions).",
+        es = "+ NUEVO: Auto Doors ahora es un bot de verdad. Sin teletransportes: camina, salta, se agacha y mueve tu cámara.\n"
+            .. "+ NUEVO: escondite inteligente. El bot predice cuándo Rush / Ambush / A-60 / A-120 te alcanzan y se mete en un armario ANTES de que lleguen.\n"
+            .. "+ NUEVO: puertas bloqueadas. Saquea (oro, cajones, cofres) hasta encontrar la llave y luego abre la puerta. Funciona en todos los pisos.\n"
+            .. "+ NUEVO: slider de Velocidad del Bot (speed hack), control de cámara, opciones de salto / agacharse y uso de escaleras.\n"
+            .. "+ NUEVO: Modo Knob Farm en Auto Doors y Inicio Automático del Knob Farm.\n"
+            .. "+ position spoof mejorado: el Position Spoof Fuerte bloquea saltos, escalones y escaleras mientras una entidad está a su rango de matar.\n"
+            .. "+ NUEVO: Modo Seguro de Escaleras. En una escalera las velocidades se pausan y vuelven al terminar de subir o bajar (solo las que tengas activadas).\n"
+            .. "+ ARREGLADO: Auto Doors fallaba al llegar a una puerta (faltaban funciones).",
+        ru = "+ НОВОЕ: Авто двери теперь настоящий бот. Без телепортов: ходит, прыгает, приседает и двигает камеру.\n"
+            .. "+ НОВОЕ: умное укрытие. Бот предсказывает, когда Rush / Ambush / A-60 / A-120 до вас доберутся, и прячется в шкаф ДО их прихода.\n"
+            .. "+ НОВОЕ: запертые двери. Бот собирает лут (золото, ящики, сундуки), пока не найдёт ключ, затем открывает дверь. Работает на всех этажах.\n"
+            .. "+ НОВОЕ: ползунок скорости бота (спидхак), управление камерой, прыжки / приседание и использование лестниц.\n"
+            .. "+ НОВОЕ: режим Knob Farm в Авто дверях и автозапуск Knob Farm.\n"
+            .. "+ улучшена подмена позиции: Сильная подмена блокирует прыжки, ступени и лестницы, пока сущность в зоне поражения.\n"
+            .. "+ НОВОЕ: безопасный режим лестниц. На лестнице скоростные функции ставятся на паузу и возвращаются после подъёма / спуска (только включённые).\n"
+            .. "+ ИСПРАВЛЕНО: Авто двери падали у двери (не хватало функций).",
     }
-    local TITLES = { en = "Version 1.0.3", es = "Versión 1.0.3", ru = "Версия 1.0.3" }
+    local TITLES = { en = "Version 1.0.4", es = "Versión 1.0.4", ru = "Версия 1.0.4" }
     MainTab:Paragraph({ Title = TITLES[R4N_LANG] or TITLES.en, Desc = NOTES[R4N_LANG] or NOTES.en })
 end
 MainTab:Section({ Title = "Game Mode" })
@@ -4410,18 +4444,18 @@ RunService.Heartbeat:Connect(function(dt)
     end
 
     -- Speed
-    if Ex.Speed and not Ex.Fly and not Slide.dir and not St.Glide then
+    if Ex.Speed and not Ex.Fly and not Slide.dir and not St.Glide and not FX.LadderPause then
         FX.Speed(hum, root, dt, now)
     end
 
     -- Speed Hack: cambia el WalkSpeed de verdad (1-100); se reaplica cada frame
-    if Ex.SpeedHack and not Ex.Fly then
-        local want = Ex.SpeedHackValue
+    if (Ex.SpeedHack or FX.BotSpeed) and not Ex.Fly and not FX.LadderPause then
+        local want = FX.BotSpeed or Ex.SpeedHackValue
         if hum.WalkSpeed ~= want then hum.WalkSpeed = want end
     end
 
     -- Jump (atributos del juego + valores del Humanoid)
-    if Ex.Jump then
+    if Ex.Jump and not FX.JumpLocked then
         if now - St.LastAttr > 0.25 then
             St.LastAttr = now
             pcall(FX.GameAbility, "jump", true)
@@ -4768,19 +4802,23 @@ Ex.AD_Profile, Ex.AD_LootOrder = "Balanced", "Nearest First"
 Ex.AD_Retries, Ex.AD_StuckTime, Ex.AD_MaxHide = 3, 15, 40
 Ex.AD_StopMinutes, Ex.AD_LowHP = 0, 0
 Ex.AD_Watchdog, Ex.AD_KeyWait, Ex.AD_ForceOpen, Ex.AD_Notify, Ex.AD_HUD = true, true, true, true, false
+-- 1.0.4: bot
+Ex.Bot_SpeedOn, Ex.Bot_Speed, Ex.Bot_Camera, Ex.Bot_CamSpeed = true, 22, true, 9
+Ex.Bot_Jump, Ex.Bot_Crouch, Ex.Bot_HideMargin = true, true, 4
+Ex.AD_Ladders, Ex.AD_KnobFarm, Ex.AD_TPFallback = true, false, false
 
 AutomationTab:Section({ Title = "Auto Doors" })
 AddToggle(AutomationTab, "AutoDoors", "Auto Doors",
-    "Detects the game mode (Hotel, Mines, Backdoor, Outdoors, Rooms...) and plays the floor for you: loots, grabs keys, opens doors and hides from entities. Includes an anti-stuck watchdog that fixes itself. Risky. If nothing below is selected it applies the recommended setup for the mode.",
+    "A bot plays the floor for you. It walks (no teleports), jumps, crouches and moves your camera. It loots, grabs the key when a door is locked, opens doors and hides in a closet before Rush / Ambush / A-60 / A-120 reach you. Risky. If nothing below is selected it applies the recommended setup for the mode.",
     Ex.AutoDoors, function(v) Apply("AutoDoors", v) end)
 AddDropdown(AutomationTab, "AD_Profile", "Profile",
-    "Preset of options and timings. Press Apply Profile to use it (it only enables what exists in the current mode).",
+    "Preset of options, timings and bot speed. Press Apply Profile to use it (it only enables what exists in the current mode).",
     { "Safe", "Balanced", "Fast", "Speedrun", "Max Loot" }, Ex.AD_Profile, function(v) Ex.AD_Profile = v end)
 AutomationTab:Button({ Title = "Apply Profile", Desc = "Applies the selected profile to the options and sliders below.",
     Callback = function() if R4N_AD then R4N_AD.ApplyProfile(Ex.AD_Profile, true) end end })
 AutomationTab:Button({ Title = "Apply Recommended Setup", Desc = "Selects the best options below for the mode you are in.",
     Callback = function() if R4N_AD then R4N_AD.Recommended(true) end end })
-AutomationTab:Button({ Title = "Show Auto Doors Status", Desc = "Shows the detected mode, the room, what it is doing and the session statistics.",
+AutomationTab:Button({ Title = "Show Auto Doors Status", Desc = "Shows the detected mode, the room, what the bot is doing and the session statistics.",
     Callback = function() if R4N_AD then R4N_AD.Status() end end })
 AutomationTab:Button({ Title = "Force Unstuck Now", Desc = "Runs the auto-fix right now (only while Auto Doors is on).",
     Callback = function()
@@ -4790,18 +4828,30 @@ AutomationTab:Button({ Title = "Force Unstuck Now", Desc = "Runs the auto-fix ri
             pcall(function() WindUI:Notify({ Title = "Auto Doors", Content = "Turn Auto Doors on first.", Duration = 3 }) end)
         end
     end })
-AutomationTab:Button({ Title = "Reset Statistics", Desc = "Resets the doors / loot / auto-fix counters and the timer.",
+AutomationTab:Button({ Title = "Reset Statistics", Desc = "Resets the doors / loot / hides / auto-fix counters and the timer.",
     Callback = function() if R4N_AD then R4N_AD.ResetStats() end end })
 
+AutomationTab:Section({ Title = "Auto Doors Bot" })
+AddToggle(AutomationTab, "Bot_SpeedOn", "Use Bot Speed", "The bot walks with the Bot Speed below (a real walk speed hack). Turn it off to walk at your normal speed.", Ex.Bot_SpeedOn, function(v) Apply("Bot_SpeedOn", v) end)
+AddSlider(AutomationTab, "Bot_Speed", "Bot Speed", "Walk speed of the bot in studs per second (4 - 100). Very high values can trigger the anticheat: use it with the Anticheat Bypass. It drops to a slow walk while sneaking past a Figure.", 4, 100, Ex.Bot_Speed, function(v) Ex.Bot_Speed = v end)
+AddToggle(AutomationTab, "Bot_Camera", "Bot Moves The Camera", "The bot turns your camera towards where it walks and what it interacts with. Turn it off if you want to keep control of the camera.", Ex.Bot_Camera, function(v) Apply("Bot_Camera", v) end)
+AddSlider(AutomationTab, "Bot_CamSpeed", "Camera Turn Speed", "How fast the camera turns (2 = slow and smooth, 30 = instant).", 2, 30, Ex.Bot_CamSpeed, function(v) Ex.Bot_CamSpeed = v end)
+AddToggle(AutomationTab, "Bot_Jump", "Bot Can Jump", "Lets the bot jump over low obstacles and where the path asks for it. It never jumps while Strong Position Spoof has the jump locked.", Ex.Bot_Jump, function(v) Apply("Bot_Jump", v) end)
+AddToggle(AutomationTab, "Bot_Crouch", "Bot Can Crouch", "Lets the bot crouch under low ceilings and sneak while a Figure is in the room.", Ex.Bot_Crouch, function(v) Apply("Bot_Crouch", v) end)
+AddSlider(AutomationTab, "Bot_HideMargin", "Hide Early (seconds)", "Safety margin: the bot starts walking to a closet this many seconds before the entity would reach it.", 1, 12, Ex.Bot_HideMargin, function(v) Ex.Bot_HideMargin = v end)
+AddToggle(AutomationTab, "AD_Ladders", "Use Ladders", "When the path is blocked the bot uses a ladder (never while an entity is close).", Ex.AD_Ladders, function(v) Apply("AD_Ladders", v) end)
+AddToggle(AutomationTab, "AD_KnobFarm", "Knob Farm Mode", "Only works in Room 0. The bot collects all the gold and drawers of the first room, then starts the Knob Farm by itself.", Ex.AD_KnobFarm, function(v) Apply("AD_KnobFarm", v) end)
+AddToggle(AutomationTab, "AD_TPFallback", "Teleport Fallback (last resort)", "Only after 5 failed auto-fixes in a row the bot may teleport next to the room entrance. Off = the bot never teleports.", Ex.AD_TPFallback, function(v) Apply("AD_TPFallback", v) end)
+
 AutomationTab:Section({ Title = "Auto Doors Settings" })
-AddToggle(AutomationTab, "AD_Doors", "Open Doors", "Goes to the next door and opens it when the room is done.", Ex.AD_Doors, function(v) Apply("AD_Doors", v) end)
+AddToggle(AutomationTab, "AD_Doors", "Open Doors", "Walks to the next door and opens it when the room is done.", Ex.AD_Doors, function(v) Apply("AD_Doors", v) end)
 AddToggle(AutomationTab, "AD_Gold", "Grab Gold & Stardust", "Collects every gold pile and stardust in the room.", Ex.AD_Gold, function(v) Apply("AD_Gold", v) end)
 AddToggle(AutomationTab, "AD_Drawers", "Loot Drawers", "Opens every drawer and takes what is inside.", Ex.AD_Drawers, function(v) Apply("AD_Drawers", v) end)
 AddToggle(AutomationTab, "AD_Chests", "Loot Chests & Lockers", "Opens chests, toolboxes and lockers (locked ones are skipped).", Ex.AD_Chests, function(v) Apply("AD_Chests", v) end)
-AddToggle(AutomationTab, "AD_Keys", "Grab Keys & Unlock Doors", "Takes the door key and uses it on locked doors.", Ex.AD_Keys, function(v) Apply("AD_Keys", v) end)
+AddToggle(AutomationTab, "AD_Keys", "Grab Keys & Unlock Doors", "Takes the door key and uses it on locked doors. If a door is locked and you have no key, the bot loots the room (drawers, chests, gold...) until it finds one.", Ex.AD_Keys, function(v) Apply("AD_Keys", v) end)
 AddToggle(AutomationTab, "AD_KeyWait", "Keep Searching For Keys", "When a door is locked it keeps looking for the key even after the room time is over (library, puzzles...).", Ex.AD_KeyWait, function(v) Apply("AD_KeyWait", v) end)
 AddToggle(AutomationTab, "AD_Items", "Grab Items", "Picks up items (uses the Auto Interact ignored items list).", Ex.AD_Items, function(v) Apply("AD_Items", v) end)
-AddToggle(AutomationTab, "AD_Avoid", "Avoid Entities (Auto Hide)", "Pauses and hides in a closet while Rush, Ambush, A-60, A-120 and similar are around, then leaves the closet by itself.", Ex.AD_Avoid, function(v) Apply("AD_Avoid", v) end)
+AddToggle(AutomationTab, "AD_Avoid", "Avoid Entities (Auto Hide)", "Predicts when Rush, Ambush, A-60, A-120 and similar reach you, walks to a closet and gets inside before they arrive, then leaves by itself. With no closet nearby it uses Position Spoof.", Ex.AD_Avoid, function(v) Apply("AD_Avoid", v) end)
 AddToggle(AutomationTab, "AD_Puzzles", "Solve Puzzles (Library, Breakers, Anchors)", "Turns on Auto Library, Auto Padlock, Auto Breaker Room and Auto Anchors for the mode.", Ex.AD_Puzzles, function(v) Apply("AD_Puzzles", v) end)
 AddToggle(AutomationTab, "AD_SkipSeek", "Skip Seek", "Skips the Seek sections (Hotel / Mines).", Ex.AD_SkipSeek, function(v) Apply("AD_SkipSeek", v) end)
 AddToggle(AutomationTab, "AD_ForceOpen", "Force Open Fallback", "If a door does not open with its prompt, it asks the door to open directly.", Ex.AD_ForceOpen, function(v) Apply("AD_ForceOpen", v) end)
@@ -4814,9 +4864,9 @@ AddDropdown(AutomationTab, "AD_LootOrder", "Loot Order", "Nearest First goes to 
     { "Nearest First", "Keys & Gold First" }, Ex.AD_LootOrder, function(v) Ex.AD_LootOrder = v end)
 
 AutomationTab:Section({ Title = "Auto Doors Safety" })
-AddToggle(AutomationTab, "AD_Watchdog", "Anti-Stuck Watchdog", "Detects when nothing advances and fixes it step by step: resets targets, leaves the closet, restarts helpers, forces the door and re-places you in the room.", Ex.AD_Watchdog, function(v) Apply("AD_Watchdog", v) end)
+AddToggle(AutomationTab, "AD_Watchdog", "Anti-Stuck Watchdog", "Detects when nothing advances and fixes it step by step: resets targets, leaves the closet, restarts helpers, forces the door and shakes the bot loose.", Ex.AD_Watchdog, function(v) Apply("AD_Watchdog", v) end)
 AddSlider(AutomationTab, "AD_StuckTime", "Stuck Timeout (seconds)", "Seconds without progress before the watchdog acts.", 5, 60, Ex.AD_StuckTime, function(v) Ex.AD_StuckTime = v end)
-AddSlider(AutomationTab, "AD_MaxHide", "Max Hide Time (seconds)", "Longest it waits for an entity before it carries on anyway.", 10, 120, Ex.AD_MaxHide, function(v) Ex.AD_MaxHide = v end)
+AddSlider(AutomationTab, "AD_MaxHide", "Max Hide Time (seconds)", "Longest it waits inside a closet before it carries on anyway.", 10, 120, Ex.AD_MaxHide, function(v) Ex.AD_MaxHide = v end)
 AddToggle(AutomationTab, "AD_StopOnDeath", "Stop On Death", "Turns Auto Doors off when you die.", Ex.AD_StopOnDeath, function(v) Apply("AD_StopOnDeath", v) end)
 AddSlider(AutomationTab, "AD_StopRoom", "Stop At Room (0 = never)", "Turns Auto Doors off when this room is reached.", 0, 1000, Ex.AD_StopRoom, function(v) Ex.AD_StopRoom = v end)
 AddSlider(AutomationTab, "AD_StopMinutes", "Stop After (minutes, 0 = never)", "Turns Auto Doors off after this much time running.", 0, 240, Ex.AD_StopMinutes, function(v) Ex.AD_StopMinutes = v end)
@@ -5894,6 +5944,14 @@ AddToggle(AntiCheatTab, "PositionSpoof", "Position Spoof",
 AddToggle(AntiCheatTab, "CrouchSpoof", "Crouch Spoof",
 	"Makes the game think you are always crouching.",
 	Ex.CrouchSpoof, function(v) Apply("CrouchSpoof", v) end)
+if Ex.PositionSpoofStrong == nil then Ex.PositionSpoofStrong = true end
+if Ex.LadderSafe == nil then Ex.LadderSafe = true end
+AddToggle(AntiCheatTab, "PositionSpoofStrong", "Strong Position Spoof",
+	"Makes Position Spoof hold up: while an entity is in kill range it locks jumping, pushes you back down when a step, a jump or a boost lifts you, and blocks ladder prompts. Needs Position Spoof on.",
+	Ex.PositionSpoofStrong, function(v) Apply("PositionSpoofStrong", v) end)
+AddToggle(AntiCheatTab, "LadderSafe", "Ladder Safe Mode",
+	"When you use a ladder the anticheat bypass does its trick and your speed hacks (Speed, Speed Hack, Velocity Manipulation, Noclip, Fly) pause. They come back on their own when you finish climbing. Only affects the ones you have on.",
+	Ex.LadderSafe, function(v) Apply("LadderSafe", v) end)
 AddToggle(AntiCheatTab, "AutoHeartbeatMinigame", "Auto Heartbeat Minigame",
 	"Prevents the 'Figure' minigame from ever failing.",
 	Ex.AutoHeartbeatMinigame, function(v) Ex.AutoHeartbeatMinigame = v end)
@@ -5942,6 +6000,241 @@ AddToggle(AntisTab, "RemoveSkeletonDoor", "Remove Skeleton Door", "Removes the s
 end)()
 
 print("[R4NS0M] Loaded Anticheat and Anti UI")
+-- ============================================================================================
+-- 1.0.4: STRONG POSITION SPOOF + LADDER SAFE MODE
+--  * Strong Position Spoof: mientras una entidad de las que matan esta a su alcance y el Position
+--    Spoof esta activo, bloquea el salto, impide "subirse" por encima de la altura del spoof
+--    (escalones, impulsos, saltos) y desactiva los prompts de escaleras de mano.
+--  * Ladder Safe Mode: al usar una escalera se pausan las funciones de velocidad / movimiento que
+--    tengas activadas y se reactivan solas cuando terminas de subir o bajar.
+-- ============================================================================================
+;(function()
+local PPS = game:GetService("ProximityPromptService")
+local LG = {
+    Paused = nil, Hold = 0, Quiet = nil, T0 = 0, ThreatAt = 0,
+    Prompts = setmetatable({}, { __mode = "k" }),
+    Disabled = {},
+}
+FX.LadderGuard = LG
+local SG = { ref = nil, locked = false, jp = nil, jh = nil, ThreatAt = 0, Fixes = 0, Note = 0 }
+FX.SpoofGuard = SG
+
+-- alcance de muerte (mismos valores que usa el Position Spoof automatico)
+local KILL = {
+    RushMoving = 85, AmbushMoving = 150, A60 = 125, A120 = 85,
+    GlitchRush = 90, GlitchAmbush = 175, BackdoorRush = 85,
+}
+local PAUSE_IDS = { "ACM", "Noclip", "Fly" }   -- Speed / Speed Hack se pausan por FX.LadderPause
+
+local function Killer(root)
+    local best, bd = nil, math.huge
+    for _, c in ipairs(Workspace:GetChildren()) do
+        local r = KILL[c.Name]
+        if r and c:IsA("Model") and c:GetAttribute("Inactive") ~= true then
+            local pp = c.PrimaryPart or c:FindFirstChildWhichIsA("BasePart")
+            if pp then
+                local d = (pp.Position - root.Position).Magnitude
+                if d < r * 1.15 + 10 and d < bd then best, bd = c, d end
+            end
+        end
+    end
+    return best
+end
+
+local function IsLadder(pp)
+    local cur = pp.Parent
+    for _ = 1, 5 do
+        if not cur then break end
+        local n = cur.Name:lower()
+        if n:find("ladder", 1, true) or n:find("climb", 1, true) then return true end
+        cur = cur.Parent
+    end
+    return pp.Name:lower():find("climb", 1, true) ~= nil
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Ladder Safe Mode
+-- ------------------------------------------------------------------------------------------
+local function Pause()
+    if LG.Paused or Ex.LadderSafe == false then return end
+    LG.Paused = {}
+    LG.T0 = os.clock()
+    FX.LadderPause = true
+    for _, id in ipairs(PAUSE_IDS) do
+        if Ex[id] then
+            LG.Paused[#LG.Paused + 1] = id
+            pcall(Apply, id, false)
+        end
+    end
+    local _, hum = GetParts()
+    if hum and (Ex.SpeedHack or FX.BotSpeed) then
+        pcall(function() hum.WalkSpeed = Saved.HackWS or FX.NormalWS or 16 end)
+    end
+    NotifyUI("Ladder Safe Mode", "Speed hacks paused while you use the ladder.")
+end
+
+local function Resume()
+    if not LG.Paused then return end
+    local list = LG.Paused
+    LG.Paused, LG.Quiet = nil, nil
+    FX.LadderPause = nil
+    for _, id in ipairs(list) do pcall(Apply, id, true) end
+    NotifyUI("Ladder Safe Mode", "Speed hacks are back on.")
+end
+
+PPS.PromptTriggered:Connect(function(pp, plr)
+    if plr ~= LocalPlayer or Ex.LadderSafe == false then return end
+    if IsLadder(pp) then
+        LG.Hold = os.clock() + 2.5
+        Pause()
+    end
+end)
+
+local lastPoll = 0
+RunService.Heartbeat:Connect(function()
+    local now = os.clock()
+    if now - lastPoll < 0.1 then return end
+    lastPoll = now
+    local char, hum, root = GetParts()
+    if Ex.LadderSafe == false then
+        if LG.Paused then Resume() end
+        return
+    end
+    local climbing = false
+    if char then
+        climbing = char:GetAttribute("Climbing") == true or LocalPlayer:GetAttribute("Climbing") == true
+        if hum and hum:GetState() == Enum.HumanoidStateType.Climbing then climbing = true end
+        if hum and root and hum.FloorMaterial == Enum.Material.Air and math.abs(root.AssemblyLinearVelocity.Y) > 1.5 then
+            climbing = LG.Paused ~= nil and true or climbing
+        end
+    end
+    if not LG.Paused then
+        if climbing then
+            LG.Hold = now + 1.5
+            Pause()
+        end
+        return
+    end
+    -- hay una pausa en curso: se levanta cuando llevas ~1s sin escalar (o al pasar 20s)
+    if now < LG.Hold then climbing = true end
+    if climbing then LG.Quiet = nil else LG.Quiet = LG.Quiet or now end
+    if (LG.Quiet and now - LG.Quiet >= 1.0) or now - LG.T0 > 20 or not char then Resume() end
+end)
+
+-- prompts de escalera conocidos (para bloquearlos con una entidad cerca)
+task.spawn(function()
+    local rooms = Workspace:WaitForChild("CurrentRooms", 60)
+    if not rooms then return end
+    local function Track(d)
+        if d:IsA("ProximityPrompt") and IsLadder(d) then LG.Prompts[d] = true end
+    end
+    for _, d in ipairs(rooms:GetDescendants()) do Track(d) end
+    rooms.DescendantAdded:Connect(Track)
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Strong Position Spoof (se ejecuta antes de la fisica: asi lo que se replica ya va corregido)
+-- ------------------------------------------------------------------------------------------
+local GP = RaycastParams.new()
+GP.FilterType = Enum.RaycastFilterType.Exclude
+GP.RespectCanCollide = true
+
+local function UnlockJump(hum)
+    if not SG.locked then return end
+    SG.locked = false
+    FX.JumpLocked = nil
+    if hum then
+        pcall(function()
+            if SG.jp then hum.JumpPower = SG.jp end
+            if SG.jh then hum.JumpHeight = SG.jh end
+            hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+        end)
+    end
+end
+
+RunService.Stepped:Connect(function()
+    local now = os.clock()
+    local char, hum, root = GetParts()
+    local on = Ex.PositionSpoof and Ex.PositionSpoofStrong ~= false and root ~= nil
+    local th = on and Killer(root) or nil
+
+    -- escaleras de mano: sin prompts mientras haya una entidad a su alcance
+    if th then
+        LG.ThreatAt = now
+        for pp in pairs(LG.Prompts) do
+            if pp.Parent and pp.Enabled and not LG.Disabled[pp] then
+                LG.Disabled[pp] = true
+                pp.Enabled = false
+            end
+        end
+    elseif next(LG.Disabled) and now - LG.ThreatAt > 0.8 then
+        for pp in pairs(LG.Disabled) do
+            if pp.Parent then pp.Enabled = true end
+            LG.Disabled[pp] = nil
+        end
+    end
+
+    if not on then
+        if SG.locked then UnlockJump(hum) end
+        SG.ref = nil
+        return
+    end
+
+    -- altura de referencia del spoof respecto al suelo (se aprende cuando no hay peligro)
+    GP.FilterDescendantsInstances = { char }
+    local hit = Workspace:Raycast(root.Position + Vector3.new(0, 6, 0), Vector3.new(0, -40, 0), GP)
+    if hit then
+        local off = root.Position.Y - hit.Position.Y
+        local vy = root.AssemblyLinearVelocity.Y
+        if not th then
+            if math.abs(vy) < 3 then SG.ref = SG.ref and (SG.ref + (off - SG.ref) * 0.25) or off end
+        else
+            SG.ref = SG.ref or off
+            local excess = off - SG.ref
+            if excess > 0.4 then   -- te estas elevando (salto / escalon / impulso): se te devuelve a la altura segura
+                root.CFrame = root.CFrame - Vector3.new(0, excess, 0)
+                local v = root.AssemblyLinearVelocity
+                root.AssemblyLinearVelocity = Vector3.new(v.X, math.min(v.Y, 0), v.Z)
+                SG.Fixes = SG.Fixes + 1
+            end
+        end
+    end
+
+    -- salto bloqueado mientras haya peligro
+    if th and hum then
+        SG.ThreatAt = now
+        if not SG.locked then
+            SG.locked = true
+            FX.JumpLocked = true
+            SG.jp, SG.jh = hum.JumpPower, hum.JumpHeight
+            if now - SG.Note > 6 then
+                SG.Note = now
+                NotifyUI("Strong Position Spoof", "Entity in range: jump, step-ups and ladders locked.")
+            end
+        end
+        hum.Jump = false
+        pcall(function()
+            hum.JumpPower = 0
+            hum.JumpHeight = 0
+            hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+        end)
+    elseif SG.locked and now - SG.ThreatAt > 0.8 then
+        UnlockJump(hum)
+    end
+end)
+
+Hooks.PositionSpoof = (function(prev)
+    return function(v)
+        if prev then prev(v) end
+        SG.ref = nil   -- nueva altura de referencia al activar / desactivar
+        if not v and SG.locked then
+            local _, hum = GetParts()
+            UnlockJump(hum)
+        end
+    end
+end)(Hooks.PositionSpoof)
+end)()
+
 print("[R4NS0M] Loading Extra Functions")
 -- ============================================================================================
 -- FUNCIONES EXTRA
@@ -11662,20 +11955,31 @@ FX.UpdateButtons()
 
 print("[R4NS0M] Loaded Keybinds Tab")
 -- ------------------------------------------------------------------------------------------
--- Auto Doors (beta): logica
+-- Auto Doors (bot): logica
+-- Un bot de verdad: camina con pathfinding, salta, se agacha, mueve la camara y se esconde en
+-- un closet ANTES de que llegue la entidad. Sin teletransportes (solo como ultimo recurso, opcional).
+-- Cerebro = Step() (decide), cuerpo = Walk()/Follow() (se mueve), ojos = camara (CamStep).
 -- ------------------------------------------------------------------------------------------
-do
+;(function()
+local PathSvc = game:GetService("PathfindingService")
+local RSv = game:GetService("ReplicatedStorage")
+local VIM
+pcall(function() VIM = game:GetService("VirtualInputManager") end)
+
 local function NewTries() return setmetatable({}, { __mode = "k" }) end
 local AD = {
-    Gen = 0, Turned = {}, Tries = NewTries(), Info = "Off", Room = nil, RoomT = 0, CalmAt = 0,
+    Gen = 0, Turned = {}, Tries = NewTries(), Info = "Off", Room = nil, RoomT = 0,
     Progress = os.clock(), Beat = os.clock(), Stuck = 0, Errors = 0, RecoverWhy = nil,
     WantKey = false, KeyWaitSince = nil, KeyReset = 0, NoLootUntil = 0,
-    DangerSince = nil, DangerName = nil, LastExit = 0, LastLatest = nil,
-    DoorFails = 0, WasDead = false, Running = false,
-    Stats = { Doors = 0, Loot = 0, Fixes = 0, Start = os.clock() },
+    DoorFails = 0, WasDead = false, Running = false, Active = false,
+    Look = nil, CamRot = nil, Crouching = false, Sneak = false, LastExit = 0, LastLatest = nil,
+    KnobDone = false, OrigWS = nil, FigureT = 0, FigureNear = false, SpoofVoted = false,
+    Ent = setmetatable({}, { __mode = "k" }),
+    Spots = setmetatable({}, { __mode = "k" }),
+    BadSpot = setmetatable({}, { __mode = "k" }),
+    Stats = { Doors = 0, Loot = 0, Fixes = 0, Hides = 0, Start = os.clock() },
 }
 R4N_AD = AD
-local RSv = game:GetService("ReplicatedStorage")
 
 local OPTS = { "AD_Doors", "AD_Gold", "AD_Drawers", "AD_Chests", "AD_Keys", "AD_Items", "AD_Avoid", "AD_Puzzles", "AD_SkipSeek" }
 local REC = {
@@ -11689,23 +11993,30 @@ local REC = {
 }
 local PROFILES = {
     ["Safe"]     = { opts = { "AD_Doors", "AD_Gold", "AD_Keys", "AD_Avoid", "AD_Puzzles", "AD_SkipSeek" },
-                     AD_Delay = 600, AD_RoomTime = 20, AD_Retries = 2, AD_StuckTime = 20, AD_MaxHide = 60 },
-    ["Balanced"] = { opts = OPTS, AD_Delay = 350, AD_RoomTime = 30, AD_Retries = 3, AD_StuckTime = 15, AD_MaxHide = 40 },
+                     AD_Delay = 600, AD_RoomTime = 20, AD_Retries = 2, AD_StuckTime = 20, AD_MaxHide = 60, Bot_Speed = 18 },
+    ["Balanced"] = { opts = OPTS, AD_Delay = 350, AD_RoomTime = 30, AD_Retries = 3, AD_StuckTime = 15, AD_MaxHide = 40, Bot_Speed = 22 },
     ["Fast"]     = { opts = { "AD_Doors", "AD_Gold", "AD_Keys", "AD_Avoid", "AD_Puzzles", "AD_SkipSeek" },
-                     AD_Delay = 150, AD_RoomTime = 12, AD_Retries = 2, AD_StuckTime = 12, AD_MaxHide = 40 },
+                     AD_Delay = 150, AD_RoomTime = 12, AD_Retries = 2, AD_StuckTime = 12, AD_MaxHide = 40, Bot_Speed = 32 },
     ["Speedrun"] = { opts = { "AD_Doors", "AD_Keys", "AD_Avoid", "AD_Puzzles", "AD_SkipSeek" },
-                     AD_Delay = 100, AD_RoomTime = 5, AD_Retries = 1, AD_StuckTime = 10, AD_MaxHide = 40 },
-    ["Max Loot"] = { opts = OPTS, AD_Delay = 400, AD_RoomTime = 60, AD_Retries = 4, AD_StuckTime = 20, AD_MaxHide = 40 },
+                     AD_Delay = 100, AD_RoomTime = 5, AD_Retries = 1, AD_StuckTime = 10, AD_MaxHide = 40, Bot_Speed = 45 },
+    ["Max Loot"] = { opts = OPTS, AD_Delay = 400, AD_RoomTime = 60, AD_Retries = 4, AD_StuckTime = 20, AD_MaxHide = 40, Bot_Speed = 22 },
 }
-local NUMS = { "AD_Delay", "AD_RoomTime", "AD_Retries", "AD_StuckTime", "AD_MaxHide" }
+local NUMS = { "AD_Delay", "AD_RoomTime", "AD_Retries", "AD_StuckTime", "AD_MaxHide", "Bot_Speed" }
+
+-- entidades de las que se esconde, su velocidad aproximada (se corrige midiendola) y su alcance de muerte
 local DANGER = {
     RushMoving = true, AmbushMoving = true, A60 = true, A120 = true, GlitchRush = true,
     GlitchAmbush = true, BackdoorRush = true,
 }
+local BASE_SPEED = {
+    RushMoving = 75, AmbushMoving = 95, A60 = 95, A120 = 95, GlitchRush = 80, GlitchAmbush = 100, BackdoorRush = 75,
+}
+local REBOUND = { AmbushMoving = true, GlitchAmbush = true }
 local KIND = {
     gold = "AD_Gold", stardust = "AD_Gold", keys = "AD_Keys", drawers = "AD_Drawers",
     chests = "AD_Chests", lockers = "AD_Chests", items = "AD_Items",
 }
+local KNOB = { gold = true, stardust = true, drawers = true, chests = true, lockers = true }
 local PRIO = { keys = 0, gold = 1, stardust = 1 }
 local PRIO_LABEL = "Keys & Gold First"
 
@@ -11719,10 +12030,11 @@ local function Clock(s)
 end
 local function StatsLine()
     local s = AD.Stats
-    return string.format("Doors %d | Looted %d | Auto-fixes %d | Time %s", s.Doors, s.Loot, s.Fixes, Clock(os.clock() - s.Start))
+    return string.format("Doors %d | Looted %d | Hides %d | Fixes %d | Time %s", s.Doors, s.Loot, s.Hides, s.Fixes, Clock(os.clock() - s.Start))
 end
 local function Mark() AD.Progress = os.clock() AD.Stuck = 0 end   -- progreso real
 local function Idle() AD.Progress = os.clock() end                -- espera legitima (no cuenta como atasco)
+local function Alive(g) return Ex.AutoDoors == true and AD.Gen == g end
 
 local function ModeNm()
     local n = Mode.Name
@@ -11735,8 +12047,9 @@ local function Latest()
     local lv = gd and gd:FindFirstChild("LatestRoom")
     return lv and lv.Value
 end
+local function RoomsFolder() return Workspace:FindFirstChild("CurrentRooms") end
 local function RoomOf(inst)
-    local rooms = Workspace:FindFirstChild("CurrentRooms")
+    local rooms = RoomsFolder()
     local cur = inst
     while cur and cur.Parent do
         if cur.Parent == rooms then return tonumber(cur.Name) end
@@ -11744,16 +12057,37 @@ local function RoomOf(inst)
     end
     return nil
 end
-local function DangerNow()
-    for _, c in ipairs(Workspace:GetChildren()) do
-        if DANGER[c.Name] then return c.Name end
+local function HasItem(name)
+    local char = LocalPlayer.Character
+    local bp = LocalPlayer:FindFirstChild("Backpack")
+    return (char and char:FindFirstChild(name)) or (bp and bp:FindFirstChild(name)) or nil
+end
+local function NextClosedDoor()
+    local rooms = RoomsFolder()
+    local lv = Latest()
+    if not (rooms and lv) then return nil end
+    local best, bestN = nil, math.huge
+    for _, room in ipairs(rooms:GetChildren()) do
+        local n = tonumber(room.Name)
+        if n and n >= lv and n < bestN then
+            local door = room:FindFirstChild("Door")
+            if door and door:GetAttribute("Opened") ~= true and door:GetAttribute("Open") ~= true then
+                best, bestN = door, n
+            end
+        end
     end
-    return nil
+    return best
 end
 local function ExitCloset()
     local rf = RSv:FindFirstChild("RemotesFolder")
     local cl = rf and rf:FindFirstChild("CamLock")
     if cl and cl:IsA("RemoteEvent") then pcall(function() cl:FireServer() end) end
+end
+local function Gold()
+    local ok, v = pcall(function()
+        return LocalPlayer.PlayerGui.TopbarUI.Topbar.StatsTopbarHandler.StatModules.Gold.GoldVal.Value
+    end)
+    return ok and v or nil
 end
 
 -- activa una funcion del hub solo si estaba apagada y recuerda apagarla al terminar
@@ -11768,14 +12102,15 @@ local function Release()
     AD.Turned = {}
 end
 
--- funciones del hub que Auto Doors usa segun las opciones y el modo
+-- funciones del hub que el bot usa segun las opciones y el modo
 local function Sync()
     local m = ModeNm()
     if m == "Rooms" then
         Need("RoomsAutoWalk")
         return true
     end
-    if Ex.AD_Avoid then Need("AutoClosetToggle") end
+    if Ex.Bot_Jump ~= false then Need("Jump") end
+    if Ex.AD_Avoid and m == "Hotel" then Need("AutoHeartbeatMinigame") end
     if Ex.AD_SkipSeek then
         if m == "Hotel" then Need("SkipSeekHotel") elseif m == "Mines" then Need("SkipSeekMines") end
     end
@@ -11821,7 +12156,7 @@ AD.Status = function()
 end
 
 AD.ResetStats = function()
-    AD.Stats = { Doors = 0, Loot = 0, Fixes = 0, Start = os.clock() }
+    AD.Stats = { Doors = 0, Loot = 0, Fixes = 0, Hides = 0, Start = os.clock() }
     Say("Statistics reset.", true)
 end
 
@@ -11846,7 +12181,7 @@ AD.UpdateHUD = function()
         l.TextYAlignment = Enum.TextYAlignment.Top
         l.TextWrapped = true
         l.AutomaticSize = Enum.AutomaticSize.Y
-        l.Size = UDim2.fromOffset(240, 10)
+        l.Size = UDim2.fromOffset(250, 10)
         l.AnchorPoint = Vector2.new(1, 0)
         l.Position = UDim2.new(1, -8, 0, 70)
         local pad = Instance.new("UIPadding")
@@ -11860,10 +12195,426 @@ AD.UpdateHUD = function()
         HUD = l
     end
     HUD.Visible = true
-    HUD.Text = string.format("AUTO DOORS  [ON]\nMode:  %s\nRoom:  %s\nState: %s\n%s",
+    HUD.Text = string.format("AUTO DOORS BOT  [ON]\nMode:  %s\nRoom:  %s\nState: %s\n%s",
         ModeNm(), tostring(CurRoom() or "?"), tostring(AD.Info or "-"), StatsLine())
 end
 
+-- ==========================================================================================
+-- OJOS: la camara gira suave hacia lo que el bot mira (AD.Look)
+-- ==========================================================================================
+pcall(function() RunService:UnbindFromRenderStep("R4N_BotCam") end)
+RunService:BindToRenderStep("R4N_BotCam", Enum.RenderPriority.Camera.Value + 2, function(dt)
+    if not (AD.Active and Ex.Bot_Camera ~= false and AD.Look) then AD.CamRot = nil return end
+    local char = LocalPlayer.Character
+    local cam = Workspace.CurrentCamera
+    if not char or not cam or char:GetAttribute("Hiding") then AD.CamRot = nil return end
+    local pos = cam.CFrame.Position
+    local dir = AD.Look - pos
+    if dir.Magnitude < 0.6 then return end
+    local goal = CFrame.lookAt(pos, pos + dir).Rotation
+    local cur = AD.CamRot or cam.CFrame.Rotation
+    cur = cur:Lerp(goal, 1 - math.exp(-dt * (Ex.Bot_CamSpeed or 9)))
+    AD.CamRot = cur
+    cam.CFrame = CFrame.new(pos) * cur
+end)
+
+-- ==========================================================================================
+-- CUERPO: movimiento, salto, agacharse, velocidad
+-- ==========================================================================================
+local RayP = RaycastParams.new()
+RayP.FilterType = Enum.RaycastFilterType.Exclude
+RayP.RespectCanCollide = true
+
+local function Ground(pos)
+    RayP.FilterDescendantsInstances = { LocalPlayer.Character }
+    local hit = Workspace:Raycast(pos + Vector3.new(0, 5, 0), Vector3.new(0, -22, 0), RayP)
+    if hit then return hit.Position end
+    return pos - Vector3.new(0, 3, 0)
+end
+
+local function SetCrouch(on)
+    if Ex.Bot_Crouch == false then on = false end
+    if AD.Crouching == on then return end
+    AD.Crouching = on
+    if VIM then
+        pcall(function() VIM:SendKeyEvent(on, Enum.KeyCode.LeftControl, false, game) end)
+    end
+end
+
+local function ApplySpeed()
+    if Ex.Bot_SpeedOn == false then FX.BotSpeed = nil return end
+    local v = tonumber(Ex.Bot_Speed) or 22
+    if AD.Sneak then v = math.min(v, 9) end
+    FX.BotSpeed = v
+end
+
+local function CanJump()
+    if Ex.Bot_Jump == false then return false end
+    if FX.JumpLocked then return false end
+    return true
+end
+
+local function StopMove()
+    local _, hum, root = GetParts()
+    if hum and root then pcall(function() hum:MoveTo(root.Position) end) end
+end
+
+local function Fire(pp, times)
+    pcall(function()
+        pp.HoldDuration = 0
+        pp.RequiresLineOfSight = false
+    end)
+    for _ = 1, times or 3 do
+        if not pp.Parent or not pp.Enabled then break end
+        pcall(fireproximityprompt, pp)
+        task.wait(0.12)
+    end
+end
+
+-- espera a que la camara apunte al objetivo antes de interactuar
+local function Face(pos, maxWait)
+    AD.Look = pos
+    if Ex.Bot_Camera == false then return end
+    local t0 = os.clock()
+    while os.clock() - t0 < (maxWait or 0.5) do
+        local cam = Workspace.CurrentCamera
+        if not cam then return end
+        local dir = pos - cam.CFrame.Position
+        if dir.Magnitude < 0.1 or cam.CFrame.LookVector:Dot(dir.Unit) > 0.96 then return end
+        task.wait(0.05)
+    end
+end
+
+-- bajo / cabeza: para decidir entre saltar (obstaculo bajo) o agacharse (techo bajo)
+local function Probe(root, dir)
+    RayP.FilterDescendantsInstances = { LocalPlayer.Character }
+    local o = root.Position
+    local d = dir * 3.2
+    local low = Workspace:Raycast(o - Vector3.new(0, 1.6, 0), d, RayP)
+    local head = Workspace:Raycast(o + Vector3.new(0, 1.2, 0), d, RayP)
+    return low ~= nil, head ~= nil
+end
+
+local function Arrived(root, dest, o)
+    local near = o.near
+    if near and near.part and near.part.Parent then
+        if (root.Position - near.part.Position).Magnitude <= near.range then return true end
+    end
+    local p = root.Position
+    local flat = Vector3.new(p.X - dest.X, 0, p.Z - dest.Z).Magnitude
+    return flat <= (o.radius or 3) and math.abs(p.Y - dest.Y) <= 8
+end
+
+-- sigue UN waypoint: "ok" | "stuck" | "arrived" | "aborted" | "timeout" | "stopped" | "dead"
+local function Follow(wp, dest, o, g, t0, timeout)
+    local lastP, lastT = nil, os.clock()
+    local hits, lastAbort, wt0 = 0, 0, os.clock()
+    while true do
+        if not Alive(g) then return "stopped" end
+        local char, hum, root = GetParts()
+        if not root then return "dead" end
+        local now = os.clock()
+        if now - t0 > timeout then return "timeout" end
+        if Arrived(root, dest, o) then return "arrived" end
+        if o.abort and now - lastAbort > 0.2 then
+            lastAbort = now
+            if o.abort() then return "aborted" end
+        end
+        local wpos, rp = wp.Position, root.Position
+        hum:MoveTo(wpos)
+        AD.Look = Vector3.new(wpos.X, rp.Y + 1.2, wpos.Z)
+        local flat = Vector3.new(rp.X - wpos.X, 0, rp.Z - wpos.Z).Magnitude
+        if flat < math.clamp(hum.WalkSpeed * 0.1, 2.2, 5) then return "ok" end
+        if wp.Action == Enum.PathWaypointAction.Jump and CanJump() then hum.Jump = true end
+        if now - wt0 > 4.5 then SetCrouch(AD.Sneak) return "stuck" end
+        lastP = lastP or rp
+        if now - lastT >= 0.5 then
+            local moved = Vector3.new(rp.X - lastP.X, 0, rp.Z - lastP.Z).Magnitude
+            local expect = math.max(hum.WalkSpeed, 8) * 0.5
+            lastP, lastT = rp, now
+            if moved < expect * 0.15 then
+                hits = hits + 1
+                local dir = Vector3.new(wpos.X - rp.X, 0, wpos.Z - rp.Z)
+                if dir.Magnitude > 0.1 then
+                    local low, head = Probe(root, dir.Unit)
+                    if head and not low then
+                        SetCrouch(true)             -- techo bajo: agacharse
+                    elseif CanJump() then
+                        hum.Jump = true             -- obstaculo bajo: saltar
+                    end
+                end
+                if hits >= 3 then SetCrouch(AD.Sneak) return "stuck" end
+            else
+                hits = 0
+                Idle()   -- se esta moviendo: no es un atasco
+                if not AD.Sneak then SetCrouch(false) end
+            end
+        end
+        RunService.Heartbeat:Wait()
+    end
+end
+
+-- camina hasta dest: "arrived" | "aborted" | "timeout" | "nopath" | "stuck" | "stopped" | "dead"
+local function Walk(dest, o)
+    o = o or {}
+    local g = AD.Gen
+    local t0 = os.clock()
+    local timeout = o.timeout or 25
+    local fails, stucks = 0, 0
+    while true do
+        if not Alive(g) then return "stopped" end
+        local _, hum, root = GetParts()
+        if not root then return "dead" end
+        if os.clock() - t0 > timeout then StopMove() return "timeout" end
+        if Arrived(root, dest, o) then StopMove() return "arrived" end
+        if o.abort and o.abort() then StopMove() return "aborted" end
+        local path = PathSvc:CreatePath({
+            AgentRadius = 2, AgentHeight = 5, AgentCanJump = Ex.Bot_Jump ~= false,
+            AgentCanClimb = false, WaypointSpacing = 5,
+        })
+        local ok = pcall(function() path:ComputeAsync(Ground(root.Position) + Vector3.new(0, 0.5, 0), dest) end)
+        local wps = (ok and path.Status == Enum.PathStatus.Success) and path:GetWaypoints() or nil
+        if not wps or #wps < 2 then
+            fails = fails + 1
+            if fails >= 3 then
+                -- ultimo intento: caminar recto hacia el objetivo
+                local res = Follow({ Position = dest, Action = Enum.PathWaypointAction.Walk }, dest, o, g, os.clock(), 4)
+                StopMove()
+                if res == "arrived" or res == "stopped" or res == "dead" or res == "aborted" then return res end
+                return "nopath"
+            end
+            task.wait(0.25)
+        else
+            local blocked = false
+            local conn = path.Blocked:Connect(function() blocked = true end)
+            local res = "ok"
+            for i = 2, #wps do
+                res = Follow(wps[i], dest, o, g, t0, timeout)
+                if res ~= "ok" or blocked then break end
+            end
+            conn:Disconnect()
+            if res == "arrived" or res == "stopped" or res == "dead" or res == "timeout" or res == "aborted" then
+                StopMove()
+                return res
+            end
+            if res == "stuck" then
+                stucks = stucks + 1
+                if stucks >= 4 then StopMove() return "stuck" end
+            end
+        end
+    end
+end
+
+-- ==========================================================================================
+-- PERCEPCION: entidades (con tiempo estimado de llegada) y escondites
+-- ==========================================================================================
+-- entidad mas urgente: { model, name, dist, eta }. La velocidad se mide frame a frame.
+local function Threat()
+    local _, _, root = GetParts()
+    if not root then return nil end
+    local best
+    local now = os.clock()
+    for _, c in ipairs(Workspace:GetChildren()) do
+        if DANGER[c.Name] and c:IsA("Model") and c:GetAttribute("Inactive") ~= true then
+            local pp = c.PrimaryPart or c:FindFirstChildWhichIsA("BasePart")
+            if pp then
+                local d = (pp.Position - root.Position).Magnitude
+                local rec = AD.Ent[c]
+                if not rec then
+                    rec = { d = d, t = now, spd = 0 }
+                    AD.Ent[c] = rec
+                elseif now - rec.t > 0.15 then
+                    local closing = (rec.d - d) / (now - rec.t)
+                    rec.spd = rec.spd * 0.6 + math.max(closing, 0) * 0.4
+                    rec.d, rec.t = d, now
+                end
+                local sp = math.max(rec.spd, (BASE_SPEED[c.Name] or 80) * 0.6)
+                local eta = d / sp
+                if not best or eta < best.eta then best = { model = c, name = c.Name, dist = d, eta = eta } end
+            end
+        end
+    end
+    return best
+end
+
+local function ScanRoom(room)
+    local now = os.clock()
+    local c = AD.Spots[room]
+    if c and now - c.t < 6 then return c.list end
+    local list = {}
+    for _, d in ipairs(room:GetDescendants()) do
+        if d:IsA("ProximityPrompt") and (d.Name == "HidePrompt" or d.Name == "HidingPrompt") then
+            local model = d:FindFirstAncestorOfClass("Model")
+            local part = d.Parent
+            if not (part and part:IsA("BasePart")) then
+                part = model and (model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true))
+            end
+            if model and part then list[#list + 1] = { prompt = d, model = model, part = part } end
+        end
+    end
+    AD.Spots[room] = { t = now, list = list }
+    return list
+end
+
+-- closet libre mas cercano a pos (cuartos vecinos al actual)
+local function BestSpot(pos)
+    local rooms = RoomsFolder()
+    if not rooms then return nil end
+    local cur = CurRoom()
+    local best, bestD = nil, math.huge
+    local now = os.clock()
+    for _, room in ipairs(rooms:GetChildren()) do
+        local n = tonumber(room.Name)
+        if n and (not cur or math.abs(n - cur) <= 1) then
+            for _, s in ipairs(ScanRoom(room)) do
+                local p = s.prompt
+                if p.Parent and s.part.Parent and p.Enabled and (AD.BadSpot[s.model] or 0) < now then
+                    local sp = s.part.Position
+                    if sp.Y > -10 and math.abs(sp.Y - pos.Y) < 9 then
+                        local hp = s.model:FindFirstChild("HiddenPlayer", true)
+                        if not (hp and hp.Value) then
+                            local d = (sp - pos).Magnitude
+                            if d < bestD then best, bestD = s, d end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best, bestD
+end
+
+-- segundos que necesita para llegar al closet + margen. nil = no hay closet conocido
+local function HideLead(root, hum)
+    local spot, d = BestSpot(root.Position)
+    if not spot then return nil, nil end
+    return d * 1.4 / math.max(hum.WalkSpeed, 10) + (Ex.Bot_HideMargin or 4), spot
+end
+
+-- para cortar una caminata: la entidad llegara antes de que pueda esconderse
+local function DangerAbort()
+    if not Ex.AD_Avoid then return false end
+    local th = Threat()
+    if not th then return false end
+    local _, hum, root = GetParts()
+    if not root then return false end
+    local lead = HideLead(root, hum)
+    if not lead then return false end
+    return th.eta <= lead + 0.5
+end
+
+-- ==========================================================================================
+-- ESCONDERSE
+-- ==========================================================================================
+local function HideFrom(th)
+    local g = AD.Gen
+    local attempts = 0
+    while Alive(g) and attempts < 3 do
+        attempts = attempts + 1
+        local char, hum, root = GetParts()
+        if not root then return false end
+        local spot = BestSpot(root.Position)
+        if not spot then return false end
+        AD.Info = "Going to hide from " .. th.name
+        local rng = math.clamp((spot.prompt.MaxActivationDistance or 8) - 1.2, 3, 8)
+        Walk(Ground(spot.part.Position), { radius = 2.5, timeout = 14, near = { part = spot.part, range = rng } })
+        if not Alive(g) then return false end
+        char = LocalPlayer.Character
+        if not char then return false end
+        Face(spot.part.Position, 0.35)
+        for _ = 1, 8 do
+            if char:GetAttribute("Hiding") then break end
+            Fire(spot.prompt, 1)
+            task.wait(0.15)
+        end
+        if char:GetAttribute("Hiding") then
+            AD.Stats.Hides = AD.Stats.Hides + 1
+            local t0, calmFrom, lastName = os.clock(), nil, th.name
+            while Alive(g) do
+                if not (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("Hiding")) then return true end
+                local t = Threat()
+                if t then
+                    calmFrom, lastName = nil, t.name
+                    AD.Info = string.format("Hidden: %s is coming (~%.0fs)", t.name, t.eta)
+                else
+                    calmFrom = calmFrom or os.clock()
+                    AD.Info = "Hidden: waiting for it to be gone"
+                    if os.clock() - calmFrom >= (REBOUND[lastName] and 4 or 2.2) then break end
+                end
+                if os.clock() - t0 > (Ex.AD_MaxHide or 40) then break end
+                Idle()
+                task.wait(0.15)
+            end
+            for _ = 1, 6 do
+                if not (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("Hiding")) then break end
+                ExitCloset()
+                task.wait(0.5)
+            end
+            Mark()
+            return true
+        end
+        AD.BadSpot[spot.model] = os.clock() + 30   -- ese closet no sirvio: probar otro
+    end
+    return false
+end
+
+-- ==========================================================================================
+-- ESCALERAS DE MANO (si el pathfinding no llega, el bot las usa; nunca con una entidad cerca)
+-- ==========================================================================================
+local function IsLadderPrompt(pp)
+    local cur = pp.Parent
+    for _ = 1, 5 do
+        if not cur then break end
+        local n = cur.Name:lower()
+        if n:find("ladder", 1, true) or n:find("climb", 1, true) then return true end
+        cur = cur.Parent
+    end
+    return pp.Name:lower():find("climb", 1, true) ~= nil
+end
+
+local function TryLadder()
+    if Ex.AD_Ladders == false then return false end
+    local rooms, cur = RoomsFolder(), CurRoom()
+    local _, _, root = GetParts()
+    if not (rooms and cur and root) then return false end
+    local best, bd
+    for _, room in ipairs(rooms:GetChildren()) do
+        local n = tonumber(room.Name)
+        if n and math.abs(n - cur) <= 1 then
+            for _, d in ipairs(room:GetDescendants()) do
+                if d:IsA("ProximityPrompt") and d.Enabled and d.Parent and d.Parent:IsA("BasePart") and IsLadderPrompt(d) then
+                    local dist = (d.Parent.Position - root.Position).Magnitude
+                    if not bd or dist < bd then best, bd = d, dist end
+                end
+            end
+        end
+    end
+    if not best then return false end
+    local th = Ex.AD_Avoid and Threat() or nil
+    if th and th.eta < 25 then return false end
+    local part = best.Parent
+    AD.Info = "Using a ladder"
+    local r = Walk(Ground(part.Position), {
+        radius = 3, timeout = 15, abort = DangerAbort,
+        near = { part = part, range = math.max(3, (best.MaxActivationDistance or 8) - 1) },
+    })
+    if r ~= "arrived" then return false end
+    Face(part.Position, 0.4)
+    Fire(best, 2)
+    local t0 = os.clock()
+    task.wait(1)
+    local char = LocalPlayer.Character
+    while char and os.clock() - t0 < 12 and char:GetAttribute("Climbing") do
+        Idle()
+        task.wait(0.2)
+    end
+    Mark()
+    return true
+end
+
+-- ==========================================================================================
+-- BOTIN
+-- ==========================================================================================
 local function PromptOf(e)
     local p = e.Prompt
     if p and p.Parent and p:IsA("ProximityPrompt") then return p end
@@ -11876,14 +12627,17 @@ local function PromptOf(e)
     return nil
 end
 
-local function NextTarget(cur, rp, keysOnly)
+-- mode: nil = botin del cuarto actual | "keys" = solo llaves de cualquier cuarto
+--       "knob" = oro y cajones | "search" = todo el botin del cuarto (buscando una llave)
+local function NextTarget(cur, rp, mode)
     local best, bestPrompt, bestScore = nil, nil, math.huge
     local maxTry = Ex.AD_Retries or 3
     local prio = Ex.AD_LootOrder == PRIO_LABEL
     for inst, e in pairs(Tracked) do
         local opt = KIND[e.Cat]
-        if opt and Ex[opt] and inst.Parent and (AD.Tries[inst] or 0) < maxTry
-            and (not keysOnly or e.Cat == "keys") and (keysOnly or RoomOf(inst) == cur) then
+        local on = opt and (Ex[opt] or ((mode == "knob" or mode == "search") and KNOB[e.Cat]))
+        if on and inst.Parent and (AD.Tries[inst] or 0) < maxTry
+            and (mode ~= "keys" or e.Cat == "keys") and (mode == "keys" or RoomOf(inst) == cur) then
             local skip = e.Cat == "items" and Ex.AIItemIgnore and Ex.AIItemIgnore[e.Label]
             if (e.Cat == "chests" or e.Cat == "lockers") and inst:GetAttribute("Locked") == true then skip = true end
             if not skip then
@@ -11899,32 +12653,16 @@ local function NextTarget(cur, rp, keysOnly)
     return best, bestPrompt
 end
 
-local function Fire(pp, times)
-    pcall(function()
-        pp.HoldDuration = 0
-        pp.RequiresLineOfSight = false
-    end)
-    for _ = 1, times or 3 do
-        if not pp.Parent or not pp.Enabled then break end
-        pcall(fireproximityprompt, pp)
-        task.wait(0.12)
-    end
-end
-
-local function TP(cf, hold)
-    local B8 = FX.B8
-    if B8 and B8.SafeTP then return B8.SafeTP(cf, hold) end
-    local char = LocalPlayer.Character
-    if char then char:PivotTo(cf) return true end
-    return false
-end
-
 local function Visit(e, pp)
     local inst, part = e.Inst, e.Part
     AD.Tries[inst] = (AD.Tries[inst] or 0) + 1
     if not (part and part.Parent) then return false end
-    TP(CFrame.new(part.Position + Vector3.new(0, 3, 0)), 0.5)
-    task.wait(0.25 + (Ex.AD_Delay or 350) / 2000)
+    local rng = math.clamp((pp.MaxActivationDistance or 8) - 1.2, 3, 9)
+    local res = Walk(Ground(part.Position), { radius = 2.5, timeout = 22, abort = DangerAbort, near = { part = part, range = rng } })
+    if res == "nopath" then TryLadder() return false end
+    if res ~= "arrived" then return false end
+    Face(part.Position, 0.5)
+    task.wait(0.05 + (Ex.AD_Delay or 350) / 4000)
     Fire(pp, 3)
     if not pp.Parent or not pp.Enabled or not inst.Parent then
         AD.Tries[inst] = 99
@@ -11935,6 +12673,9 @@ local function Visit(e, pp)
     return false
 end
 
+-- ==========================================================================================
+-- PUERTAS
+-- ==========================================================================================
 local function IsOpen(door, lv0)
     return (Latest() or 0) > lv0 or door:GetAttribute("Opened") == true or door:GetAttribute("Open") == true
 end
@@ -11946,8 +12687,16 @@ local function WaitOpen(door, lv0, secs)
     end
     return IsOpen(door, lv0)
 end
+local function DoorFront(door, rootPos)
+    local cf = door:GetPivot()
+    local a, b = (cf * CFrame.new(0, 0, 6)).Position, (cf * CFrame.new(0, 0, -6)).Position
+    local p = ((a - rootPos).Magnitude <= (b - rootPos).Magnitude) and a or b
+    return Ground(p)
+end
 
-local function DoorStep()
+local function DoorStep(startRoom)
+    local _, _, root = GetParts()
+    if not root then return false end
     local door = NextClosedDoor()
     if not door then
         AD.Info = "Waiting for the next room to load"
@@ -11955,38 +12704,48 @@ local function DoorStep()
         return false
     end
     local lv0 = Latest() or 0
-    if door:FindFirstChild("Lock") then
+    local locked = door:FindFirstChild("Lock") ~= nil
+    if locked then
         if not Ex.AD_Keys then
             AD.Info = "Locked door: turn on Grab Keys & Unlock Doors"
             Idle()
             return false
         end
         if not (HasItem("Key") or HasItem("KeyBackdoor")) then
-            if Ex.AD_KeyWait then
-                AD.WantKey = true
-                AD.KeyWaitSince = AD.KeyWaitSince or os.clock()
-                if os.clock() - AD.KeyReset > 15 then
-                    AD.KeyReset = os.clock()
-                    AD.Tries = NewTries()
-                end
-                local waited = os.clock() - AD.KeyWaitSince
-                AD.Info = string.format("Locked door: searching for a key (%ds)", math.floor(waited))
-                if waited < 120 then Idle() end
-            else
-                AD.Info = "Locked door: waiting for a key"
-                Idle()
+            -- puerta bloqueada y sin llave: el bot saquea (llave primero, luego cajones, cofres...) hasta tenerla
+            AD.WantKey = true
+            AD.KeyWaitSince = AD.KeyWaitSince or os.clock()
+            if os.clock() - AD.KeyReset > 15 then
+                AD.KeyReset = os.clock()
+                AD.Tries = NewTries()
+            end
+            local waited = os.clock() - AD.KeyWaitSince
+            AD.Info = string.format("Locked door: searching for a key (%ds)", math.floor(waited))
+            if Ex.AD_KeyWait ~= false or waited < 30 then
+                if waited < 180 then Idle() end
             end
             return false
         end
         AD.WantKey, AD.KeyWaitSince = false, nil
-        TP(door:GetPivot() * CFrame.new(0, -1, 0), 0.5)
-        task.wait(0.3)
+    end
+
+    local dpart = door.PrimaryPart or door:FindFirstChildWhichIsA("BasePart", true)
+    AD.Info = "Walking to the door"
+    local res = Walk(DoorFront(door, root.Position), {
+        radius = 3, timeout = 45,
+        near = dpart and { part = dpart, range = 8 } or nil,
+        abort = function() return DangerAbort() or CurRoom() ~= startRoom end,
+    })
+    if res == "nopath" then TryLadder() end
+    if res ~= "arrived" then return false end
+
+    if dpart then Face(dpart.Position, 0.6) end
+    if locked then
         for _, d in ipairs(door:GetDescendants()) do
             if d:IsA("ProximityPrompt") and d.Name == "UnlockPrompt" then Fire(d, 2) end
         end
+        task.wait(0.3)
     end
-    TP(door:GetPivot() * CFrame.new(0, -1, AD.DoorFails >= 3 and 5 or 0), 0.6)
-    task.wait(0.3)
     local n = 0
     for _, d in ipairs(door:GetDescendants()) do
         if d:IsA("ProximityPrompt") and d.Enabled and d.Name ~= "UnlockPrompt" and d.Name ~= "HidePrompt" then
@@ -12015,36 +12774,56 @@ local function DoorStep()
     return opened
 end
 
--- Recuperacion escalonada cuando no hay progreso
+-- ==========================================================================================
+-- RECUPERACION (anti-atasco, por niveles). El teletransporte solo es el ultimo nivel y es opcional.
+-- ==========================================================================================
+local function TP(cf)
+    local B8 = FX.B8
+    if B8 and B8.SafeTP then return B8.SafeTP(cf, 0.6) end
+    local char = LocalPlayer.Character
+    if char then char:PivotTo(cf) return true end
+    return false
+end
+
 AD.Recover = function(why)
     AD.Stuck = AD.Stuck + 1
     AD.Stats.Fixes = AD.Stats.Fixes + 1
     local lvl = AD.Stuck
     AD.Tries = NewTries()
-    AD.Room, AD.CalmAt, AD.WantKey, AD.KeyWaitSince, AD.DangerSince = nil, 0, false, nil, nil
+    AD.Room, AD.WantKey, AD.KeyWaitSince = nil, false, nil
     AD.DoorFails = 0
+    AD.BadSpot = setmetatable({}, { __mode = "k" })
+    AD.Spots = setmetatable({}, { __mode = "k" })
+    StopMove()
     if lvl >= 2 then
         AD.NoLootUntil = os.clock() + 40
         ExitCloset()
+        SetCrouch(false)
     end
     if lvl >= 3 then
         Release()
         task.wait(0.4)
         pcall(Sync)
         local door = NextClosedDoor()
-        if door then
-            TP(door:GetPivot() * CFrame.new(0, -1, 0), 0.8)
-            task.wait(0.4)
-            local co = door:FindFirstChild("ClientOpen")
-            if Ex.AD_ForceOpen and co and co:IsA("RemoteEvent") then pcall(function() co:FireServer() end) end
+        local co = door and door:FindFirstChild("ClientOpen")
+        if Ex.AD_ForceOpen and co and co:IsA("RemoteEvent") then pcall(function() co:FireServer() end) end
+    end
+    if lvl >= 4 then
+        local _, hum = GetParts()
+        if hum then   -- sacudida: un paso al azar y un salto para liberarse
+            pcall(function()
+                hum:Move(Vector3.new(math.random(-10, 10) / 10, 0, math.random(-10, 10) / 10), false)
+                if CanJump() then hum.Jump = true end
+            end)
+            task.wait(0.5)
         end
     end
-    if lvl >= 5 then
-        local rooms = Workspace:FindFirstChild("CurrentRooms")
+    if lvl >= 5 and Ex.AD_TPFallback then
+        local rooms = RoomsFolder()
         local latest = Latest()
         local room = rooms and latest and rooms:FindFirstChild(tostring(latest))
         local anchor = room and (room:FindFirstChild("RoomEntrance") or room:FindFirstChild("Door"))
-        if anchor then TP(anchor:GetPivot() * CFrame.new(0, 3, 0), 0.8) end
+        if anchor then TP(anchor:GetPivot() * CFrame.new(0, 3, 0)) end
     end
     AD.Progress = os.clock()
     if lvl == 8 then
@@ -12052,6 +12831,49 @@ AD.Recover = function(why)
     else
         Say("Auto-fix #" .. lvl .. " (" .. tostring(why) .. ")")
     end
+end
+
+-- ==========================================================================================
+-- CEREBRO
+-- ==========================================================================================
+local function UpdateFigure(cur)
+    if os.clock() - AD.FigureT < 1 then return end
+    AD.FigureT = os.clock()
+    local rooms = RoomsFolder()
+    local room = rooms and cur and rooms:FindFirstChild(tostring(cur))
+    AD.FigureNear = room ~= nil and (room:FindFirstChild("FigureRig", true) ~= nil or room:FindFirstChild("FigureRagdoll", true) ~= nil)
+end
+
+local function KnobFarmStep(cur, root)
+    if AD.KnobDone then
+        AD.Info = "Knob Farm running"
+        Idle()
+        return true
+    end
+    if (Latest() or 0) ~= 0 or cur ~= 0 then
+        SetFeature("AD_KnobFarm", false)
+        Say("Knob Farm Mode needs you in Room 0. Turned off.", true)
+        return true
+    end
+    local e, pp
+    if os.clock() - AD.RoomT < math.max(Ex.AD_RoomTime or 30, 20) then e, pp = NextTarget(cur, root.Position, "knob") end
+    if e then
+        AD.Info = "Knob Farm: collecting " .. tostring(e.Label)
+        Visit(e, pp)
+        task.wait((Ex.AD_Delay or 350) / 1000)
+        return true
+    end
+    local gold = Gold()
+    if gold and gold > 0 and FX.StartKnobFarm then
+        AD.KnobDone = true
+        SetFeature("KnobFarm", true)
+        FX.StartKnobFarm()
+        Say("Knob Farm started with " .. tostring(gold) .. " gold.", true)
+    else
+        SetFeature("AD_KnobFarm", false)
+        Say("Knob Farm: no gold found in Room 0, nothing to farm.", true)
+    end
+    return true
 end
 
 local function Step()
@@ -12071,8 +12893,8 @@ local function Step()
     end
     if AD.WasDead then
         AD.WasDead = false
-        AD.Room, AD.Tries, AD.WantKey, AD.DangerSince = nil, NewTries(), false, nil
-        AD.CalmAt = os.clock() + 1.5
+        AD.Room, AD.Tries, AD.WantKey = nil, NewTries(), false
+        AD.Crouching = false
         Say("Back alive: Auto Doors resumed.")
         Mark()
     end
@@ -12088,32 +12910,44 @@ local function Step()
     end
     if Sync() then AD.Info = "Rooms: Auto Rooms is driving" Idle() return end
 
-    local now = os.clock()
-    local danger = Ex.AD_Avoid and DangerNow() or nil
-    if danger then
-        if AD.DangerName ~= danger or not AD.DangerSince then AD.DangerName, AD.DangerSince = danger, now end
-        if now - AD.DangerSince < (Ex.AD_MaxHide or 40) then
-            AD.Info = "Hiding from " .. danger
-            AD.CalmAt = now + 1.2
-            Idle()
-            return
+    local cur, latest = CurRoom(), Latest()
+    if not (cur and latest) then AD.Info = "Waiting for game data" return end
+
+    -- velocidad y sigilo (Figure cerca => agachado y lento)
+    UpdateFigure(cur)
+    AD.Sneak = AD.FigureNear and Ex.Bot_Crouch ~= false
+    SetCrouch(AD.Sneak)
+    ApplySpeed()
+
+    -- 1) entidades: esconderse ANTES de que lleguen
+    local th = Ex.AD_Avoid and Threat() or nil
+    if th then
+        local lead = HideLead(root, hum)
+        if lead then
+            if AD.SpoofVoted then AD.SpoofVoted = false if FX.SpoofVote then FX.SpoofVote("bot", false) end end
+            if th.eta <= lead then
+                HideFrom(th)
+                return
+            end
+            AD.Info = string.format("%s in ~%.0fs: working near a closet", th.name, th.eta)
+        else
+            -- sin closet conocido: el Position Spoof automatico te protege mientras dure
+            AD.Info = th.name .. " is coming and there is no closet: using Position Spoof"
+            if not AD.SpoofVoted then AD.SpoofVoted = true if FX.SpoofVote then FX.SpoofVote("bot", true) end end
         end
-        AD.Info = danger .. " is taking too long, continuing"
-    else
-        AD.DangerSince, AD.DangerName = nil, nil
+    elseif AD.SpoofVoted then
+        AD.SpoofVoted = false
+        if FX.SpoofVote then FX.SpoofVote("bot", false) end
     end
-    if now < AD.CalmAt then AD.Info = "Waiting for the entity to leave" Idle() return end
     if char:GetAttribute("Hiding") then
-        if now - AD.LastExit > 1 then
-            AD.LastExit = now
+        if os.clock() - AD.LastExit > 1 then
+            AD.LastExit = os.clock()
             ExitCloset()
         end
         AD.Info = "Leaving the closet"
         return
     end
 
-    local cur, latest = CurRoom(), Latest()
-    if not (cur and latest) then AD.Info = "Waiting for game data" return end
     if latest ~= AD.LastLatest then
         AD.LastLatest = latest
         Mark()
@@ -12123,14 +12957,25 @@ local function Step()
         Say("Reached room " .. latest .. ": Auto Doors turned off.", true)
         return
     end
+    local now = os.clock()
     if cur ~= AD.Room then
         AD.Room, AD.RoomT, AD.WantKey, AD.DoorFails = cur, now, false, 0
     end
 
+    -- 2) Knob Farm Mode
+    if Ex.AD_KnobFarm then
+        KnobFarmStep(cur, root)
+        return
+    end
+
+    -- 3) botin (y llaves cuando hay una puerta bloqueada)
     if now >= AD.NoLootUntil then
         local e, pp
-        if now - AD.RoomT < Ex.AD_RoomTime then e, pp = NextTarget(cur, root.Position, false) end
-        if not e and AD.WantKey then e, pp = NextTarget(cur, root.Position, true) end
+        if now - AD.RoomT < Ex.AD_RoomTime then e, pp = NextTarget(cur, root.Position, nil) end
+        if not e and AD.WantKey then
+            e, pp = NextTarget(cur, root.Position, "keys")
+            if not e then e, pp = NextTarget(cur, root.Position, "search") end
+        end
         if e then
             AD.Info = "Looting " .. tostring(e.Label)
             Visit(e, pp)
@@ -12138,9 +12983,10 @@ local function Step()
             return
         end
     end
+
+    -- 4) siguiente puerta
     if Ex.AD_Doors then
-        AD.Info = "Opening the next door"
-        DoorStep()
+        DoorStep(cur)
         task.wait(Ex.AD_Delay / 1000)
     else
         AD.Info = "Idle (Open Doors is off)"
@@ -12148,12 +12994,30 @@ local function Step()
     end
 end
 
+local function Cleanup()
+    AD.Active = false
+    FX.BotSpeed = nil
+    FX.NormalWS = nil
+    SetCrouch(false)
+    AD.Look, AD.CamRot = nil, nil
+    if AD.SpoofVoted then
+        AD.SpoofVoted = false
+        if FX.SpoofVote then FX.SpoofVote("bot", false) end
+    end
+    local _, hum = GetParts()
+    if hum then
+        StopMove()
+        if not Ex.SpeedHack and AD.OrigWS then pcall(function() hum.WalkSpeed = AD.OrigWS end) end
+    end
+    Release()
+end
+
 local function StartLoop()
     AD.Gen = AD.Gen + 1
     local my = AD.Gen
     AD.Beat = os.clock()
     task.spawn(function()
-        while Ex.AutoDoors and AD.Gen == my do
+        while Alive(my) do
             AD.Beat = os.clock()
             if AD.RecoverWhy then
                 local why = AD.RecoverWhy
@@ -12163,7 +13027,7 @@ local function StartLoop()
             local ok, err = pcall(Step)
             if ok then
                 AD.Errors = 0
-                task.wait(0.25)
+                task.wait(0.2)
             else
                 AD.Errors = AD.Errors + 1
                 AD.Info = "Error: " .. tostring(err)
@@ -12174,11 +13038,11 @@ local function StartLoop()
     end)
     -- supervisor: HUD, deteccion de atasco y reinicio del bucle si se congela
     task.spawn(function()
-        while Ex.AutoDoors and AD.Gen == my do
+        while Alive(my) do
             task.wait(0.5)
-            if not (Ex.AutoDoors and AD.Gen == my) then return end
+            if not Alive(my) then return end
             pcall(AD.UpdateHUD)
-            if os.clock() - AD.Beat > 30 then
+            if os.clock() - AD.Beat > 60 then
                 AD.Stats.Fixes = AD.Stats.Fixes + 1
                 AD.Progress = os.clock()
                 Say("The loop froze: restarting Auto Doors.", true)
@@ -12203,18 +13067,21 @@ Hooks.AutoDoors = function(v)
         end
         if not any then AD.Recommended(false) end
         AD.Tries = NewTries()
-        AD.Room, AD.CalmAt, AD.Info = nil, 0, "Starting"
+        AD.Room, AD.Info = nil, "Starting"
         AD.Stuck, AD.Errors, AD.RecoverWhy = 0, 0, nil
         AD.WantKey, AD.KeyWaitSince, AD.KeyReset, AD.NoLootUntil = false, nil, 0, 0
-        AD.DangerSince, AD.DangerName, AD.DoorFails, AD.WasDead = nil, nil, 0, false
+        AD.DoorFails, AD.WasDead, AD.KnobDone, AD.Crouching = 0, false, false, false
         AD.LastLatest = Latest()
         AD.Progress = os.clock()
-        AD.Stats = { Doors = 0, Loot = 0, Fixes = 0, Start = os.clock() }
-        AD.Running = true
-        Say("Mode: " .. ModeNm() .. ". Auto Doors is running.")
+        AD.Stats = { Doors = 0, Loot = 0, Fixes = 0, Hides = 0, Start = os.clock() }
+        local _, hum = GetParts()
+        AD.OrigWS = hum and (Saved.HackWS or hum.WalkSpeed) or 16
+        FX.NormalWS = AD.OrigWS
+        AD.Running, AD.Active = true, true
+        Say("Mode: " .. ModeNm() .. ". The bot is running.")
         StartLoop()
     else
-        Release()
+        Cleanup()
         AD.Info = "Off"
         if AD.Running then
             AD.Running = false
@@ -12223,7 +13090,7 @@ Hooks.AutoDoors = function(v)
         pcall(AD.UpdateHUD)
     end
 end
-end
+end)()
 
 print("[R4NS0M] Loading Config presets")
 ----------------------------------------------------
@@ -12244,7 +13111,7 @@ local EXTRA_KEYS = {
 
 -- Lista de claves a guardar: la lista fija mas TODOS los controles de la interfaz (asi lo nuevo tambien se guarda)
 function R4N_ExKeys()
-    local never = { ACM = true, Fly = true, Noclip = true, KnobFarm = true }
+    local never = { ACM = true, Fly = true, Noclip = true, KnobFarm = true, AD_KnobFarm = true }
     local seen, list = {}, {}
     for _, k in ipairs(EXTRA_KEYS) do
         if not seen[k] then seen[k] = true list[#list + 1] = k end
@@ -14572,6 +15439,23 @@ local function StartKnobFarm()
 	end
 	Globals.KnobFarmStarted = true
 end
+FX.StartKnobFarm = StartKnobFarm
+if Ex.KnobFarmAuto == nil then Ex.KnobFarmAuto = true end
+Toggles.KnobFarm:OnChanged(function(Value)
+	if not (Value and Ex.KnobFarmAuto) then return end
+	task.spawn(function()
+		local t0 = tick()
+		while Toggles.KnobFarm.Value and not Globals.KnobFarmStarted and tick() - t0 < 120 do
+			if LatestRoom.Value == 0 then
+				local Ok, Gold = pcall(function()
+					return LocalPlayer.PlayerGui.TopbarUI.Topbar.StatsTopbarHandler.StatModules.Gold.GoldVal.Value
+				end)
+				if Ok and Gold and Gold > 0 then StartKnobFarm() break end
+			end
+			task.wait(1)
+		end
+	end)
+end)
 Connections.KnobFarm = Services.RunService.Heartbeat:Connect(function()
 	if Toggles.KnobFarm.Value and Globals.KnobFarmStarted then
 		if not Globals.KnobFarmActive then
@@ -15003,6 +15887,7 @@ PTog(AutomationTab, "RoomsAutoWalkSpoofFootsteps", "Spoof Footsteps", "Makes it 
 
 AutomationTab:Section({ Title = "Farming" })
 PTog(AutomationTab, "KnobFarm", "Knob Farm", "Automatically gains knobs for you, dies and revives repeatedly. Risky.")
+PTog(AutomationTab, "KnobFarmAuto", "Knob Farm Auto Start", "When Knob Farm is on, it starts by itself as soon as you are in Room 0 and have gold (no need to press Start).")
 AutomationTab:Button({ Title = "Start Knob Farm", Desc = "Starts farming knobs, click this when you have enough gold.", Callback = StartKnobFarm })
 
 ArchivesTab:Section({ Title = "Scribbles" })
