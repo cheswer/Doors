@@ -61,33 +61,59 @@ function R4N_QueueAutoExec()
         if type(d) ~= "table" or not d.on then R4N_AE_STATUS = "off" return end
         if not qot then R4N_AE_STATUS = "noqueue" return end
         local loader
+        local function useCache()
+            return "loadstring(readfile(" .. string.format("%q", CACHE) .. "))()"
+        end
+        -- 1) el codigo ejecutado (si el ejecutor lo expone)
         if R4N_SRC then
             if writefile then pcall(writefile, CACHE, R4N_SRC) end
             if isfile(CACHE) then
-                loader = "loadstring(readfile(" .. string.format("%q", CACHE) .. "))()"
+                loader = useCache()
             elseif #R4N_SRC < 2000000 then
                 loader = "loadstring(" .. string.format("%q", R4N_SRC) .. ")()"
             end
             R4N_AE_STATUS = loader and "ok" or "nosource"
-        elseif isfile(CACHE) then
-            loader = "loadstring(readfile(" .. string.format("%q", CACHE) .. "))()"
-            R4N_AE_STATUS = "cache"
-        else
-            for _, f in ipairs({ "R4NS0M-HUB-FINAL.lua", "R4NS0M-HUB.lua", "R4NS0M.lua" }) do
-                if isfile(f) then
-                    loader = "loadstring(readfile(" .. string.format("%q", f) .. "))()"
-                    break
-                end
-            end
-            R4N_AE_STATUS = loader and "file" or "nosource"
         end
+        -- 2) cualquier archivo del script en tu carpeta workspace (el nombre debe contener R4NS0M)
+        if not loader and listfiles and writefile then
+            pcall(function()
+                local found = {}
+                for _, p in ipairs(listfiles("")) do
+                    local l = p:lower()
+                    if l:find("r4ns0m", 1, true) and (l:match("%.lua$") or l:match("%.luau$") or l:match("%.txt$"))
+                        and not l:find("cache", 1, true) and not l:find("autoexec", 1, true) and not l:find("lang", 1, true)
+                        and not l:find("speedrun", 1, true) and not l:find("config", 1, true) then
+                        found[#found + 1] = p
+                    end
+                end
+                table.sort(found, function(x, y) return x:lower() > y:lower() end)
+                for _, p in ipairs(found) do
+                    local okr, c = pcall(readfile, p)
+                    if okr and type(c) == "string" and #c > 20000 and c:find("EXECUTING SCRIPT", 1, true) then
+                        writefile(CACHE, c)
+                        loader = useCache()
+                        R4N_AE_STATUS = "file"
+                        break
+                    end
+                end
+            end)
+        end
+        -- 3) copia guardada de una ejecucion anterior
+        if not loader and isfile(CACHE) then
+            loader = useCache()
+            R4N_AE_STATUS = "cache"
+        end
+        if not loader then R4N_AE_STATUS = "nosource" end
         if not loader then return end
         local genv = (getgenv and getgenv()) or _G
         if genv.R4N_QUEUED then return end
         genv.R4N_QUEUED = true
+        -- al llegar al destino: solo se ejecuta si es la partida (DOORS en si). El lobby es una opcion aparte
         qot("local g=(getgenv and getgenv()) or _G;g.R4N_QUEUED=nil;"
-            .. "local okf,f=pcall(readfile,\"R4NS0M_AutoExec.json\");if okf and f and not f:find('\"on\":true',1,true) then return end;"
-            .. "g.R4N_AUTOEXEC=true;if not game:IsLoaded() then game.Loaded:Wait() end;task.wait(1);" .. loader)
+            .. "if not game:IsLoaded() then game.Loaded:Wait() end;"
+            .. "local okf,f=pcall(readfile,\"R4NS0M_AutoExec.json\");if not(okf and f and f:find('\"on\":true',1,true)) then return end;"
+            .. "if game.PlaceId==6516141723 and not f:find('\"lobby\":true',1,true) then return end;"
+            .. "g.R4N_AUTOEXEC=true;task.wait(1.5);" .. loader)
     end)
 end
 R4N_QueueAutoExec()
@@ -789,6 +815,7 @@ R4N_I18N = {
         ["Ladder Safe Mode"] = "Modo Seguro de Escaleras",
         ["Knob Farm Auto Start"] = "Inicio Automático del Farmeo de Perillas",
         ["Fun"] = "Diversión",
+        ["Auto Execute In Lobby"] = "Auto Ejecutar en el Lobby",
         ["Rainbow ESP"] = "ESP Arcoíris",
         ["Rainbow Speed"] = "Velocidad del Arcoíris",
         ["Transform"] = "Transformación",
@@ -1247,6 +1274,7 @@ R4N_I18N = {
         ["Ladder Safe Mode"] = "Безопасный режим лестниц",
         ["Knob Farm Auto Start"] = "Автозапуск фарма ручек",
         ["Fun"] = "Веселье",
+        ["Auto Execute In Lobby"] = "Автозапуск в лобби",
         ["Rainbow ESP"] = "Радужный ESP",
         ["Rainbow Speed"] = "Скорость радуги",
         ["Transform"] = "Превращение",
@@ -3047,9 +3075,10 @@ local function FilterPasses(e)
 end
 
 local function HasVisibleGeometry(inst)
-    if inst:IsA("BasePart") then return inst.Transparency < 0.95 end
+    -- 1.0.5: las partes guia de puertas (transparencia 0.999, como en el Main) SI se dibujan con Highlight
+    if inst:IsA("BasePart") then return inst.Transparency < 0.95 or (inst.Transparency > 0.99 and inst.Transparency < 1) end
     for _, d in ipairs(inst:GetDescendants()) do
-        if d:IsA("BasePart") and d.Transparency < 0.95 then return true end
+        if d:IsA("BasePart") and (d.Transparency < 0.95 or (d.Transparency > 0.99 and d.Transparency < 1)) then return true end
     end
     return false
 end
@@ -3464,6 +3493,7 @@ do
             .. "+- Changed the ESP Highlight to the Main style: the real shape of every object, player, entity, gold and door, with Fill 0.75 / Outline 0 (your text and colors are kept).\n"
             .. "+- Changed Auto Interact to the Main logic: it fires every frame in range, with lock / key / tool checks, and it works even without fireproximityprompt.\n"
             .. "+- Changed Auto Doors movement: the bot now walks like a real WASD / joystick input (no more mini teleports).\n"
+            .. "+- Changed Auto Execute On Teleport: it now runs again only when the game sends you into a run (the lobby is an option).\n"
             .. "+- Changed Bot Speed: it only applies with the Anticheat Bypass on, so the game stops pulling you back.\n"
             .. "+- Changed Auto Doors unstuck: it jumps or crouches only when it detects a real obstacle.\n"
             .. "+- Changed double and single doors: only the door leaves are highlighted (no more side doors).\n"
@@ -3477,6 +3507,7 @@ do
             .. "+- Se cambió el Highlight del ESP al estilo del Main: la forma real de cada objeto, jugador, entidad, oro y puerta, con Relleno 0.75 / Contorno 0 (se mantienen tu texto y tus colores).\n"
             .. "+- Se cambió el Auto Interact a la lógica del Main: dispara cada frame en rango, con revisión de candados / llaves / herramientas, y funciona aunque no exista fireproximityprompt.\n"
             .. "+- Se cambió el movimiento de Auto Doors: el bot ahora camina como un WASD / joystick real (se acabaron los mini teletransportes).\n"
+            .. "+- Se cambió Auto Execute On Teleport: ahora se vuelve a ejecutar solo cuando el juego te manda a la partida (el lobby es una opción).\n"
             .. "+- Se cambió la Velocidad del Bot: solo se aplica con el Anticheat Bypass activado, así el juego deja de regresarte.\n"
             .. "+- Se cambió el destrabado de Auto Doors: salta o se agacha solo si detecta un obstáculo real.\n"
             .. "+- Se cambiaron las puertas dobles y simples: solo se resaltan las hojas de la puerta (se acabaron las puertas a los costados).\n"
@@ -3490,6 +3521,7 @@ do
             .. "+- Изменён Highlight ESP в стиле Main: реальная форма каждого объекта, игрока, сущности, золота и двери, заливка 0.75 / контур 0 (ваш текст и цвета сохранены).\n"
             .. "+- Изменено Авто взаимодействие по логике Main: срабатывает каждый кадр в радиусе, с проверкой замков / ключей / инструментов, и работает даже без fireproximityprompt.\n"
             .. "+- Изменено движение Авто дверей: бот теперь ходит как настоящий ввод WASD / джойстика (больше никаких мини-телепортов).\n"
+            .. "+- Изменён Auto Execute On Teleport: теперь скрипт запускается снова только когда игра отправляет вас в забег (лобби — отдельная опция).\n"
             .. "+- Изменена скорость бота: применяется только с включённым обходом античита, чтобы игра не откатывала вас.\n"
             .. "+- Изменён вывод из застревания Авто дверей: прыжок или приседание только при реальном препятствии.\n"
             .. "+- Изменены двойные и одинарные двери: подсвечиваются только створки (больше никаких боковых дверей).\n"
@@ -13421,6 +13453,569 @@ ExtraApply = function(data)
     end
     FX.UpdateButtons()
 end
+
+-- ============================================================================================
+-- FUN (1.0.5): transformarte en Seek / Honcho / Figure (solo cliente: unicamente tu lo ves)
+--   * Se usa el modelo REAL del juego cuando existe (se busca en ReplicatedStorage / Workspace y se guarda una
+--     copia cada vez que la entidad aparece). Si todavia no hay ninguno se usa un modelo aproximado, y se cambia
+--     solo por el real en cuanto se captura.
+--   * El modelo sigue a tu personaje cada frame, tu personaje se oculta localmente y la camara pasa a tercera persona.
+-- ============================================================================================
+;(function()
+local RS = game:GetService("ReplicatedStorage")
+local RunSvc = game:GetService("RunService")
+
+local FUN = { T = {}, Model = nil, Root = nil, Fallback = false, Kind = nil, Drop = 3, Base = 1, PrevTP = nil, Cap = {}, CapT = 0, Bob = 0 }
+R4N_FUN = FUN
+Ex.Fun_Kind, Ex.Fun_Active, Ex.Fun_Size, Ex.Fun_YOff, Ex.Fun_Face = "Seek", false, 100, 0, "Forward"
+Ex.Fun_Hide, Ex.Fun_TP, Ex.Fun_Anim = true, true, true
+
+local holder = Instance.new("Folder")
+holder.Name = "R4N_FunHolder"
+holder.Parent = Workspace
+R4N_FunHolder = holder -- global: el detector de objetos del ESP ignora todo lo que cuelga de aqui
+
+local SEARCH = {
+	Seek   = { "SeekMovingNewClone", "SeekMoving", "SeekRig", "SeekModel", "Seek" },
+	Figure = { "FigureRig", "FigureRagdoll", "Figure" },
+	Honcho = { "HonchoRig", "HonchoNPC", "HonchoModel", "Honcho" },
+}
+local EXACT = {}
+for kind, list in pairs(SEARCH) do
+	for _, n in ipairs(list) do EXACT[n:lower()] = kind end
+end
+local BAD = { "arm", "light", "trigger", "obstruction", "wall", "room", "box", "deposit", "terminal", "mug", "door", "sign", "path", "setup", "chase", "gui", "sound", "hand", "eye" }
+
+local function NameOk(kind, n)
+	local l = n:lower()
+	if EXACT[l] == kind then return true end
+	if kind == "Honcho" or kind == "Seek" then
+		if l:find(kind:lower(), 1, true) then
+			for _, b in ipairs(BAD) do
+				if l:find(b, 1, true) then return false end
+			end
+			return true
+		end
+	end
+	return false
+end
+
+local function Valid(kind, m)
+	if not m or not m:IsA("Model") or not m.Parent then return false end
+	if m:IsDescendantOf(holder) or Players:GetPlayerFromCharacter(m) then return false end
+	local parts = 0
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") then
+			parts = parts + 1
+			if parts >= 3 then break end
+		end
+	end
+	if parts < 3 then return false end
+	local ok, size = pcall(m.GetExtentsSize, m)
+	if not ok or size.Magnitude > 70 then return false end
+	return true
+end
+
+local function Capture(kind, m)
+	local ok, c = pcall(function() return m:Clone() end)
+	if not ok or not c then return false end
+	local old = FUN.T[kind]
+	FUN.T[kind] = c
+	if old then pcall(old.Destroy, old) end
+	NotifyUI("Fun", kind .. " model captured.")
+	if Ex.Fun_Active and Ex.Fun_Kind == kind and FUN.Fallback and FUN.Attach then
+		task.defer(FUN.Attach) -- cambia el modelo aproximado por el real
+	end
+	return true
+end
+
+-- busqueda rapida por nombre (FindFirstChild recursivo es nativo) y una pasada completa opcional
+function FUN.Find(kind, deep)
+	for _, root in ipairs({ Workspace, RS }) do
+		for _, nm in ipairs(SEARCH[kind]) do
+			local c = root:FindFirstChild(nm, true)
+			if c and Valid(kind, c) then return c end
+		end
+	end
+	if deep then
+		local n = 0
+		for _, root in ipairs({ RS, Workspace:FindFirstChild("LiveEntities"), Workspace:FindFirstChild("CurrentRooms") }) do
+			if root then
+				for _, d in ipairs(root:GetDescendants()) do
+					if d:IsA("Model") and NameOk(kind, d.Name) and Valid(kind, d) then return d end
+					n = n + 1
+					if n % 800 == 0 then task.wait() end
+				end
+			end
+		end
+	end
+	return nil
+end
+
+function FUN.Rescan(deep)
+	task.spawn(function()
+		local got = {}
+		for kind in pairs(SEARCH) do
+			if not FUN.T[kind] then
+				local m = FUN.Find(kind, deep)
+				if m and Capture(kind, m) then got[#got + 1] = kind end
+			end
+		end
+		if deep then
+			NotifyUI("Fun", #got > 0 and ("Found: " .. table.concat(got, ", ")) or "No new models found. They are captured when the entity appears.")
+		end
+	end)
+end
+
+-- captura cuando la entidad aparece en el juego (se espera un poco a que termine de replicarse)
+Workspace.DescendantAdded:Connect(function(d)
+	if not d:IsA("Model") then return end
+	local l = d.Name:lower()
+	local kind = EXACT[l]
+	if not kind then
+		if l:find("honcho", 1, true) then kind = "Honcho" elseif l:find("seek", 1, true) then kind = "Seek" end
+	end
+	if not kind or FUN.T[kind] and FUN.Cap[kind] then return end
+	if d:IsDescendantOf(holder) then return end
+	task.delay(1.5, function()
+		if d.Parent and NameOk(kind, d.Name) and Valid(kind, d) then
+			FUN.Cap[kind] = true
+			Capture(kind, d)
+		end
+	end)
+end)
+
+-- ------------------------------------------------------------------------------------------
+-- Modelos aproximados (solo si el real no existe todavia)
+-- ------------------------------------------------------------------------------------------
+local function Fallback(kind)
+	local m = Instance.new("Model")
+	m.Name = "R4N_FunModel"
+	local root = Instance.new("Part")
+	root.Name = "HumanoidRootPart"
+	root.Size = Vector3.new(2, 2, 1)
+	root.Transparency = 1
+	root.Anchored = true
+	root.CanCollide = false
+	root.Parent = m
+	m.PrimaryPart = root
+	local function P(name, size, off, color, shape, mat)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.CFrame = CFrame.new(off)
+		p.Color = color
+		p.Material = mat or Enum.Material.SmoothPlastic
+		if shape then p.Shape = shape end
+		p.CanCollide = false
+		p.Massless = true
+		p.Parent = m
+		return p
+	end
+	local V, C = Vector3.new, Color3.fromRGB
+	local Ball = Enum.PartType.Ball
+	if kind == "Seek" then
+		local black = C(14, 14, 14)
+		P("Torso", V(2.4, 4, 1.4), V(0, 2, 0), black)
+		P("Head", V(3.2, 3.2, 3.2), V(0, 5.2, 0), black, Ball)
+		P("Eye", V(1.9, 1.9, 1.9), V(0, 5.3, -1.25), C(255, 255, 255), Ball, Enum.Material.Neon)
+		P("Pupil", V(0.8, 0.8, 0.8), V(0, 5.3, -2.1), black, Ball)
+		P("ArmL", V(0.8, 6, 0.8), V(-1.9, 1.5, -0.4), black)
+		P("ArmR", V(0.8, 6, 0.8), V(1.9, 1.5, -0.4), black)
+		P("LegL", V(1, 4, 1), V(-0.7, -2, 0), black)
+		P("LegR", V(1, 4, 1), V(0.7, -2, 0), black)
+	elseif kind == "Figure" then
+		local body = C(74, 58, 48)
+		P("Torso", V(2.2, 4.8, 1.2), V(0, 2.4, 0), body)
+		P("Head", V(1.8, 2.2, 1.8), V(0, 6.1, 0), C(214, 196, 160))
+		P("Wrap", V(1.9, 0.7, 1.9), V(0, 6.2, 0), C(235, 230, 215))
+		P("ArmL", V(0.7, 5.5, 0.7), V(-1.6, 2.4, 0), body)
+		P("ArmR", V(0.7, 5.5, 0.7), V(1.6, 2.4, 0), body)
+		P("LegL", V(0.9, 4.8, 0.9), V(-0.6, -2.4, 0), body)
+		P("LegR", V(0.9, 4.8, 0.9), V(0.6, -2.4, 0), body)
+	else -- Honcho
+		local suit = C(28, 36, 64)
+		P("Torso", V(2.2, 3, 1.2), V(0, 1.5, 0), suit)
+		P("Shirt", V(0.9, 2.6, 0.1), V(0, 1.6, -0.65), C(240, 240, 240))
+		P("Tie", V(0.35, 1.8, 0.1), V(0, 1.3, -0.72), C(190, 25, 35))
+		P("Head", V(1.8, 1.8, 1.8), V(0, 4, 0), C(224, 172, 105), Ball)
+		P("Glasses", V(1.7, 0.35, 0.15), V(0, 4.1, -0.85), C(10, 10, 10))
+		P("ArmL", V(0.8, 3, 0.8), V(-1.6, 1.6, 0), suit)
+		P("ArmR", V(0.8, 3, 0.8), V(1.6, 1.6, 0), suit)
+		P("LegL", V(0.9, 3.2, 0.9), V(-0.6, -1.6, 0), C(40, 40, 46))
+		P("LegR", V(0.9, 3.2, 0.9), V(0.6, -1.6, 0), C(40, 40, 46))
+	end
+	return m
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Ocultar tu personaje (solo local) y volver a mostrarlo
+-- ------------------------------------------------------------------------------------------
+local Hidden = { Parts = {}, Decals = {}, T = 0 }
+local function RefreshChar()
+	Hidden.Parts, Hidden.T = {}, os.clock()
+	local char = LocalPlayer.Character
+	if not char then return end
+	for _, d in ipairs(char:GetDescendants()) do
+		if d:IsA("BasePart") then
+			Hidden.Parts[#Hidden.Parts + 1] = d
+		elseif (d:IsA("Decal") or d:IsA("Texture")) and Hidden.Decals[d] == nil then
+			Hidden.Decals[d] = d.Transparency
+		end
+	end
+end
+local function ShowChar()
+	for _, p in ipairs(Hidden.Parts) do
+		if p.Parent then p.LocalTransparencyModifier = 0 end
+	end
+	for d, t in pairs(Hidden.Decals) do
+		if d.Parent then d.Transparency = t end
+	end
+	Hidden.Parts, Hidden.Decals = {}, {}
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Transformacion
+-- ------------------------------------------------------------------------------------------
+local FACE = { Forward = 0, Backward = math.pi, Left = math.pi / 2, Right = -math.pi / 2 }
+
+local function Prep(model)
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("LuaSourceContainer") or d:IsA("Sound") or d:IsA("ProximityPrompt") or d:IsA("ClickDetector") or d:IsA("Highlight") then
+			pcall(d.Destroy, d)
+		elseif d:IsA("BasePart") then
+			d.Anchored = false
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+			d.Massless = true
+			d.CastShadow = false
+		elseif d:IsA("Humanoid") then
+			pcall(function()
+				d.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+				d.PlatformStand = true
+				d.WalkSpeed = 0
+			end)
+		end
+	end
+end
+
+local function PickRoot(model)
+	local r = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("RootPart")
+	if r and r:IsA("BasePart") then return r end
+	local best, bs = nil, -1
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") then
+			local s = d.Size.X * d.Size.Y * d.Size.Z
+			if s > bs then best, bs = d, s end
+		end
+	end
+	return best
+end
+
+local function Measure()
+	local m, root = FUN.Model, FUN.Root
+	if not m or not root then return end
+	local ok, cf, size = pcall(m.GetBoundingBox, m)
+	if ok then FUN.Drop = math.max(root.Position.Y - (cf.Position.Y - size.Y / 2), 0.5) end
+end
+
+-- animaciones: solo si el modelo trae objetos Animation (idle / caminar)
+local function SetupAnims(model)
+	FUN.Idle, FUN.Walk, FUN.Playing = nil, nil, nil
+	local animator = model:FindFirstChildWhichIsA("Animator", true)
+	if not animator then return end
+	local idle, walk, any
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("Animation") and d.AnimationId ~= "" then
+			local l = d.Name:lower()
+			any = any or d
+			if l:find("idle", 1, true) or l:find("stand", 1, true) then idle = idle or d end
+			if l:find("walk", 1, true) or l:find("run", 1, true) or l:find("chase", 1, true) or l:find("move", 1, true) then walk = walk or d end
+		end
+	end
+	pcall(function()
+		if idle then FUN.Idle = animator:LoadAnimation(idle) FUN.Idle.Looped = true end
+		if walk then FUN.Walk = animator:LoadAnimation(walk) FUN.Walk.Looped = true end
+		if not FUN.Idle and not FUN.Walk and any then FUN.Walk = animator:LoadAnimation(any) FUN.Walk.Looped = true end
+	end)
+end
+
+local function Detach()
+	if FUN.Model then pcall(FUN.Model.Destroy, FUN.Model) end
+	FUN.Model, FUN.Root, FUN.Idle, FUN.Walk, FUN.Playing = nil, nil, nil, nil, nil
+	ShowChar()
+	if FUN.PrevTP ~= nil then
+		local prev = FUN.PrevTP
+		FUN.PrevTP = nil
+		if Ex.ThirdPerson ~= prev then pcall(SetFeature, "ThirdPerson", prev) end
+	end
+end
+
+function FUN.Attach()
+	if FUN.Model then pcall(FUN.Model.Destroy, FUN.Model) end
+	FUN.Model, FUN.Root = nil, nil
+	local kind = Ex.Fun_Kind
+	FUN.Kind = kind
+	local tpl = FUN.T[kind]
+	local model
+	if tpl then
+		local ok, c = pcall(function() return tpl:Clone() end)
+		if ok and c then model = c end
+	end
+	FUN.Fallback = model == nil
+	if not model then
+		model = Fallback(kind)
+		NotifyUI("Fun", "The real " .. kind .. " model has not been found yet: using an approximate one. It changes by itself when the real one is captured.")
+		FUN.Rescan(false)
+	end
+	model.Name = "R4N_FunModel"
+	Prep(model)
+	local root = PickRoot(model)
+	if not root then model:Destroy() return end
+	model.PrimaryPart = root
+	model.Parent = holder
+	-- las partes que no estan unidas al modelo se sueldan a la raiz; solo la raiz queda anclada
+	local okc, conn = pcall(root.GetConnectedParts, root, true)
+	local linked = {}
+	if okc then for _, p in ipairs(conn) do linked[p] = true end end
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("BasePart") and d ~= root and not linked[d] then
+			local w = Instance.new("WeldConstraint")
+			w.Part0, w.Part1 = root, d
+			w.Parent = d
+		end
+	end
+	root.Anchored = true
+	FUN.Model, FUN.Root = model, root
+	FUN.Base = 1
+	pcall(function() FUN.Base = model:GetScale() end)
+	pcall(function() model:ScaleTo(FUN.Base * (Ex.Fun_Size or 100) / 100) end)
+	Measure()
+	if Ex.Fun_Anim then SetupAnims(model) end
+	if Ex.Fun_TP and FUN.PrevTP == nil then
+		FUN.PrevTP = Ex.ThirdPerson == true
+		if not Ex.ThirdPerson then pcall(SetFeature, "ThirdPerson", true) end
+	end
+	RefreshChar()
+end
+
+-- sigue a tu personaje (despues de la camara)
+pcall(function() RunSvc:UnbindFromRenderStep("R4N_FunFollow") end)
+RunSvc:BindToRenderStep("R4N_FunFollow", Enum.RenderPriority.Camera.Value + 3, function(dt)
+	if not Ex.Fun_Active then return end
+	local m, rootPart = FUN.Model, FUN.Root
+	if not m or not m.Parent or not rootPart or not rootPart.Parent then return end
+	local _, hum, root = GetParts()
+	if not root then return end
+
+	local now = os.clock()
+	if Ex.Fun_Hide then
+		if now - Hidden.T > 1.5 then RefreshChar() end
+		for _, p in ipairs(Hidden.Parts) do
+			if p.Parent then p.LocalTransparencyModifier = 1 end
+		end
+		for d in pairs(Hidden.Decals) do
+			if d.Parent then d.Transparency = 1 end
+		end
+	end
+
+	local pos = root.Position
+	local look = root.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	if flat.Magnitude < 0.05 then flat = Vector3.new(0, 0, -1) end
+	local vel = root.AssemblyLinearVelocity
+	local moving = Vector3.new(vel.X, 0, vel.Z).Magnitude > 2
+	FUN.Bob = FUN.Bob + (moving and dt * 9 or 0)
+	local bob = FUN.Fallback and moving and math.sin(FUN.Bob) * 0.18 or 0
+	local feet = pos.Y - ((hum and hum.HipHeight or 2) + root.Size.Y / 2)
+	local scale = (Ex.Fun_Size or 100) / 100
+	local y = feet + FUN.Drop * (scale / math.max(FUN.LastScale or scale, 0.01)) + (Ex.Fun_YOff or 0) + bob
+	local origin = Vector3.new(pos.X, y, pos.Z)
+	local cf = CFrame.lookAt(origin, origin + flat.Unit) * CFrame.Angles(0, FACE[Ex.Fun_Face] or 0, 0)
+	m:PivotTo(cf)
+
+	if FUN.Idle or FUN.Walk then
+		local want = (moving and FUN.Walk) or FUN.Idle or FUN.Walk
+		if want and FUN.Playing ~= want then
+			if FUN.Playing then pcall(function() FUN.Playing:Stop(0.2) end) end
+			FUN.Playing = want
+			pcall(function() want:Play(0.2) end)
+		end
+	end
+end)
+
+-- reaplica el tamano cuando mueves el slider
+local function Resize()
+	local m = FUN.Model
+	if not m then return end
+	pcall(function() m:ScaleTo(FUN.Base * (Ex.Fun_Size or 100) / 100) end)
+	Measure()
+	FUN.LastScale = nil
+end
+
+-- al reaparecer se vuelve a ocultar tu personaje nuevo
+LocalPlayer.CharacterAdded:Connect(function()
+	if Ex.Fun_Active then
+		task.wait(0.5)
+		RefreshChar()
+	end
+end)
+
+local function SetActive(v)
+	Ex.Fun_Active = v
+	if v then
+		FUN.Attach()
+	else
+		Detach()
+	end
+end
+
+-- ------------------------------------------------------------------------------------------
+-- Interfaz
+-- ------------------------------------------------------------------------------------------
+FunTab:Section({ Title = "Transform" })
+FunTab:Paragraph({
+	Title = "How it works",
+	Desc = "Client side only: you see yourself as the model, other players do not. Pick one, turn it on and your camera goes to third person. "
+		.. "The real model is saved every time that entity appears in the game (Seek chase, Figure in the Library, Honcho in Archives); "
+		.. "until then an approximate model is used and it is swapped by itself.",
+})
+AddDropdown(FunTab, "Fun_Kind", "Transform Into", "Seek, Honcho or Figure.", { "Seek", "Honcho", "Figure" }, Ex.Fun_Kind, function(v)
+	Ex.Fun_Kind = v
+	if Ex.Fun_Active then FUN.Attach() end
+end)
+AddToggle(FunTab, "Fun_Active", "Transform Active", "Turns the transformation on / off. It always starts off.", Ex.Fun_Active, function(v) SetActive(v) end)
+AddSlider(FunTab, "Fun_Size", "Transform Size", "Size of the model in percent (10 - 300).", 10, 300, Ex.Fun_Size, function(v)
+	Ex.Fun_Size = v
+	Resize()
+end)
+AddSlider(FunTab, "Fun_YOff", "Transform Height Offset", "Moves the model up or down if it floats or sinks.", -10, 10, Ex.Fun_YOff, function(v) Ex.Fun_YOff = v end)
+AddDropdown(FunTab, "Fun_Face", "Model Facing", "If the model walks sideways or backwards, change where it looks.", { "Forward", "Backward", "Left", "Right" }, Ex.Fun_Face, function(v) Ex.Fun_Face = v end)
+AddToggle(FunTab, "Fun_Hide", "Hide My Character", "Hides your own body (only for you) while transformed.", Ex.Fun_Hide, function(v)
+	Ex.Fun_Hide = v
+	if not v then ShowChar() end
+end)
+AddToggle(FunTab, "Fun_TP", "Force Third Person While Transformed", "Moves the camera behind you so you can see the model. Your old camera mode comes back when you revert.", Ex.Fun_TP, function(v) Ex.Fun_TP = v end)
+AddToggle(FunTab, "Fun_Anim", "Play Model Animations", "Plays the idle / walk animations of the model when it has them.", Ex.Fun_Anim, function(v)
+	Ex.Fun_Anim = v
+	if Ex.Fun_Active then FUN.Attach() end
+end)
+FunTab:Button({ Title = "Rescan Models", Desc = "Searches the game again for the real Seek, Honcho and Figure models.", Callback = function() FUN.Rescan(true) end })
+FunTab:Button({ Title = "Revert Transformation", Desc = "Goes back to your normal character.", Callback = function()
+	if Ex.Fun_Active then SetFeature("Fun_Active", false) else Detach() end
+end })
+
+-- primera busqueda en silencio (sin tocar nada del juego)
+task.delay(3, function() FUN.Rescan(false) end)
+end)()
+
+-- ============================================================================================
+-- ESP ARCOIRIS (1.0.5) - al final de Visuals
+-- ============================================================================================
+;(function()
+local RunSvc = game:GetService("RunService")
+Ex.ESPRainbow, Ex.ESPRainbowSpeed = false, 3
+VisualsTab:Section({ Title = "Rainbow ESP" })
+AddToggle(VisualsTab, "ESPRainbow", "Rainbow ESP", "Every ESP (objects, entities, players, doors, gold...) cycles through the rainbow colors. Turn it off to go back to your colors.", Ex.ESPRainbow, function(v)
+	Ex.ESPRainbow = v
+	Cfg.Rainbow = v
+	if not v then Cfg.RainbowColor = nil end
+end)
+AddSlider(VisualsTab, "ESPRainbowSpeed", "Rainbow Speed", "How fast the colors change (1 slow - 10 fast).", 1, 10, Ex.ESPRainbowSpeed, function(v) Ex.ESPRainbowSpeed = v end)
+local acc, hue = 0, 0
+RunSvc.Heartbeat:Connect(function(dt)
+	if not Cfg.Rainbow or Cfg.RainbowPause then return end
+	acc = acc + dt
+	if acc < 1 / 30 then return end
+	hue = (hue + acc * (Ex.ESPRainbowSpeed or 3) * 0.05) % 1
+	acc = 0
+	local c = Color3.fromHSV(hue, 1, 1)
+	Cfg.RainbowColor = c
+	for _, e in pairs(Tracked) do
+		if e.Shown and e.HL then
+			e.HL.FillColor = c
+			e.HL.OutlineColor = c
+			if e.TL then e.TL.TextColor3 = c end
+			if e.Box then e.Box.Color3 = c end
+			if e.Line then e.Line.BackgroundColor3 = c end
+			e.Col = c
+		end
+	end
+end)
+end)()
+
+-- ============================================================================================
+-- RENDIMIENTO INTELIGENTE (1.0.5)
+-- ============================================================================================
+;(function()
+local RunSvc = game:GetService("RunService")
+Ex.SmartPerf, Ex.FPSGuard = true, true
+local P = { fps = 60, level = 0, low = 0, high = 0 }
+RunSvc.Heartbeat:Connect(function(dt)
+	if dt > 0 then P.fps = P.fps + (1 / dt - P.fps) * 0.05 end
+end)
+local G_CAP = { math.huge, 70, 40, 24 }
+local G_HL = { 99, 20, 12, 8 }
+local G_INT = { 0, 0.15, 0.3, 0.5 }
+task.spawn(function()
+	while true do
+		task.wait(1)
+		local f = P.fps
+		if Ex.SmartPerf then
+			Watch.Budget = f >= 50 and 0.0025 or (f >= 35 and 0.0016 or (f >= 22 and 0.001 or 0.0006))
+			Watch.Budget2 = f >= 50 and 0.004 or (f >= 35 and 0.0025 or (f >= 22 and 0.0015 or 0.001))
+		else
+			Watch.Budget, Watch.Budget2 = nil, nil
+		end
+		if Ex.SmartPerf and Ex.FPSGuard then
+			if f < 18 then P.low = P.low + 1 P.high = 0
+			elseif f > 40 then P.high = P.high + 1 P.low = 0
+			else P.low, P.high = 0, 0 end
+			if P.low >= 3 and P.level < 3 then P.level = P.level + 1 P.low = 0 end
+			if P.high >= 5 and P.level > 0 then P.level = P.level - 1 P.high = 0 end
+		else
+			P.level = 0
+		end
+		Watch.GuardCap, Watch.GuardHL, Watch.GuardInterval = G_CAP[P.level + 1], G_HL[P.level + 1], G_INT[P.level + 1]
+		Cfg.RainbowPause = P.level >= 2
+	end
+end)
+pcall(SetFeature, "AutoPerf", true)
+MiscTab:Section({ Title = "Performance" })
+AddToggle(MiscTab, "SmartPerf", "Smart Performance", "Adapts how much work the script does per frame to your FPS (room loading, ESP updates). Always recommended.", Ex.SmartPerf, function(v) Ex.SmartPerf = v end)
+AddToggle(MiscTab, "FPSGuard", "FPS Guard", "If your FPS stay very low it lightens the ESP (fewer Highlights, slower refresh, rainbow paused) and restores it when they recover.", Ex.FPSGuard, function(v) Ex.FPSGuard = v end)
+end)()
+
+-- Community Scripts (1.0.5): scripts de otros jugadores / mods. Se ejecutan SOLO al pulsar el boton y siempre con creditos.
+;(function()
+local CS = { Name = "", Creator = "", Url = "" }
+FunTab:Section({ Title = "Community Scripts" })
+FunTab:Paragraph({
+	Title = "Scripts from other players",
+	Desc = "Paste the link of a script or mod made by another player (for example a DOORS add-on) and press Run. It only runs when you press the button and it always shows a notification with the creator credits. "
+		.. "Only run links you trust: a script can do anything on your account.",
+})
+FunTab:Input({ Title = "Script Name", Desc = "Name that will be shown in the notification.", Placeholder = "Name", Callback = function(v) CS.Name = tostring(v or "") end })
+FunTab:Input({ Title = "Creator", Desc = "Creator of the script (required, shown as credits).", Placeholder = "Creator", Callback = function(v) CS.Creator = tostring(v or "") end })
+FunTab:Input({ Title = "Script Link", Desc = "Direct link (https://) to the script.", Placeholder = "https://", Callback = function(v) CS.Url = tostring(v or "") end })
+FunTab:Button({ Title = "Run Community Script", Desc = "Runs the script from the link and shows the credits.", Callback = function()
+	local name, creator, url = CS.Name:gsub("^%s+", ""):gsub("%s+$", ""), CS.Creator:gsub("^%s+", ""):gsub("%s+$", ""), CS.Url:gsub("%s+", "")
+	if creator == "" then NotifyUI("Community Scripts", "Write the creator first: credits are required.") return end
+	if not url:match("^https://") then NotifyUI("Community Scripts", "The link must start with https://") return end
+	if name == "" then name = "Script" end
+	task.spawn(function()
+		local ok, src = pcall(game.HttpGet, game, url)
+		if not ok or type(src) ~= "string" or src == "" then NotifyUI("Community Scripts", "Could not download " .. name .. ".") return end
+		local fn, err = loadstring(src)
+		if not fn then NotifyUI("Community Scripts", name .. " has an error: " .. tostring(err)) return end
+		NotifyUI("Community Scripts", name .. " - made by " .. creator .. ". All credits to the creator.")
+		local ran, e2 = pcall(fn)
+		if not ran then NotifyUI("Community Scripts", name .. " failed: " .. tostring(e2)) end
+	end)
+end })
+end)()
+
 end)()
 
 ----------------------------------------------------
@@ -14217,21 +14812,21 @@ ConfigsTab:Dropdown({
 -- ------------------------------------------------------------------------------------------
 ConfigsTab:Section({ Title = "Auto Execute" })
 
-local ae = { on = false }
+local ae = { on = false, lobby = false }
 pcall(function()
     if isfile and readfile and isfile("R4NS0M_AutoExec.json") then
         local d = HttpService:JSONDecode(readfile("R4NS0M_AutoExec.json"))
-        if type(d) == "table" then ae.on = d.on == true end
+        if type(d) == "table" then ae.on = d.on == true ae.lobby = d.lobby == true end
     end
 end)
 
 ConfigsTab:Toggle({
     Title = "Auto Execute On Teleport",
-    Desc = "Runs this same script again by itself when you teleport (lobby <-> run). It re-runs the exact code you executed, no link needed.",
+    Desc = "When the game sends you into a run, this same script is executed again by itself (the exact code you executed, no link needed). The lobby is not included unless you turn on the option below.",
     Value = ae.on,
     Callback = function(v)
         ae.on = v == true
-        if writefile then pcall(writefile, "R4NS0M_AutoExec.json", HttpService:JSONEncode({ on = ae.on })) end
+        if writefile then pcall(writefile, "R4NS0M_AutoExec.json", HttpService:JSONEncode({ on = ae.on, lobby = ae.lobby })) end
         R4N_QueueAutoExec()
         if not ae.on then
             Notify("Auto Execute", Msg("Disabled.", "Desactivado.", "Выключено."), 2)
@@ -14241,10 +14836,21 @@ ConfigsTab:Toggle({
         if st == "noqueue" then
             Notify("Auto Execute", Msg("Your executor does not support queue_on_teleport.", "Tu ejecutor no soporta queue_on_teleport.", "Ваш экзекутор не поддерживает queue_on_teleport."), 5)
         elseif st == "nosource" then
-            Notify("Auto Execute", Msg("Your executor does not expose the executed code. Save the script as R4NS0M-HUB-FINAL.lua in your workspace folder.", "Tu ejecutor no expone el código ejecutado. Guarda el script como R4NS0M-HUB-FINAL.lua en tu carpeta workspace.", "Ваш экзекутор не отдаёт выполненный код. Сохраните скрипт как R4NS0M-HUB-FINAL.lua в папке workspace."), 7)
+            Notify("Auto Execute", Msg("Your executor does not expose the executed code. Save the script in your workspace folder with a name that contains R4NS0M (example: R4NS0M-HUB.lua) and turn this on again.", "Tu ejecutor no expone el código ejecutado. Guarda el script en tu carpeta workspace con un nombre que contenga R4NS0M (ejemplo: R4NS0M-HUB.lua) y vuelve a activarlo.", "Ваш экзекутор не отдаёт выполненный код. Сохраните скрипт в папке workspace с именем, содержащим R4NS0M (например R4NS0M-HUB.lua), и включите снова."), 7)
         else
             Notify("Auto Execute", Msg("Enabled. The script will run again after you teleport.", "Activado. El script se ejecutará otra vez al teletransportarte.", "Включено. Скрипт запустится снова после телепорта."), 3)
         end
+    end
+})
+
+
+ConfigsTab:Toggle({
+    Title = "Auto Execute In Lobby",
+    Desc = "Also run the script again when you teleport to the lobby. Off by default (only the run itself).",
+    Value = ae.lobby,
+    Callback = function(v)
+        ae.lobby = v == true
+        if writefile then pcall(writefile, "R4NS0M_AutoExec.json", HttpService:JSONEncode({ on = ae.on, lobby = ae.lobby })) end
     end
 })
 
@@ -16208,567 +16814,6 @@ MiscTab:Button({ Title = "Reset Character", Desc = "Kills your character on the 
 	end
 end })
 
--- ============================================================================================
--- FUN (1.0.5): transformarte en Seek / Honcho / Figure (solo cliente: unicamente tu lo ves)
---   * Se usa el modelo REAL del juego cuando existe (se busca en ReplicatedStorage / Workspace y se guarda una
---     copia cada vez que la entidad aparece). Si todavia no hay ninguno se usa un modelo aproximado, y se cambia
---     solo por el real en cuanto se captura.
---   * El modelo sigue a tu personaje cada frame, tu personaje se oculta localmente y la camara pasa a tercera persona.
--- ============================================================================================
-;(function()
-local RS = game:GetService("ReplicatedStorage")
-local RunSvc = game:GetService("RunService")
-
-local FUN = { T = {}, Model = nil, Root = nil, Fallback = false, Kind = nil, Drop = 3, Base = 1, PrevTP = nil, Cap = {}, CapT = 0, Bob = 0 }
-R4N_FUN = FUN
-Ex.Fun_Kind, Ex.Fun_Active, Ex.Fun_Size, Ex.Fun_YOff, Ex.Fun_Face = "Seek", false, 100, 0, "Forward"
-Ex.Fun_Hide, Ex.Fun_TP, Ex.Fun_Anim = true, true, true
-
-local holder = Instance.new("Folder")
-holder.Name = "R4N_FunHolder"
-holder.Parent = Workspace
-R4N_FunHolder = holder -- global: el detector de objetos del ESP ignora todo lo que cuelga de aqui
-
-local SEARCH = {
-	Seek   = { "SeekMovingNewClone", "SeekMoving", "SeekRig", "SeekModel", "Seek" },
-	Figure = { "FigureRig", "FigureRagdoll", "Figure" },
-	Honcho = { "HonchoRig", "HonchoNPC", "HonchoModel", "Honcho" },
-}
-local EXACT = {}
-for kind, list in pairs(SEARCH) do
-	for _, n in ipairs(list) do EXACT[n:lower()] = kind end
-end
-local BAD = { "arm", "light", "trigger", "obstruction", "wall", "room", "box", "deposit", "terminal", "mug", "door", "sign", "path", "setup", "chase", "gui", "sound", "hand", "eye" }
-
-local function NameOk(kind, n)
-	local l = n:lower()
-	if EXACT[l] == kind then return true end
-	if kind == "Honcho" or kind == "Seek" then
-		if l:find(kind:lower(), 1, true) then
-			for _, b in ipairs(BAD) do
-				if l:find(b, 1, true) then return false end
-			end
-			return true
-		end
-	end
-	return false
-end
-
-local function Valid(kind, m)
-	if not m or not m:IsA("Model") or not m.Parent then return false end
-	if m:IsDescendantOf(holder) or Players:GetPlayerFromCharacter(m) then return false end
-	local parts = 0
-	for _, d in ipairs(m:GetDescendants()) do
-		if d:IsA("BasePart") then
-			parts = parts + 1
-			if parts >= 3 then break end
-		end
-	end
-	if parts < 3 then return false end
-	local ok, size = pcall(m.GetExtentsSize, m)
-	if not ok or size.Magnitude > 70 then return false end
-	return true
-end
-
-local function Capture(kind, m)
-	local ok, c = pcall(function() return m:Clone() end)
-	if not ok or not c then return false end
-	local old = FUN.T[kind]
-	FUN.T[kind] = c
-	if old then pcall(old.Destroy, old) end
-	NotifyUI("Fun", kind .. " model captured.")
-	if Ex.Fun_Active and Ex.Fun_Kind == kind and FUN.Fallback and FUN.Attach then
-		task.defer(FUN.Attach) -- cambia el modelo aproximado por el real
-	end
-	return true
-end
-
--- busqueda rapida por nombre (FindFirstChild recursivo es nativo) y una pasada completa opcional
-function FUN.Find(kind, deep)
-	for _, root in ipairs({ Workspace, RS }) do
-		for _, nm in ipairs(SEARCH[kind]) do
-			local c = root:FindFirstChild(nm, true)
-			if c and Valid(kind, c) then return c end
-		end
-	end
-	if deep then
-		local n = 0
-		for _, root in ipairs({ RS, Workspace:FindFirstChild("LiveEntities"), Workspace:FindFirstChild("CurrentRooms") }) do
-			if root then
-				for _, d in ipairs(root:GetDescendants()) do
-					if d:IsA("Model") and NameOk(kind, d.Name) and Valid(kind, d) then return d end
-					n = n + 1
-					if n % 800 == 0 then task.wait() end
-				end
-			end
-		end
-	end
-	return nil
-end
-
-function FUN.Rescan(deep)
-	task.spawn(function()
-		local got = {}
-		for kind in pairs(SEARCH) do
-			if not FUN.T[kind] then
-				local m = FUN.Find(kind, deep)
-				if m and Capture(kind, m) then got[#got + 1] = kind end
-			end
-		end
-		if deep then
-			NotifyUI("Fun", #got > 0 and ("Found: " .. table.concat(got, ", ")) or "No new models found. They are captured when the entity appears.")
-		end
-	end)
-end
-
--- captura cuando la entidad aparece en el juego (se espera un poco a que termine de replicarse)
-Workspace.DescendantAdded:Connect(function(d)
-	if not d:IsA("Model") then return end
-	local l = d.Name:lower()
-	local kind = EXACT[l]
-	if not kind then
-		if l:find("honcho", 1, true) then kind = "Honcho" elseif l:find("seek", 1, true) then kind = "Seek" end
-	end
-	if not kind or FUN.T[kind] and FUN.Cap[kind] then return end
-	if d:IsDescendantOf(holder) then return end
-	task.delay(1.5, function()
-		if d.Parent and NameOk(kind, d.Name) and Valid(kind, d) then
-			FUN.Cap[kind] = true
-			Capture(kind, d)
-		end
-	end)
-end)
-
--- ------------------------------------------------------------------------------------------
--- Modelos aproximados (solo si el real no existe todavia)
--- ------------------------------------------------------------------------------------------
-local function Fallback(kind)
-	local m = Instance.new("Model")
-	m.Name = "R4N_FunModel"
-	local root = Instance.new("Part")
-	root.Name = "HumanoidRootPart"
-	root.Size = Vector3.new(2, 2, 1)
-	root.Transparency = 1
-	root.Anchored = true
-	root.CanCollide = false
-	root.Parent = m
-	m.PrimaryPart = root
-	local function P(name, size, off, color, shape, mat)
-		local p = Instance.new("Part")
-		p.Name = name
-		p.Size = size
-		p.CFrame = CFrame.new(off)
-		p.Color = color
-		p.Material = mat or Enum.Material.SmoothPlastic
-		if shape then p.Shape = shape end
-		p.CanCollide = false
-		p.Massless = true
-		p.Parent = m
-		return p
-	end
-	local V, C = Vector3.new, Color3.fromRGB
-	local Ball = Enum.PartType.Ball
-	if kind == "Seek" then
-		local black = C(14, 14, 14)
-		P("Torso", V(2.4, 4, 1.4), V(0, 2, 0), black)
-		P("Head", V(3.2, 3.2, 3.2), V(0, 5.2, 0), black, Ball)
-		P("Eye", V(1.9, 1.9, 1.9), V(0, 5.3, -1.25), C(255, 255, 255), Ball, Enum.Material.Neon)
-		P("Pupil", V(0.8, 0.8, 0.8), V(0, 5.3, -2.1), black, Ball)
-		P("ArmL", V(0.8, 6, 0.8), V(-1.9, 1.5, -0.4), black)
-		P("ArmR", V(0.8, 6, 0.8), V(1.9, 1.5, -0.4), black)
-		P("LegL", V(1, 4, 1), V(-0.7, -2, 0), black)
-		P("LegR", V(1, 4, 1), V(0.7, -2, 0), black)
-	elseif kind == "Figure" then
-		local body = C(74, 58, 48)
-		P("Torso", V(2.2, 4.8, 1.2), V(0, 2.4, 0), body)
-		P("Head", V(1.8, 2.2, 1.8), V(0, 6.1, 0), C(214, 196, 160))
-		P("Wrap", V(1.9, 0.7, 1.9), V(0, 6.2, 0), C(235, 230, 215))
-		P("ArmL", V(0.7, 5.5, 0.7), V(-1.6, 2.4, 0), body)
-		P("ArmR", V(0.7, 5.5, 0.7), V(1.6, 2.4, 0), body)
-		P("LegL", V(0.9, 4.8, 0.9), V(-0.6, -2.4, 0), body)
-		P("LegR", V(0.9, 4.8, 0.9), V(0.6, -2.4, 0), body)
-	else -- Honcho
-		local suit = C(28, 36, 64)
-		P("Torso", V(2.2, 3, 1.2), V(0, 1.5, 0), suit)
-		P("Shirt", V(0.9, 2.6, 0.1), V(0, 1.6, -0.65), C(240, 240, 240))
-		P("Tie", V(0.35, 1.8, 0.1), V(0, 1.3, -0.72), C(190, 25, 35))
-		P("Head", V(1.8, 1.8, 1.8), V(0, 4, 0), C(224, 172, 105), Ball)
-		P("Glasses", V(1.7, 0.35, 0.15), V(0, 4.1, -0.85), C(10, 10, 10))
-		P("ArmL", V(0.8, 3, 0.8), V(-1.6, 1.6, 0), suit)
-		P("ArmR", V(0.8, 3, 0.8), V(1.6, 1.6, 0), suit)
-		P("LegL", V(0.9, 3.2, 0.9), V(-0.6, -1.6, 0), C(40, 40, 46))
-		P("LegR", V(0.9, 3.2, 0.9), V(0.6, -1.6, 0), C(40, 40, 46))
-	end
-	return m
-end
-
--- ------------------------------------------------------------------------------------------
--- Ocultar tu personaje (solo local) y volver a mostrarlo
--- ------------------------------------------------------------------------------------------
-local Hidden = { Parts = {}, Decals = {}, T = 0 }
-local function RefreshChar()
-	Hidden.Parts, Hidden.T = {}, os.clock()
-	local char = LocalPlayer.Character
-	if not char then return end
-	for _, d in ipairs(char:GetDescendants()) do
-		if d:IsA("BasePart") then
-			Hidden.Parts[#Hidden.Parts + 1] = d
-		elseif (d:IsA("Decal") or d:IsA("Texture")) and Hidden.Decals[d] == nil then
-			Hidden.Decals[d] = d.Transparency
-		end
-	end
-end
-local function ShowChar()
-	for _, p in ipairs(Hidden.Parts) do
-		if p.Parent then p.LocalTransparencyModifier = 0 end
-	end
-	for d, t in pairs(Hidden.Decals) do
-		if d.Parent then d.Transparency = t end
-	end
-	Hidden.Parts, Hidden.Decals = {}, {}
-end
-
--- ------------------------------------------------------------------------------------------
--- Transformacion
--- ------------------------------------------------------------------------------------------
-local FACE = { Forward = 0, Backward = math.pi, Left = math.pi / 2, Right = -math.pi / 2 }
-
-local function Prep(model)
-	for _, d in ipairs(model:GetDescendants()) do
-		if d:IsA("LuaSourceContainer") or d:IsA("Sound") or d:IsA("ProximityPrompt") or d:IsA("ClickDetector") or d:IsA("Highlight") then
-			pcall(d.Destroy, d)
-		elseif d:IsA("BasePart") then
-			d.Anchored = false
-			d.CanCollide = false
-			d.CanQuery = false
-			d.CanTouch = false
-			d.Massless = true
-			d.CastShadow = false
-		elseif d:IsA("Humanoid") then
-			pcall(function()
-				d.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-				d.PlatformStand = true
-				d.WalkSpeed = 0
-			end)
-		end
-	end
-end
-
-local function PickRoot(model)
-	local r = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("RootPart")
-	if r and r:IsA("BasePart") then return r end
-	local best, bs = nil, -1
-	for _, d in ipairs(model:GetDescendants()) do
-		if d:IsA("BasePart") then
-			local s = d.Size.X * d.Size.Y * d.Size.Z
-			if s > bs then best, bs = d, s end
-		end
-	end
-	return best
-end
-
-local function Measure()
-	local m, root = FUN.Model, FUN.Root
-	if not m or not root then return end
-	local ok, cf, size = pcall(m.GetBoundingBox, m)
-	if ok then FUN.Drop = math.max(root.Position.Y - (cf.Position.Y - size.Y / 2), 0.5) end
-end
-
--- animaciones: solo si el modelo trae objetos Animation (idle / caminar)
-local function SetupAnims(model)
-	FUN.Idle, FUN.Walk, FUN.Playing = nil, nil, nil
-	local animator = model:FindFirstChildWhichIsA("Animator", true)
-	if not animator then return end
-	local idle, walk, any
-	for _, d in ipairs(model:GetDescendants()) do
-		if d:IsA("Animation") and d.AnimationId ~= "" then
-			local l = d.Name:lower()
-			any = any or d
-			if l:find("idle", 1, true) or l:find("stand", 1, true) then idle = idle or d end
-			if l:find("walk", 1, true) or l:find("run", 1, true) or l:find("chase", 1, true) or l:find("move", 1, true) then walk = walk or d end
-		end
-	end
-	pcall(function()
-		if idle then FUN.Idle = animator:LoadAnimation(idle) FUN.Idle.Looped = true end
-		if walk then FUN.Walk = animator:LoadAnimation(walk) FUN.Walk.Looped = true end
-		if not FUN.Idle and not FUN.Walk and any then FUN.Walk = animator:LoadAnimation(any) FUN.Walk.Looped = true end
-	end)
-end
-
-local function Detach()
-	if FUN.Model then pcall(FUN.Model.Destroy, FUN.Model) end
-	FUN.Model, FUN.Root, FUN.Idle, FUN.Walk, FUN.Playing = nil, nil, nil, nil, nil
-	ShowChar()
-	if FUN.PrevTP ~= nil then
-		local prev = FUN.PrevTP
-		FUN.PrevTP = nil
-		if Ex.ThirdPerson ~= prev then pcall(SetFeature, "ThirdPerson", prev) end
-	end
-end
-
-function FUN.Attach()
-	if FUN.Model then pcall(FUN.Model.Destroy, FUN.Model) end
-	FUN.Model, FUN.Root = nil, nil
-	local kind = Ex.Fun_Kind
-	FUN.Kind = kind
-	local tpl = FUN.T[kind]
-	local model
-	if tpl then
-		local ok, c = pcall(function() return tpl:Clone() end)
-		if ok and c then model = c end
-	end
-	FUN.Fallback = model == nil
-	if not model then
-		model = Fallback(kind)
-		NotifyUI("Fun", "The real " .. kind .. " model has not been found yet: using an approximate one. It changes by itself when the real one is captured.")
-		FUN.Rescan(false)
-	end
-	model.Name = "R4N_FunModel"
-	Prep(model)
-	local root = PickRoot(model)
-	if not root then model:Destroy() return end
-	model.PrimaryPart = root
-	model.Parent = holder
-	-- las partes que no estan unidas al modelo se sueldan a la raiz; solo la raiz queda anclada
-	local okc, conn = pcall(root.GetConnectedParts, root, true)
-	local linked = {}
-	if okc then for _, p in ipairs(conn) do linked[p] = true end end
-	for _, d in ipairs(model:GetDescendants()) do
-		if d:IsA("BasePart") and d ~= root and not linked[d] then
-			local w = Instance.new("WeldConstraint")
-			w.Part0, w.Part1 = root, d
-			w.Parent = d
-		end
-	end
-	root.Anchored = true
-	FUN.Model, FUN.Root = model, root
-	FUN.Base = 1
-	pcall(function() FUN.Base = model:GetScale() end)
-	pcall(function() model:ScaleTo(FUN.Base * (Ex.Fun_Size or 100) / 100) end)
-	Measure()
-	if Ex.Fun_Anim then SetupAnims(model) end
-	if Ex.Fun_TP and FUN.PrevTP == nil then
-		FUN.PrevTP = Ex.ThirdPerson == true
-		if not Ex.ThirdPerson then pcall(SetFeature, "ThirdPerson", true) end
-	end
-	RefreshChar()
-end
-
--- sigue a tu personaje (despues de la camara)
-pcall(function() RunSvc:UnbindFromRenderStep("R4N_FunFollow") end)
-RunSvc:BindToRenderStep("R4N_FunFollow", Enum.RenderPriority.Camera.Value + 3, function(dt)
-	if not Ex.Fun_Active then return end
-	local m, rootPart = FUN.Model, FUN.Root
-	if not m or not m.Parent or not rootPart or not rootPart.Parent then return end
-	local _, hum, root = GetParts()
-	if not root then return end
-
-	local now = os.clock()
-	if Ex.Fun_Hide then
-		if now - Hidden.T > 1.5 then RefreshChar() end
-		for _, p in ipairs(Hidden.Parts) do
-			if p.Parent then p.LocalTransparencyModifier = 1 end
-		end
-		for d in pairs(Hidden.Decals) do
-			if d.Parent then d.Transparency = 1 end
-		end
-	end
-
-	local pos = root.Position
-	local look = root.CFrame.LookVector
-	local flat = Vector3.new(look.X, 0, look.Z)
-	if flat.Magnitude < 0.05 then flat = Vector3.new(0, 0, -1) end
-	local vel = root.AssemblyLinearVelocity
-	local moving = Vector3.new(vel.X, 0, vel.Z).Magnitude > 2
-	FUN.Bob = FUN.Bob + (moving and dt * 9 or 0)
-	local bob = FUN.Fallback and moving and math.sin(FUN.Bob) * 0.18 or 0
-	local feet = pos.Y - ((hum and hum.HipHeight or 2) + root.Size.Y / 2)
-	local scale = (Ex.Fun_Size or 100) / 100
-	local y = feet + FUN.Drop * (scale / math.max(FUN.LastScale or scale, 0.01)) + (Ex.Fun_YOff or 0) + bob
-	local origin = Vector3.new(pos.X, y, pos.Z)
-	local cf = CFrame.lookAt(origin, origin + flat.Unit) * CFrame.Angles(0, FACE[Ex.Fun_Face] or 0, 0)
-	m:PivotTo(cf)
-
-	if FUN.Idle or FUN.Walk then
-		local want = (moving and FUN.Walk) or FUN.Idle or FUN.Walk
-		if want and FUN.Playing ~= want then
-			if FUN.Playing then pcall(function() FUN.Playing:Stop(0.2) end) end
-			FUN.Playing = want
-			pcall(function() want:Play(0.2) end)
-		end
-	end
-end)
-
--- reaplica el tamano cuando mueves el slider
-local function Resize()
-	local m = FUN.Model
-	if not m then return end
-	pcall(function() m:ScaleTo(FUN.Base * (Ex.Fun_Size or 100) / 100) end)
-	Measure()
-	FUN.LastScale = nil
-end
-
--- al reaparecer se vuelve a ocultar tu personaje nuevo
-LocalPlayer.CharacterAdded:Connect(function()
-	if Ex.Fun_Active then
-		task.wait(0.5)
-		RefreshChar()
-	end
-end)
-
-local function SetActive(v)
-	Ex.Fun_Active = v
-	if v then
-		FUN.Attach()
-	else
-		Detach()
-	end
-end
-
--- ------------------------------------------------------------------------------------------
--- Interfaz
--- ------------------------------------------------------------------------------------------
-FunTab:Section({ Title = "Transform" })
-FunTab:Paragraph({
-	Title = "How it works",
-	Desc = "Client side only: you see yourself as the model, other players do not. Pick one, turn it on and your camera goes to third person. "
-		.. "The real model is saved every time that entity appears in the game (Seek chase, Figure in the Library, Honcho in Archives); "
-		.. "until then an approximate model is used and it is swapped by itself.",
-})
-AddDropdown(FunTab, "Fun_Kind", "Transform Into", "Seek, Honcho or Figure.", { "Seek", "Honcho", "Figure" }, Ex.Fun_Kind, function(v)
-	Ex.Fun_Kind = v
-	if Ex.Fun_Active then FUN.Attach() end
-end)
-AddToggle(FunTab, "Fun_Active", "Transform Active", "Turns the transformation on / off. It always starts off.", Ex.Fun_Active, function(v) SetActive(v) end)
-AddSlider(FunTab, "Fun_Size", "Transform Size", "Size of the model in percent (10 - 300).", 10, 300, Ex.Fun_Size, function(v)
-	Ex.Fun_Size = v
-	Resize()
-end)
-AddSlider(FunTab, "Fun_YOff", "Transform Height Offset", "Moves the model up or down if it floats or sinks.", -10, 10, Ex.Fun_YOff, function(v) Ex.Fun_YOff = v end)
-AddDropdown(FunTab, "Fun_Face", "Model Facing", "If the model walks sideways or backwards, change where it looks.", { "Forward", "Backward", "Left", "Right" }, Ex.Fun_Face, function(v) Ex.Fun_Face = v end)
-AddToggle(FunTab, "Fun_Hide", "Hide My Character", "Hides your own body (only for you) while transformed.", Ex.Fun_Hide, function(v)
-	Ex.Fun_Hide = v
-	if not v then ShowChar() end
-end)
-AddToggle(FunTab, "Fun_TP", "Force Third Person While Transformed", "Moves the camera behind you so you can see the model. Your old camera mode comes back when you revert.", Ex.Fun_TP, function(v) Ex.Fun_TP = v end)
-AddToggle(FunTab, "Fun_Anim", "Play Model Animations", "Plays the idle / walk animations of the model when it has them.", Ex.Fun_Anim, function(v)
-	Ex.Fun_Anim = v
-	if Ex.Fun_Active then FUN.Attach() end
-end)
-FunTab:Button({ Title = "Rescan Models", Desc = "Searches the game again for the real Seek, Honcho and Figure models.", Callback = function() FUN.Rescan(true) end })
-FunTab:Button({ Title = "Revert Transformation", Desc = "Goes back to your normal character.", Callback = function()
-	if Ex.Fun_Active then SetFeature("Fun_Active", false) else Detach() end
-end })
-
--- primera busqueda en silencio (sin tocar nada del juego)
-task.delay(3, function() FUN.Rescan(false) end)
-end)()
-
--- ============================================================================================
--- ESP ARCOIRIS (1.0.5) - al final de Visuals
--- ============================================================================================
-;(function()
-local RunSvc = game:GetService("RunService")
-Ex.ESPRainbow, Ex.ESPRainbowSpeed = false, 3
-VisualsTab:Section({ Title = "Rainbow ESP" })
-AddToggle(VisualsTab, "ESPRainbow", "Rainbow ESP", "Every ESP (objects, entities, players, doors, gold...) cycles through the rainbow colors. Turn it off to go back to your colors.", Ex.ESPRainbow, function(v)
-	Ex.ESPRainbow = v
-	Cfg.Rainbow = v
-	if not v then Cfg.RainbowColor = nil end
-end)
-AddSlider(VisualsTab, "ESPRainbowSpeed", "Rainbow Speed", "How fast the colors change (1 slow - 10 fast).", 1, 10, Ex.ESPRainbowSpeed, function(v) Ex.ESPRainbowSpeed = v end)
-local acc, hue = 0, 0
-RunSvc.Heartbeat:Connect(function(dt)
-	if not Cfg.Rainbow or Cfg.RainbowPause then return end
-	acc = acc + dt
-	if acc < 1 / 30 then return end
-	hue = (hue + acc * (Ex.ESPRainbowSpeed or 3) * 0.05) % 1
-	acc = 0
-	local c = Color3.fromHSV(hue, 1, 1)
-	Cfg.RainbowColor = c
-	for _, e in pairs(Tracked) do
-		if e.Shown and e.HL then
-			e.HL.FillColor = c
-			e.HL.OutlineColor = c
-			if e.TL then e.TL.TextColor3 = c end
-			if e.Box then e.Box.Color3 = c end
-			if e.Line then e.Line.BackgroundColor3 = c end
-			e.Col = c
-		end
-	end
-end)
-end)()
-
--- ============================================================================================
--- RENDIMIENTO INTELIGENTE (1.0.5)
--- ============================================================================================
-;(function()
-local RunSvc = game:GetService("RunService")
-Ex.SmartPerf, Ex.FPSGuard = true, true
-local P = { fps = 60, level = 0, low = 0, high = 0 }
-RunSvc.Heartbeat:Connect(function(dt)
-	if dt > 0 then P.fps = P.fps + (1 / dt - P.fps) * 0.05 end
-end)
-local G_CAP = { math.huge, 70, 40, 24 }
-local G_HL = { 99, 20, 12, 8 }
-local G_INT = { 0, 0.15, 0.3, 0.5 }
-task.spawn(function()
-	while true do
-		task.wait(1)
-		local f = P.fps
-		if Ex.SmartPerf then
-			Watch.Budget = f >= 50 and 0.0025 or (f >= 35 and 0.0016 or (f >= 22 and 0.001 or 0.0006))
-			Watch.Budget2 = f >= 50 and 0.004 or (f >= 35 and 0.0025 or (f >= 22 and 0.0015 or 0.001))
-		else
-			Watch.Budget, Watch.Budget2 = nil, nil
-		end
-		if Ex.SmartPerf and Ex.FPSGuard then
-			if f < 18 then P.low = P.low + 1 P.high = 0
-			elseif f > 40 then P.high = P.high + 1 P.low = 0
-			else P.low, P.high = 0, 0 end
-			if P.low >= 3 and P.level < 3 then P.level = P.level + 1 P.low = 0 end
-			if P.high >= 5 and P.level > 0 then P.level = P.level - 1 P.high = 0 end
-		else
-			P.level = 0
-		end
-		Watch.GuardCap, Watch.GuardHL, Watch.GuardInterval = G_CAP[P.level + 1], G_HL[P.level + 1], G_INT[P.level + 1]
-		Cfg.RainbowPause = P.level >= 2
-	end
-end)
-pcall(SetFeature, "AutoPerf", true)
-MiscTab:Section({ Title = "Performance" })
-AddToggle(MiscTab, "SmartPerf", "Smart Performance", "Adapts how much work the script does per frame to your FPS (room loading, ESP updates). Always recommended.", Ex.SmartPerf, function(v) Ex.SmartPerf = v end)
-AddToggle(MiscTab, "FPSGuard", "FPS Guard", "If your FPS stay very low it lightens the ESP (fewer Highlights, slower refresh, rainbow paused) and restores it when they recover.", Ex.FPSGuard, function(v) Ex.FPSGuard = v end)
-end)()
-
--- Community Scripts (1.0.5): scripts de otros jugadores / mods. Se ejecutan SOLO al pulsar el boton y siempre con creditos.
-;(function()
-local CS = { Name = "", Creator = "", Url = "" }
-FunTab:Section({ Title = "Community Scripts" })
-FunTab:Paragraph({
-	Title = "Scripts from other players",
-	Desc = "Paste the link of a script or mod made by another player (for example a DOORS add-on) and press Run. It only runs when you press the button and it always shows a notification with the creator credits. "
-		.. "Only run links you trust: a script can do anything on your account.",
-})
-FunTab:Input({ Title = "Script Name", Desc = "Name that will be shown in the notification.", Placeholder = "Name", Callback = function(v) CS.Name = tostring(v or "") end })
-FunTab:Input({ Title = "Creator", Desc = "Creator of the script (required, shown as credits).", Placeholder = "Creator", Callback = function(v) CS.Creator = tostring(v or "") end })
-FunTab:Input({ Title = "Script Link", Desc = "Direct link (https://) to the script.", Placeholder = "https://", Callback = function(v) CS.Url = tostring(v or "") end })
-FunTab:Button({ Title = "Run Community Script", Desc = "Runs the script from the link and shows the credits.", Callback = function()
-	local name, creator, url = CS.Name:gsub("^%s+", ""):gsub("%s+$", ""), CS.Creator:gsub("^%s+", ""):gsub("%s+$", ""), CS.Url:gsub("%s+", "")
-	if creator == "" then NotifyUI("Community Scripts", "Write the creator first: credits are required.") return end
-	if not url:match("^https://") then NotifyUI("Community Scripts", "The link must start with https://") return end
-	if name == "" then name = "Script" end
-	task.spawn(function()
-		local ok, src = pcall(game.HttpGet, game, url)
-		if not ok or type(src) ~= "string" or src == "" then NotifyUI("Community Scripts", "Could not download " .. name .. ".") return end
-		local fn, err = loadstring(src)
-		if not fn then NotifyUI("Community Scripts", name .. " has an error: " .. tostring(err)) return end
-		NotifyUI("Community Scripts", name .. " - made by " .. creator .. ". All credits to the creator.")
-		local ran, e2 = pcall(fn)
-		if not ran then NotifyUI("Community Scripts", name .. " failed: " .. tostring(e2)) end
-	end)
-end })
-end)()
 end)()
 print("[R4NS0M] Loaded Main Port")
 
