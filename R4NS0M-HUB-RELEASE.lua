@@ -404,6 +404,22 @@ local function Classify(title, content)
 	return "info"
 end
 
+local function Ding()
+	local E = R4N_EX
+	if E and E.NotifySound == false then return end
+	local id = tostring((E and E.NotifySoundId) or ""):gsub("%s", "")
+	if id == "" then id = "rbxassetid://10469938989" elseif id:match("^%d+$") then id = "rbxassetid://" .. id end
+	pcall(function()
+		local snd = Instance.new("Sound")
+		snd.SoundId = id
+		snd.Volume = ((E and E.NotifyVolume) or 100) / 100
+		snd.Parent = game:GetService("SoundService")
+		snd:Play()
+		game:GetService("Debris"):AddItem(snd, 8)
+	end)
+end
+R4N_Ding = Ding
+
 local stack, counter, byKey = {}, 0, {}
 local function Dismiss(item)
 	if not item or item.Dead then return end
@@ -425,6 +441,7 @@ local function Show(data)
 	local key = title .. "\0" .. content
 	local old = byKey[key]
 	if old and not old.Dead then
+		Ding()
 		old.Count = old.Count + 1
 		old.Badge.Text = "x" .. old.Count
 		old.Badge.Visible = true
@@ -437,6 +454,8 @@ local function Show(data)
 	end
 	local kind = TYPES[data.Type] and data.Type or Classify(title, content)
 	local accent, glyph = TYPES[kind][1], TYPES[kind][2]
+	if typeof(data.Accent) == "Color3" then accent = data.Accent end
+	Ding()
 	counter = counter + 1
 
 	local wrap = Instance.new("Frame")
@@ -569,6 +588,7 @@ local function Show(data)
 	task.delay(dur, function() if item.Gen == 0 then Dismiss(item) end end)
 end
 
+R4N_Card = function(data) pcall(Show, data) end
 WindUI.Notify = function(_, data)
 	if type(data) ~= "table" then data = { Content = tostring(data) } end
 	pcall(Show, data)
@@ -1023,6 +1043,358 @@ R4N_I18N = {
         ["Ladder Safe Mode"] = "Modo Seguro de Escaleras",
         ["Knob Farm Auto Start"] = "Inicio Automático del Farmeo de Perillas",
         ["Fun"] = "Diversión",
+        ["Arrows"] = "Flechas",
+        ["ESP Arrows"] = "Flechas del ESP",
+        ["Arrow Radius"] = "Radio de las Flechas",
+        ["Draws an arrow at the edge of the screen pointing to every marked object that is off screen."] = "Dibuja una flecha en el borde de la pantalla que apunta a cada objeto marcado que está fuera de pantalla.",
+        ["How far from the center of the screen the arrows are drawn."] = "Qué tan lejos del centro de la pantalla se dibujan las flechas.",
+        ["This tab has no features yet."] = "Esta pestaña aún no tiene funciones.",
+        ["Reading game data..."] = "Leyendo datos del juego...",
+        ["A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.6"] = "Un script especializado de DOORS desarrollado por Team CHX (creado por 2 desarrolladores).\nVersión: 1.0.6",
+        ["Visuals: ESP, chase paths (Seek / Eyestalk) and lighting.\n"] = "Visuals: ESP, rutas de persecución (Seek / Eyestalk) e iluminación.\n",
+        ["Features marked experimental may fail on some floors: check the console if something does not respond.\n"] = "Las funciones marcadas como experimentales pueden fallar en algunos pisos: revisa la consola si algo no responde.\n",
+        ["The script detects the game mode when it starts and only loads the ESP options and detectors that mode needs. "] = "El script detecta el modo de juego al iniciar y solo carga las opciones de ESP y los detectores que ese modo necesita. ",
+        ["Reads the game data again. Use it if the mode was not detected correctly on load."] = "Vuelve a leer los datos del juego. Úsalo si el modo no se detectó bien al cargar.",
+        ["Forces the script to use a specific mode instead of auto-detecting it. Choose Auto (detect) to go back to normal detection (the Lobby is detected automatically)."] = "Obliga al script a usar un modo concreto en vez de detectarlo solo. Elige Auto (detect) para volver a la detección normal (el Lobby se detecta automáticamente).",
+        ["One-click: enables every ESP category that exists in the detected mode (Interactables stays off)."] = "Un clic: activa todas las categorías de ESP que existen en el modo detectado (Interactables queda apagado).",
+        ["Turn tracers on only for the ESP you want using the 'Tracer: ...' toggle under each category above. Origin and thickness below apply to all of them."] = "Activa los tracers solo para el ESP que quieras con el interruptor 'Tracer: ...' de cada categoría. El origen y el grosor de abajo aplican a todos.",
+        ["Choose which items ESP Items marks. Unchecked items stay hidden."] = "Elige qué objetos marca el ESP de Items. Los desmarcados quedan ocultos.",
+        ["Show every item in the list."] = "Muestra todos los objetos de la lista.",
+        ["Hide every listed item (useful to pick just a few afterwards)."] = "Oculta todos los objetos de la lista (útil para elegir solo unos pocos después).",
+        ["Only lists the entities of the detected mode. Unchecked entities are not marked."] = "Solo lista las entidades del modo detectado. Las entidades desmarcadas no se marcan.",
+        ["Show every entity of this mode."] = "Muestra todas las entidades de este modo.",
+        ["Hide every entity (useful to pick just a few afterwards)."] = "Oculta todas las entidades (útil para elegir solo unas pocas después).",
+        ["Shows how many objects are tracked per category right now."] = "Muestra cuántos objetos se siguen ahora por categoría.",
+        ["Copies everything logged so far to the clipboard."] = "Copia al portapapeles todo lo registrado hasta ahora.",
+        ["Copies the detected mode, GameData values, room names and Workspace contents. Send it when the mode is detected wrong."] = "Copia el modo detectado, los valores de GameData, los nombres de salas y el contenido del Workspace. Envíalo cuando el modo se detecte mal.",
+        ["Copies the names/paths of models and prompts around you. Stand next to the thing that fails and press it."] = "Copia los nombres/rutas de modelos y prompts a tu alrededor. Párate junto a lo que falla y púlsalo.",
+        ["Only the entities of the detected mode are listed. Harmless or low-value ones (Timothy, Snare, Bob, Jeff...) start unchecked, but you can turn them on."] = "Solo se listan las entidades del modo detectado. Las inofensivas o de poco valor (Timothy, Snare, Bob, Jeff...) empiezan desmarcadas, pero puedes activarlas.",
+        ["Checks only the dangerous entities of this mode."] = "Marca solo las entidades peligrosas de este modo.",
+        ["Notify about every entity of this mode."] = "Avisar de todas las entidades de este modo.",
+        ["Uncheck every entity."] = "Desmarca todas las entidades.",
+        ["Shows a sample \"Rush has appeared!\" popup using your current settings."] = "Muestra un aviso de ejemplo «¡Rush ha aparecido!» con tu configuración actual.",
+        ["Applies the selected profile to the options and sliders below."] = "Aplica el perfil elegido a las opciones y controles de abajo.",
+        ["Selects the best options below for the mode you are in."] = "Elige las mejores opciones de abajo para el modo en que estás.",
+        ["Shows the detected mode, the room, what the bot is doing and the session statistics."] = "Muestra el modo detectado, la sala, lo que hace el bot y las estadísticas de la sesión.",
+        ["Runs the auto-fix right now (only while Auto Doors is on)."] = "Ejecuta el auto-arreglo ahora mismo (solo con Auto Doors activo).",
+        ["Resets the doors / loot / hides / auto-fix counters and the timer."] = "Reinicia los contadores de puertas / botín / escondites / auto-arreglos y el cronómetro.",
+        ["The Anticheat Manipulator now uses Velocity Manipulation: it moves your character forward very slowly (or pivots it relative to the camera), "] = "El Anticheat Manipulator ahora usa Velocity Manipulation: mueve tu personaje hacia delante muy despacio (o lo pivota respecto a la cámara), ",
+        ["Items that will not be consumed while Infinite Items is on."] = "Objetos que no se gastarán mientras Infinite Items esté activo.",
+        ["Both options work by name (anything called 'meld'). Stop Growth only disables Meld's scripts/modules, so its ropes and doors stay untouched. "] = "Ambas opciones funcionan por nombre (todo lo que se llame 'meld'). Stop Growth solo desactiva los scripts/módulos de Meld, así sus cuerdas y puertas no se tocan. ",
+        ["Teleports to each water pump (highest first) and interacts with it, then returns you. Be in room 100."] = "Se teletransporta a cada bomba de agua (de la más alta a la más baja) e interactúa con ella, luego te devuelve. Debes estar en la sala 100.",
+        ["Teleports you to the end of the quest."] = "Te teletransporta al final de la misión.",
+        ["Types of objects Auto Interact will NOT touch (all selected by default). Detection is by name/text. Specific items have their own list below."] = "Tipos de objetos que el Auto Interact NO tocará (todos seleccionados por defecto). La detección es por nombre/texto. Los objetos específicos tienen su propia lista abajo.",
+        ["Selects every entry of the ignore list."] = "Selecciona todas las entradas de la lista de ignorados.",
+        ["Clears the ignore list: Auto Interact will touch everything."] = "Vacía la lista de ignorados: el Auto Interact tocará todo.",
+        ["Sends the revive request. Works even after the revive timer ran out (needs a revive available)."] = "Envía la petición de revivir. Funciona incluso cuando el tiempo para revivir ya acabó (necesita una revivida disponible).",
+        ["Every item is in the list, but only the important ones are selected by default (Crucifix, Gold Gun, Lockpicks, Skeleton Key...)."] = "Todos los objetos están en la lista, pero solo los importantes vienen seleccionados (Crucifix, Gold Gun, Lockpicks, Skeleton Key...).",
+        ["Selects every item in the list."] = "Selecciona todos los objetos de la lista.",
+        ["Back to the default selection."] = "Vuelve a la selección por defecto.",
+        ["Clears the selection."] = "Borra la selección.",
+        ["These entities obey Max Distance and disappear when far away. Remove one from the list to go back to the normal behavior (always shown)."] = "Estas entidades obedecen la Distancia Máxima y desaparecen al alejarte. Quita una de la lista para volver al comportamiento normal (siempre visible).",
+        ["Auto Interact will not pick these up. Default: Paper Plane, Fih Flakes and other useless items."] = "El Auto Interact no recogerá esto. Por defecto: Paper Plane, Fih Flakes y otros objetos inútiles.",
+        ["Auto Interact will not pick up any item."] = "El Auto Interact no recogerá ningún objeto.",
+        ["Auto Interact will pick up every item."] = "El Auto Interact recogerá todos los objetos.",
+        ["Back to the useless items list."] = "Vuelve a la lista de objetos inútiles.",
+        ["Starts the timer, pauses it, or resumes it (Restart after a finished run)."] = "Inicia el cronómetro, lo pausa o lo reanuda (Restart tras una partida terminada).",
+        ["Ends the run. If you reached at least 10 rooms and it is faster than your best, it is saved as your personal best for that floor."] = "Termina la partida. Si llegaste al menos a 10 salas y es más rápida que tu mejor marca, se guarda como tu récord personal de ese piso.",
+        ["Clears the timer and the splits so it can start again."] = "Borra el cronómetro y los parciales para poder empezar de nuevo.",
+        ["Use this if proximity prompts stop appearing: restores real prompts, removes leftover fake ones and refreshes the ones near you."] = "Úsalo si los prompts de proximidad dejan de aparecer: restaura los reales, quita los falsos sobrantes y refresca los cercanos.",
+        ["Prints (and copies) every prompt within 20 studs with the reason Auto Interact skips it, or says it is allowed."] = "Imprime (y copia) cada prompt a menos de 20 studs con la razón por la que el Auto Interact lo salta, o dice que está permitido.",
+        ["Teleports you next to the nearest Stairwell fire alarm lever."] = "Te teletransporta junto a la palanca de alarma de incendios más cercana del Stairwell.",
+        ["Teleports you next to the nearest Emergency Exit sign."] = "Te teletransporta junto al letrero de Salida de Emergencia más cercano.",
+        ["Teleports you next to the nearest Depot / scrapper."] = "Te teletransporta junto al Depot / scrapper más cercano.",
+        ["Teleports you next to the nearest shopping cart (in a room or loose in the map)."] = "Te teletransporta junto al carrito de compras más cercano (en una sala o suelto en el mapa).",
+        ["Walks (teleports) to every Stairwell item and picks it up on the server, then returns you. Unlike moving items, this really goes to your inventory."] = "Camina (teletransporta) a cada objeto del Stairwell y lo recoge en el servidor, luego te devuelve. A diferencia de mover objetos, esto sí va a tu inventario.",
+        ["Moves every DROPPED item (Workspace.Drops) to you. Dropped items are physical, so the server and other players see it too."] = "Mueve cada objeto SOLTADO (Workspace.Drops) hacia ti. Los objetos soltados son físicos, así que el servidor y otros jugadores lo ven.",
+        ["Sends every dropped item to the Grinder closest to you."] = "Envía cada objeto soltado al Grinder más cercano.",
+        ["Brings every shopping cart to you. Carts are physical, so everyone sees them move. Do not stand where they land."] = "Trae todos los carritos hacia ti. Los carritos son físicos, así que todos los ven moverse. No te pares donde caen.",
+        ["Triggers the open prompt of every loaded Cubby door."] = "Activa el prompt de abrir de cada puerta Cubby cargada.",
+        ["Starts a new run. Press twice to confirm."] = "Inicia una partida nueva. Pulsa dos veces para confirmar.",
+        ["Takes you back to the lobby. Press twice to confirm."] = "Te lleva de vuelta al lobby. Pulsa dos veces para confirmar.",
+        ["Gets you out of the closet / hiding spot you are in."] = "Te saca del armario / escondite en el que estás.",
+        ["Teleports you to the next door that is still closed."] = "Te teletransporta a la siguiente puerta que sigue cerrada.",
+        ["Copies the character's attributes, Humanoid values and any remote named like jump, slide, crouch or speed. Send it if Jump or Slide still misbehave in your game mode."] = "Copia los atributos del personaje, valores del Humanoid y cualquier remote llamado como jump, slide, crouch o speed. Envíalo si Jump o Slide siguen fallando en tu modo de juego.",
+        ["Client side only: you see yourself as the model, other players do not. Pick one, turn it on and your camera goes to third person. "] = "Solo del lado del cliente: tú te ves como el modelo, los demás jugadores no. Elige uno, actívalo y tu cámara pasa a tercera persona. ",
+        ["Searches the game again for the real Seek, Honcho and Figure models."] = "Busca otra vez en el juego los modelos reales de Seek, Honcho y Figure.",
+        ["Goes back to your normal character."] = "Vuelve a tu personaje normal.",
+        ["Add the link of a script or mod made by another player (for example a DOORS add-on), save it in the list and run it when you want. "] = "Agrega el link de un script o mod hecho por otro jugador (por ejemplo un complemento de DOORS), guárdalo en la lista y ejecútalo cuando quieras. ",
+        ["Name shown in the notification."] = "Nombre que se muestra en la notificación.",
+        ["Creator of the script (required, shown as credits)."] = "Creador del script (obligatorio, se muestra como créditos).",
+        ["Direct link (https://) to the script."] = "Link directo (https://) al script.",
+        ["Your saved list."] = "Tu lista guardada.",
+        ["Saves the script of the fields above in your list."] = "Guarda en tu lista el script de los campos de arriba.",
+        ["Runs the script selected in the list and shows its credits."] = "Ejecuta el script seleccionado de la lista y muestra sus créditos.",
+        ["Runs the link of the fields above without saving it."] = "Ejecuta el link de los campos de arriba sin guardarlo.",
+        ["Deletes the selected script from the list."] = "Borra de la lista el script seleccionado.",
+        ["What 'Load Selected Config' and the imports apply: everything, or only one tab's options."] = "Lo que aplican 'Load Selected Config' y las importaciones: todo, o solo las opciones de una pestaña.",
+        ["Overwrites the selected config with the current settings."] = "Sobrescribe la config seleccionada con los ajustes actuales.",
+        ["Type the new name above, then press this."] = "Escribe arriba el nombre nuevo y luego pulsa esto.",
+        ["Press twice within 5 seconds to confirm."] = "Pulsa dos veces en 5 segundos para confirmar.",
+        ["This config loads by itself every time you execute the script."] = "Esta config se carga sola cada vez que ejecutas el script.",
+        ["The share code appears here (it is also copied to your clipboard when your executor allows it)."] = "El código para compartir aparece aquí (también se copia al portapapeles si tu ejecutor lo permite).",
+        ["Creates a code with the whole selected config. Anyone can import it, no files needed."] = "Crea un código con toda la config seleccionada. Cualquiera puede importarlo, sin archivos.",
+        ["Creates a code with what you have enabled right now (no need to save it first)."] = "Crea un código con lo que tienes activado ahora mismo (no hace falta guardarlo antes).",
+        ["Uploads the selected config and gives you a short code. Needs internet access from the executor."] = "Sube la config seleccionada y te da un código corto. Necesita acceso a internet del ejecutor.",
+        ["Paste a share code here (portable R4N2-... or online short code)."] = "Pega aquí un código para compartir (portátil R4N2-... o código corto en línea).",
+        ["English (default), Español, Русский. Titles and descriptions are translated; re-execute the script to apply."] = "English (por defecto), Español, Русский. Se traducen los títulos y las descripciones; vuelve a ejecutar el script para aplicarlo.",
+        ["When the game sends you into a run, the script runs again by itself, silently. The lobby is not included unless you turn on the option below."] = "Cuando el juego te manda a una partida, el script se ejecuta otra vez solo, en silencio. El lobby no se incluye salvo que actives la opción de abajo.",
+        ["Also run the script again when you teleport to the lobby. Off by default (only the run itself)."] = "También ejecuta el script otra vez al teletransportarte al lobby. Apagado por defecto (solo la partida).",
+        ["Recommended setup for each floor and sub-floor: it turns on the ESP of that mode, sets the distance and turns on the best functions of every tab (alerts, Auto Interact, antis, visuals and the extras of that mode). Rooms only turns on the visuals."] = "Configuración recomendada para cada piso y subpiso: activa el ESP de ese modo, ajusta la distancia y activa las mejores funciones de todas las pestañas (avisos, Auto Interact, antis, visuales y los extras de ese modo). Rooms solo activa lo visual.",
+        ["Applies the selected preset right now."] = "Aplica ahora mismo el preset seleccionado.",
+        ["Changes the colors of the menu right away. It is remembered."] = "Cambia los colores del menú al instante. Se recuerda.",
+        ["Which UI build the menu uses. Re-execute the script to apply it."] = "Qué versión de la UI usa el menú. Vuelve a ejecutar el script para aplicarlo.",
+        ["Removes everything the script did, clears the screen and runs the script again from scratch."] = "Quita todo lo que hizo el script, limpia la pantalla y lo ejecuta otra vez desde cero.",
+        ["Removes everything the script did and leaves the screen without it. It does not run again."] = "Quita todo lo que hizo el script y deja la pantalla sin él. No se vuelve a ejecutar.",
+        ["Entities Auto Closet will NOT hide from."] = "Entidades de las que el Auto Closet NO se esconderá.",
+        ["Where the camera looks from."] = "Desde dónde mira la cámara.",
+        ["Starts farming knobs, click this when you have enough gold."] = "Empieza a farmear perillas; púlsalo cuando tengas suficiente oro.",
+        ["Fixes getting stuck after a ladder."] = "Arregla quedarte atascado después de una escalera.",
+        ["Prints the current floor to the console."] = "Imprime el piso actual en la consola.",
+        ["Prints the current room number to the console."] = "Imprime el número de la sala actual en la consola.",
+        ["Teleports your character to Y -120."] = "Teletransporta tu personaje a Y -120.",
+        ["Kills your character."] = "Mata a tu personaje.",
+        ["Kills your character on the server (can take ~20s if replicatesignal is not supported)."] = "Mata a tu personaje en el servidor (puede tardar ~20s si replicatesignal no está soportado).",
+        ["Marks the exit door of every room ahead as 'Door N' (adds [Locked] when it needs a key). Doors of rooms you already passed are hidden."] = "Marca la puerta de salida de cada sala por delante como 'Door N' (agrega [Locked] cuando necesita llave). Las puertas de salas ya pasadas se ocultan.",
+        ["Marks only the trapped fake doors made by Dupe, labeled 'Dupe [Fake Door]'. Real doors are never tagged as Dupe. It only shows up in rooms where Dupe is active."] = "Marca solo las puertas falsas trampa de Dupe, con la etiqueta 'Dupe [Fake Door]'. Las puertas reales nunca se marcan como Dupe. Solo aparece en salas donde Dupe está activo.",
+        ["Marks the ladders and stairs of The Mines (climbable trusses and objects named Ladder or Stairs). Only available in that mode. Presets leave it off."] = "Marca las escaleras de The Mines (vigas escalables y objetos llamados Ladder o Stairs). Solo disponible en ese modo. Los presets la dejan apagada.",
+        ["Gold piles on the floor. Shows the amount in brackets when the game exposes it."] = "Montones de oro en el suelo. Muestra la cantidad entre corchetes cuando el juego la expone.",
+        ["Keys, Electrical Room keys and Fuses needed to unlock doors or start machinery."] = "Llaves, llaves del Cuarto Eléctrico y Fusibles necesarios para abrir puertas o iniciar maquinaria.",
+        ["Regular, locked and vine-covered chests. Locked chests need a key or lockpicks."] = "Cofres normales, bloqueados y cubiertos de lianas. Los bloqueados necesitan llave o ganzúas.",
+        ["Loot containers: drawers, desks, dressers, cabinets and makeshift drawers. Hidden after you open them (see Hide Looted Containers)."] = "Contenedores de botín: cajones, escritorios, cómodas, gabinetes y cajones improvisados. Se ocultan después de abrirlos (ver Hide Looted Containers).",
+        ["Item lockers, small lockers and toolboxes that contain loot. These are not hiding spots. Hidden after you open them."] = "Casilleros de objetos, casilleros pequeños y cajas de herramientas con botín. No son escondites. Se ocultan después de abrirlos.",
+        ["Pickup items lying around (Flashlight, Lockpicks, Vitamins, Crucifix...). Choose which ones to show in the Item Filter below."] = "Objetos tirados por ahí (Flashlight, Lockpicks, Vitamins, Crucifix...). Elige cuáles mostrar en el Filtro de Objetos de abajo.",
+        ["Stardust pickups (internally StardustPickup). They have their own ESP and never show in ESP Items."] = "Recogibles de Stardust (internamente StardustPickup). Tienen su propio ESP y nunca salen en ESP Items.",
+        ["The rare Glitch Fragment (internally GlitchCube). It has its own ESP and never shows in ESP Items. Glitched Rush, Ambush and Screech are handled by ESP Entities instead."] = "El raro Glitch Fragment (internamente GlitchCube). Tiene su propio ESP y nunca sale en ESP Items. Rush, Ambush y Screech con glitch los maneja ESP Entities.",
+        ["The module for the Scanner. It has its own ESP and never shows in ESP Items (the Scanner item itself is listed in ESP Items). Needs its Dex name in PENDING_DEX_NAMES to be detected."] = "El módulo del Scanner. Tiene su propio ESP y nunca sale en ESP Items (el objeto Scanner en sí está en ESP Items). Necesita su nombre de Dex en PENDING_DEX_NAMES para detectarse.",
+        ["Lotus petals scattered around the Outdoors."] = "Pétalos de loto esparcidos por Outdoors.",
+        ["Places you can hide in: closets, beds, lockers and tool sheds."] = "Lugares donde puedes esconderte: armarios, camas, casilleros y cobertizos.",
+        ["Room puzzle pieces: levers, timer levers, library books, breaker poles, Sally's toy (also when they are inside a drawer) and the Stairwell fire alarm lever."] = "Piezas de puzzles de sala: palancas, palancas de tiempo, libros de biblioteca, postes de breaker, el juguete de Sally (también dentro de un cajón) y la palanca de alarma del Stairwell.",
+        ["Marks the emergency exit sign of the Stairwell rooms. Only available in The Stairwell."] = "Marca el letrero de salida de emergencia de las salas del Stairwell. Solo disponible en The Stairwell.",
+        ["Marks the shopping carts of the Stairwell (inside rooms or loose in the map). Only available in The Stairwell."] = "Marca los carritos de compras del Stairwell (dentro de salas o sueltos en el mapa). Solo disponible en The Stairwell.",
+        ["Monsters that belong to the detected game mode only. Entities from other modes are never shown. Pick which ones in the Entity Filter below."] = "Monstruos que pertenecen solo al modo de juego detectado. Las entidades de otros modos nunca se muestran. Elige cuáles en el Filtro de Entidades de abajo.",
+        ["Marks the other players in your run with their name and distance. Choose display name or username in the Display section."] = "Marca a los otros jugadores de tu partida con su nombre y distancia. Elige nombre visible o usuario en la sección Display.",
+        ["Any other object with an interaction prompt that does not fit another category (in The Stairwell it also marks the Depots). Can be noisy, so presets leave it off."] = "Cualquier otro objeto con un prompt de interacción que no encaje en otra categoría (en The Stairwell también marca los Depots). Puede ser ruidoso, por eso los presets lo dejan apagado.",
+        ["Turns on every ESP of the detected mode when the mode is detected or changes. It never turns anything off."] = "Activa todo el ESP del modo detectado cuando se detecta o cambia el modo. Nunca apaga nada.",
+        ["Objects farther than this many studs are hidden. Entities are always shown, except the ones in the \"Entities with distance limit\" list."] = "Los objetos más lejos que estos studs se ocultan. Las entidades siempre se muestran, salvo las de la lista «Entities with distance limit».",
+        ["Quick distances: 1 Room (about 60 studs / 17 m) or 2 Rooms (about 120 studs / 34 m). It moves the Max Distance slider; you can still adjust it by hand."] = "Distancias rápidas: 1 Habitación (unos 60 studs / 17 m) o 2 Habitaciones (unos 120 studs / 34 m). Mueve el control de Distancia Máxima; aún puedes ajustarlo a mano.",
+        ["Most objects drawn at once (the closest ones win; entities always have priority). Lower it if the game lags, mainly in The Outdoors."] = "Máximo de objetos dibujados a la vez (ganan los más cercanos; las entidades siempre tienen prioridad). Bájalo si el juego lagea, sobre todo en The Outdoors.",
+        ["Hides drawers, lockers and chests once they have been opened or emptied."] = "Oculta cajones, casilleros y cofres una vez abiertos o vaciados.",
+        ["Shows the name label above each marked object."] = "Muestra la etiqueta con el nombre sobre cada objeto marcado.",
+        ["Shows how far each marked object is from you."] = "Muestra a qué distancia está de ti cada objeto marcado.",
+        ["Meters (studs x 0.28) or raw stud values. Only the number is shown, never the word 'studs'."] = "Metros (studs x 0.28) o valores en studs. Solo se muestra el número, nunca la palabra 'studs'.",
+        ["Size of the name and distance labels."] = "Tamaño de las etiquetas de nombre y distancia.",
+        ["Font used by the ESP name and distance labels."] = "Fuente de las etiquetas de nombre y distancia del ESP.",
+        ["0 = outline only, 100 = fully filled highlight."] = "0 = solo contorno, 100 = resaltado completamente relleno.",
+        ["Whether ESP Players shows display names or usernames."] = "Si ESP Players muestra nombres visibles o nombres de usuario.",
+        ["Where the tracer lines start."] = "Dónde empiezan las líneas de los tracers.",
+        ["Line width in pixels."] = "Grosor de la línea en píxeles.",
+        ["Also marks pickups that are not in the list above, using their in-game name."] = "También marca objetos que no están en la lista de arriba, con su nombre dentro del juego.",
+        ["Also marks NEW models that appear in Workspace with an unknown name. Off by default because it can mark objects that are not entities."] = "También marca modelos NUEVOS que aparecen en Workspace con un nombre desconocido. Apagado por defecto porque puede marcar objetos que no son entidades.",
+        ["Also finds entities that live inside rooms (Figure, Seek, Snare, Teller...). Only exact internal names are matched, so decorations are never marked."] = "También encuentra entidades que viven dentro de las salas (Figure, Seek, Snare, Teller...). Solo se aceptan nombres internos exactos, así que las decoraciones nunca se marcan.",
+        ["Records anything the ESP does not recognize (item, entity or prompt) with its full path, so you can report the exact name and get it fixed."] = "Registra todo lo que el ESP no reconoce (objeto, entidad o prompt) con su ruta completa, para que puedas reportar el nombre exacto y arreglarlo.",
+        ["Also logs every object the ESP registers. Needs Debug Mode on and can print a lot."] = "También registra cada objeto que el ESP marca. Necesita Debug Mode activado y puede imprimir mucho.",
+        ["On-screen panel: detected mode, room, GameData and tracked counts."] = "Panel en pantalla: modo detectado, sala, GameData y conteos de seguimiento.",
+        ["Shows a DOORS achievement-style popup with a sound when one of the selected entities appears, for example \"Rush has appeared!\". It works even if ESP Entities is off."] = "Muestra un aviso estilo logro de DOORS con sonido cuando aparece una de las entidades elegidas, por ejemplo «¡Rush ha aparecido!». Funciona aunque ESP Entities esté apagado.",
+        ["R4NS0M Card uses the new card design of the script. Doors Achievement clones the game's own badge popup with the same animation and the badge sound. Custom Toast draws a simple popup if the game's one is missing."] = "R4NS0M Card usa el diseño nuevo de tarjetas del script. Doors Achievement clona el aviso de badge del juego con la misma animación y sonido. Custom Toast dibuja un aviso simple si falta el del juego.",
+        ["Plays a sound with every notification."] = "Reproduce un sonido con cada notificación.",
+        ["Loudness of the notification sound."] = "Volumen del sonido de las notificaciones.",
+        ["How long the popup stays on screen."] = "Cuánto tiempo se queda el aviso en pantalla.",
+        ["Avoids spam when the same entity appears several times in a row (glitched entities, Ambush returns...)."] = "Evita el spam cuando la misma entidad aparece varias veces seguidas (entidades glitched, regresos de Ambush...).",
+        ["Adds a short survival tip under the message (Hide in a closet, Do not look at it...)."] = "Agrega un consejo corto de supervivencia bajo el mensaje (Escóndete en un armario, No la mires...).",
+        ["Roblox audio asset ID to use instead of the default sound. Leave empty for the default."] = "ID de audio de Roblox para usar en vez del sonido por defecto. Déjalo vacío para el sonido por defecto.",
+        ["Roblox image asset ID shown in the popup. Leave empty for the default icon."] = "ID de imagen de Roblox mostrada en el aviso. Déjalo vacío para el icono por defecto.",
+        ["Makes you faster than normal (up to 90)."] = "Te hace más rápido de lo normal (hasta 90).",
+        ["Target speed in studs per second. Doors' normal walk speed is about 16."] = "Velocidad objetivo en studs por segundo. La velocidad normal de DOORS es de unos 16.",
+        ["Velocity (recommended): smooth push that the server tolerates best. CFrame: small position steps. WalkSpeed: changes the value directly (easiest to detect)."] = "Velocity (recomendado): empuje suave que el servidor tolera mejor. CFrame: pasos pequeños de posición. WalkSpeed: cambia el valor directamente (el más fácil de detectar).",
+        ["Changes your real walk speed (1-100). Works together with the Anticheat Bypass."] = "Cambia tu velocidad real al caminar (1-100). Funciona junto con el Anticheat Bypass.",
+        ["Walk speed in studs per second."] = "Velocidad al caminar en studs por segundo.",
+        ["Turns on the game's own jump and lets you set its power, also in places where the game disables it."] = "Activa el salto propio del juego y te deja ajustar su fuerza, también donde el juego lo desactiva.",
+        ["How high you jump."] = "Qué tan alto saltas.",
+        ["Jump again in mid-air every time you press jump."] = "Vuelve a saltar en el aire cada vez que pulsas saltar.",
+        ["Turns on the game's own slide and adds a forward slide with a lowered camera. It stops at walls. Keybind on PC, SLIDE button on mobile."] = "Activa el deslizamiento propio del juego y agrega un deslizamiento hacia delante con la cámara baja. Se detiene en las paredes. Tecla en PC, botón SLIDE en móvil.",
+        ["Starting speed of the slide. It fades out smoothly."] = "Velocidad inicial del deslizamiento. Se apaga suavemente.",
+        ["Fly freely. PC: Space goes up, Left Ctrl goes down. Mobile: look up or down while moving."] = "Vuela libremente. PC: Espacio sube, Ctrl izquierdo baja. Móvil: mira arriba o abajo mientras te mueves.",
+        ["Flight speed in studs per second."] = "Velocidad de vuelo en studs por segundo.",
+        ["Walk through walls and objects. Simple version: for the careful one, use the Anticheat Manipulator."] = "Atraviesa paredes y objetos. Versión simple: para la cuidadosa, usa el Anticheat Manipulator.",
+        ["Removes darkness so you can see everything. Brightness and ambient light are adjustable below."] = "Quita la oscuridad para que veas todo. El brillo y la luz ambiental se ajustan abajo.",
+        ["Lighting brightness while Fullbright is on (0 = dark, 10 = very bright). The game's default is about 2."] = "Brillo de la iluminación mientras Fullbright está activo (0 = oscuro, 10 = muy brillante). El valor por defecto del juego es cerca de 2.",
+        ["How strong the flat ambient light is. Lower it for a darker, more natural look; raise it to see everything."] = "Qué tan fuerte es la luz ambiental plana. Bájala para un aspecto más oscuro y natural; súbela para verlo todo.",
+        ["Removes the fog and the atmosphere haze. Works with or without Fullbright."] = "Quita la niebla y la bruma atmosférica. Funciona con o sin Fullbright.",
+        ["A bot plays the floor for you. It walks (no teleports), jumps, crouches and moves your camera. It loots, grabs the key when a door is locked, opens doors and hides in a closet before Rush / Ambush / A-60 / A-120 reach you. Risky. If nothing below is selected it applies the recommended setup for the mode."] = "Un bot juega el piso por ti. Camina (sin teletransportes), salta, se agacha y mueve tu cámara. Recoge botín, toma la llave cuando una puerta está cerrada, abre puertas y se esconde en un armario antes de Rush / Ambush / A-60 / A-120.",
+        ["Preset of options, timings and bot speed. Press Apply Profile to use it (it only enables what exists in the current mode)."] = "Preset de opciones, tiempos y velocidad del bot. Pulsa Apply Profile para usarlo (solo activa lo que existe en el modo actual).",
+        ["The bot walks with the Bot Speed below (a real walk speed hack). Turn it off to walk at your normal speed."] = "El bot camina con la Bot Speed de abajo (un speed hack real). Apágalo para caminar a tu velocidad normal.",
+        ["Walk speed of the bot in studs per second (4 - 100). Very high values can trigger the anticheat: use it with the Anticheat Bypass. It drops to a slow walk while sneaking past a Figure."] = "Velocidad del bot en studs por segundo (4 - 100). Valores muy altos pueden activar el anticheat: úsalo con el Anticheat Bypass. Baja a un paso lento al pasar sigilosamente junto a un Figure.",
+        ["The bot turns your camera towards where it walks and what it interacts with. Turn it off if you want to keep control of the camera."] = "El bot gira tu cámara hacia donde camina y lo que interactúa. Apágalo si quieres conservar el control de la cámara.",
+        ["How fast the camera turns (2 = slow and smooth, 30 = instant)."] = "Qué tan rápido gira la cámara (2 = lento y suave, 30 = instantáneo).",
+        ["Lets the bot jump over low obstacles and where the path asks for it. It never jumps while Strong Position Spoof has the jump locked."] = "Deja que el bot salte obstáculos bajos y donde el camino lo pida. Nunca salta mientras Strong Position Spoof tenga el salto bloqueado.",
+        ["Lets the bot crouch under low ceilings and sneak while a Figure is in the room."] = "Deja que el bot se agache bajo techos bajos y vaya sigiloso mientras hay un Figure en la sala.",
+        ["Safety margin: the bot starts walking to a closet this many seconds before the entity would reach it."] = "Margen de seguridad: el bot empieza a caminar a un armario estos segundos antes de que la entidad lo alcance.",
+        ["When the path is blocked the bot uses a ladder (never while an entity is close)."] = "Cuando el camino está bloqueado el bot usa una escalera (nunca con una entidad cerca).",
+        ["Only works in Room 0. The bot collects all the gold and drawers of the first room, then starts the Knob Farm by itself."] = "Solo funciona en la Sala 0. El bot recoge todo el oro y los cajones de la primera sala y luego inicia el Knob Farm solo.",
+        ["Only after 5 failed auto-fixes in a row the bot may teleport next to the room entrance. Off = the bot never teleports."] = "Solo tras 5 auto-arreglos fallidos seguidos el bot puede teletransportarse junto a la entrada de la sala. Apagado = el bot nunca se teletransporta.",
+        ["Walks to the next door and opens it when the room is done."] = "Camina a la siguiente puerta y la abre cuando la sala está lista.",
+        ["Collects every gold pile and stardust in the room."] = "Recoge todos los montones de oro y stardust de la sala.",
+        ["Opens every drawer and takes what is inside."] = "Abre cada cajón y toma lo que hay dentro.",
+        ["Opens chests, toolboxes and lockers (locked ones are skipped)."] = "Abre cofres, cajas de herramientas y casilleros (los bloqueados se saltan).",
+        ["Takes the door key and uses it on locked doors. If a door is locked and you have no key, the bot loots the room (drawers, chests, gold...) until it finds one."] = "Toma la llave de la puerta y la usa en puertas cerradas. Si una puerta está cerrada y no tienes llave, el bot saquea la sala (cajones, cofres, oro...) hasta encontrarla.",
+        ["When a door is locked it keeps looking for the key even after the room time is over (library, puzzles...)."] = "Cuando una puerta está cerrada sigue buscando la llave incluso después de que acabe el tiempo de la sala (biblioteca, puzzles...).",
+        ["Picks up items (uses the Auto Interact ignored items list)."] = "Recoge objetos (usa la lista de objetos ignorados del Auto Interact).",
+        ["Predicts when Rush, Ambush, A-60, A-120 and similar reach you, walks to a closet and gets inside before they arrive, then leaves by itself. With no closet nearby it uses Position Spoof."] = "Predice cuándo Rush, Ambush, A-60, A-120 y similares te alcanzan, camina a un armario y entra antes de que lleguen, luego sale solo. Sin armario cerca usa Position Spoof.",
+        ["Turns on Auto Library, Auto Padlock, Auto Breaker Room and Auto Anchors for the mode."] = "Activa Auto Library, Auto Padlock, Auto Breaker Room y Auto Anchors según el modo.",
+        ["Skips the Seek sections (Hotel / Mines)."] = "Se salta las secciones de Seek (Hotel / Mines).",
+        ["If a door does not open with its prompt, it asks the door to open directly."] = "Si una puerta no abre con su prompt, le pide que abra directamente.",
+        ["Wait between actions. Lower is faster but riskier."] = "Espera entre acciones. Más bajo es más rápido pero más arriesgado.",
+        ["After this long it stops looting the room and moves on."] = "Pasado este tiempo deja de saquear la sala y sigue adelante.",
+        ["How many times it tries an item, drawer or chest before giving up on it."] = "Cuántas veces intenta con un objeto, cajón o cofre antes de rendirse.",
+        ["Nearest First goes to the closest target. Keys & Gold First takes keys, then gold, then everything else."] = "Nearest First va al objetivo más cercano. Keys & Gold First toma llaves, luego oro, luego todo lo demás.",
+        ["Detects when nothing advances and fixes it step by step: resets targets, leaves the closet, restarts helpers, forces the door and shakes the bot loose."] = "Detecta cuando nada avanza y lo arregla paso a paso: reinicia objetivos, sale del armario, reinicia ayudantes, fuerza la puerta y sacude al bot para soltarlo.",
+        ["Seconds without progress before the watchdog acts."] = "Segundos sin progreso antes de que el vigilante actúe.",
+        ["Longest it waits inside a closet before it carries on anyway."] = "Lo máximo que espera dentro de un armario antes de seguir de todos modos.",
+        ["Turns Auto Doors off when you die."] = "Apaga Auto Doors cuando mueres.",
+        ["Turns Auto Doors off when this room is reached."] = "Apaga Auto Doors al llegar a esta sala.",
+        ["Turns Auto Doors off after this much time running."] = "Apaga Auto Doors después de tanto tiempo funcionando.",
+        ["Turns Auto Doors off if your health drops under this percentage."] = "Apaga Auto Doors si tu vida baja de este porcentaje.",
+        ["Shows notifications for mode, auto-fixes and when it stops. Important warnings always show."] = "Muestra notificaciones del modo, auto-arreglos y cuando se detiene. Las advertencias importantes siempre se muestran.",
+        ["Small on-screen panel with the mode, room, current action and statistics."] = "Pequeño panel en pantalla con el modo, la sala, la acción actual y estadísticas.",
+        ["Removes the hold time of every interaction prompt (doors, drawers, levers, items...). Turning it off restores the original times."] = "Quita el tiempo de mantener de cada prompt de interacción (puertas, cajones, palancas, objetos...). Apagarlo restaura los tiempos originales.",
+        ["Main switch. PC: keybind (Keybinds tab). Mobile: the ACM floating button."] = "Interruptor principal. PC: tecla (pestaña Keybinds). Móvil: el botón flotante ACM.",
+        ["Velocity: a tiny forward push (recommended). Pivot: moves the character relative to the camera."] = "Velocity: un pequeño empuje hacia delante (recomendado). Pivot: mueve el personaje respecto a la cámara.",
+        ["If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot."] = "Si caes muy por debajo de tu último punto seguro mientras atraviesas, haces noclip o vuelas, se te devuelve a ese punto.",
+        ["Completely disables the anticheat, after interacting with a ladder. It comes back after a cutscene, a Halt room, Void or Glitch: use a ladder again."] = "Desactiva por completo el anticheat, después de interactuar con una escalera. Vuelve tras una cinemática, una sala de Halt, Void o Glitch: usa una escalera otra vez.",
+        ["Moves your real position underground while your body stays visible at floor level for other players, so they see you standing normally. Protects you from rush-like entities."] = "Mueve tu posición real bajo tierra mientras tu cuerpo sigue visible a nivel del suelo para los demás jugadores, así te ven de pie normal. Te protege de entidades tipo Rush.",
+        ["Makes the game think you are always crouching."] = "Hace que el juego crea que siempre estás agachado.",
+        ["Makes Position Spoof hold up: while an entity is in kill range it locks jumping, pushes you back down when a step, a jump or a boost lifts you, and blocks ladder prompts. Needs Position Spoof on."] = "Hace que Position Spoof aguante: mientras una entidad está en rango de matar bloquea el salto, te empuja hacia abajo cuando un escalón, un salto o un impulso te sube, y bloquea los prompts de escalera. Necesita Position Spoof activo.",
+        ["When you use a ladder the anticheat bypass does its trick and your speed hacks (Speed, Speed Hack, Velocity Manipulation, Noclip, Fly) pause. They come back on their own when you finish climbing. Only affects the ones you have on."] = "Cuando usas una escalera el bypass del anticheat hace su truco y tus speed hacks (Speed, Speed Hack, Velocity Manipulation, Noclip, Fly) se pausan. Vuelven solos cuando terminas de subir.",
+        ["Prevents the 'Figure' minigame from ever failing."] = "Evita que el minijuego de 'Figure' falle alguna vez.",
+        ["Disables the 'Seek' chase trigger (Old Hotel / Fools)."] = "Desactiva el disparador de persecución de 'Seek' (Old Hotel / Fools).",
+        ["Completely removes the entity 'Figure' (doesn't always work)."] = "Quita por completo la entidad 'Figure' (no siempre funciona).",
+        ["Automatically revives after dying, with unlimited respawns (Old Hotel / Fools)."] = "Revive automáticamente tras morir, con reapariciones ilimitadas (Old Hotel / Fools).",
+        ["Prevents 'Figure' from hurting you (all floors: underground spoof while a Figure is near)."] = "Evita que 'Figure' te haga daño (todos los pisos: spoof bajo tierra mientras hay un Figure cerca).",
+        ["Removes the gate from basement rooms."] = "Quita la reja de las salas del sótano.",
+        ["Removes the fireplace doors from painting rooms."] = "Quita las puertas de la chimenea de las salas de pinturas.",
+        ["Removes the skeleton door from the infirmary."] = "Quita la puerta de esqueleto de la enfermería.",
+        ["Automatically solves the elevator breaker box. Interact with it once and the rest is done for you."] = "Resuelve automáticamente la caja de breakers del elevador. Interactúa con ella una vez y el resto se hace solo.",
+        ["Automatically triggers nearby prompts (items, gold, levers...). It skips hiding spots, locks, dropped items, glitch fragments and fake doors."] = "Activa automáticamente los prompts cercanos (objetos, oro, palancas...). Se salta escondites, candados, objetos soltados, fragmentos glitch y puertas falsas.",
+        ["Lets the selected items open locks, vines and chests without losing uses. Needs fireproximityprompt. Works by hiding the real lock prompt and replacing it with a fake one."] = "Deja que los objetos elegidos abran candados, lianas y cofres sin gastar usos. Necesita fireproximityprompt. Funciona ocultando el prompt real del candado y reemplazándolo por uno falso.",
+        ["Multiplies how far away you can interact with prompts (1 = normal)."] = "Multiplica a qué distancia puedes interactuar con los prompts (1 = normal).",
+        ["Lets you interact with prompts through walls."] = "Te deja interactuar con los prompts a través de las paredes.",
+        ["Opens doors from further away (up to 75 studs)."] = "Abre puertas desde más lejos (hasta 75 studs).",
+        ["Shows how much oxygen you have left every time it drops."] = "Muestra cuánto oxígeno te queda cada vez que baja.",
+        ["Shows the time remaining before 'Haste' spawns."] = "Muestra el tiempo que falta para que aparezca 'Haste'.",
+        ["Removes the short window where you can't exit a closet after the animation finishes."] = "Quita la breve ventana en la que no puedes salir de un armario cuando termina la animación.",
+        ["Your character stops right away instead of sliding while moving."] = "Tu personaje se detiene al instante en vez de deslizarse al moverte.",
+        ["Mutes the sound of walking."] = "Silencia el sonido de caminar.",
+        ["Mutes the sounds of interacting with prompts. Turning it off restores them."] = "Silencia los sonidos de interactuar con prompts. Apagarlo los restaura.",
+        ["Prevents the kick for being idle for 20 minutes."] = "Evita la expulsión por inactividad de 20 minutos.",
+        ["Disables the scripts that make Meld grow. Ropes and doors are not removed."] = "Desactiva los scripts que hacen crecer a Meld. Las cuerdas y puertas no se quitan.",
+        ["Hides Meld and removes its collision/touch, except its ropes and doors."] = "Oculta a Meld y quita su colisión/contacto, excepto sus cuerdas y puertas.",
+        ["Small draggable buttons for ACM, SLIDE and FLY. On by default on touch devices."] = "Botones pequeños y movibles para ACM, SLIDE y FLY. Activado por defecto en dispositivos táctiles.",
+        ["Show the ACM floating button."] = "Muestra el botón flotante ACM.",
+        ["Show the FLY floating button."] = "Muestra el botón flotante FLY.",
+        ["Show the SPD (Speed Hack) floating button."] = "Muestra el botón flotante SPD (Speed Hack).",
+        ["Completes the Seek minecart chase (Mines floor 2): steers at each turn and crouches under boards."] = "Completa la persecución de Seek en vagoneta (Mines piso 2): gira en cada curva y se agacha bajo las tablas.",
+        ["Tries random codes on the padlock in room 50, keeping the digits you already know. You still need to collect some books."] = "Prueba códigos al azar en el candado de la sala 50, conservando los dígitos que ya conoces. Aún debes recoger algunos libros.",
+        ["Shows the 5 digits at the bottom of the screen (_ for the ones you don't have yet; you need the paper and the matching books). Hides when door 51 opens, and notifies when complete."] = "Muestra los 5 dígitos en la parte inferior de la pantalla (_ para los que aún no tienes; necesitas el papel y los libros correspondientes). Se oculta cuando abre la puerta 51 y avisa al completarse.",
+        ["Draws the correct path during the Seek chase."] = "Dibuja el camino correcto durante la persecución de Seek.",
+        ["Draws the safe path to the exit in Eyestalk rooms (calculated from where you stand)."] = "Dibuja el camino seguro a la salida en salas de Eyestalk (calculado desde donde estás).",
+        ["Lines draws a continuous line; Nodes draws one ball per point."] = "Lines dibuja una línea continua; Nodes dibuja una bola por punto.",
+        ["Shows a notification when a selected item appears in the level."] = "Muestra una notificación cuando aparece en el nivel un objeto elegido.",
+        ["Also notifies pickups that are not in the list below."] = "También avisa de objetos que no están en la lista de abajo.",
+        ["Risky! Drops and picks the Crucifix up again when an entity is close so it never breaks. You can die or lose it; low ping recommended."] = "¡Arriesgado! Suelta y vuelve a recoger el Crucifix cuando una entidad está cerca para que nunca se rompa. Puedes morir o perderlo; se recomienda ping bajo.",
+        ["Skips the Figure, Seek and Eyestalk cutscenes."] = "Se salta las cinemáticas de Figure, Seek y Eyestalk.",
+        ["Disables the jumpscares of entities like Rush and Ambush."] = "Desactiva los sustos de entidades como Rush y Ambush.",
+        ["Removes the firedamp screen effect."] = "Quita el efecto de pantalla del grisú.",
+        ["Experimental. Disables the Seek jumpscare, bypasses its obstacles, deletes the trigger where supported (Old Hotel / Fools) and moves you underground automatically while the chase is running."] = "Experimental. Desactiva el susto de Seek, esquiva sus obstáculos, borra el disparador donde se puede (Old Hotel / Fools) y te mueve bajo tierra automáticamente mientras dura la persecución.",
+        ["Experimental. Crouch Spoof + Auto Heartbeat Minigame + Figure Godmode, and moves you underground automatically while a Figure is near."] = "Experimental. Crouch Spoof + Auto Heartbeat Minigame + Figure Godmode, y te mueve bajo tierra automáticamente mientras hay un Figure cerca.",
+        ["Turns Position Spoof on only while a Rush-like entity (Rush, Ambush, A-60, A-120, Glitch...) exists, and returns you to normal as soon as it despawns. Leave the manual Position Spoof off to use it."] = "Activa Position Spoof solo mientras exista una entidad tipo Rush (Rush, Ambush, A-60, A-120, Glitch...) y te devuelve a la normalidad en cuanto desaparece. Deja apagado el Position Spoof manual para usarlo.",
+        ["Notifies as soon as Ransom enters the Workspace, before its jumpscare reaches you."] = "Avisa en cuanto Ransom entra al Workspace, antes de que su susto te alcance.",
+        ["Draws fewer Highlights (the nearest ones first), fewer objects and refreshes slower. Use it if the game lags."] = "Dibuja menos Highlights (primero los más cercanos), menos objetos y refresca más lento. Úsalo si el juego lagea.",
+        ["Lightens the ESP by itself when your FPS drops, and restores it when they recover."] = "Aligera el ESP solo cuando bajan tus FPS y lo restaura cuando se recuperan.",
+        ["How many times per second the ESP updates (lower = less lag)."] = "Cuántas veces por segundo se actualiza el ESP (más bajo = menos lag).",
+        ["Tells you when an entity you were notified about is gone. Uses the same entity selection as the spawn alerts."] = "Te avisa cuando una entidad de la que te avisaron ya no está. Usa la misma selección de entidades que los avisos de aparición.",
+        ["Shows the timer on screen. Drag its title bar to move it anywhere."] = "Muestra el cronómetro en pantalla. Arrastra su barra de título para moverlo a donde quieras.",
+        ["Preset corners and edges. Dragging the title bar overrides it."] = "Esquinas y bordes predefinidos. Arrastrar la barra de título lo reemplaza.",
+        ["Scales the whole timer."] = "Escala todo el cronómetro.",
+        ["How solid the timer background is."] = "Qué tan sólido es el fondo del cronómetro.",
+        ["Shows the last room splits with their difference against your personal best."] = "Muestra los últimos parciales de sala con su diferencia respecto a tu mejor marca.",
+        ["Shows the Start / Stop / Reset buttons on the timer (useful on mobile)."] = "Muestra los botones Start / Stop / Reset en el cronómetro (útil en móvil).",
+        ["Starts by itself the first time you move: joystick, WASD / arrows, jump, crouch or Anticheat Manipulation. Moving the camera does not count."] = "Inicia solo la primera vez que te mueves: joystick, WASD / flechas, salto, agacharte o Anticheat Manipulation. Mover la cámara no cuenta.",
+        ["Records a split each time you enter a new room."] = "Registra un parcial cada vez que entras a una sala nueva.",
+        ["Stops the timer by itself when the game ends: final cutscene (Hotel door 100, Mines door 200), end screen or when the game sends you back to the lobby."] = "Detiene el cronómetro solo cuando termina el juego: cinemática final (puerta 100 de Hotel, puerta 200 de Mines), pantalla final o cuando el juego te manda al lobby.",
+        ["Also stops the timer if you stay dead for 3 seconds (a revive keeps it running)."] = "También detiene el cronómetro si sigues muerto 3 segundos (una revivida lo mantiene corriendo).",
+        ["Finishes the run when you reach this room (0 = off)."] = "Termina la partida al llegar a esta sala (0 = apagado).",
+        ["Also marks Stairwell doors and items that the normal scan missed (needs ESP Doors / Items on)."] = "También marca puertas y objetos del Stairwell que el escaneo normal no encontró (necesita ESP Doors / Items activos).",
+        ["Brings the dropped items to you every X seconds (interval below)."] = "Trae los objetos soltados hacia ti cada X segundos (intervalo abajo).",
+        ["How often the automatic bring / scrap runs (0 = every frame-ish)."] = "Cada cuánto se ejecuta el traer / chatarrear automático (0 = casi cada frame).",
+        ["Keeps sending dropped items to the nearest Grinder (uses the interval above)."] = "Sigue enviando objetos soltados al Grinder más cercano (usa el intervalo de arriba).",
+        ["Shows how many dropped items there are on the screen."] = "Muestra en pantalla cuántos objetos soltados hay.",
+        ["Orbits the dropped items around you. Every 10s they are brought to you so they do not despawn."] = "Hace orbitar los objetos soltados a tu alrededor. Cada 10s se traen hacia ti para que no desaparezcan.",
+        ["Height of the orbit."] = "Altura de la órbita.",
+        ["Distance of the orbit."] = "Distancia de la órbita.",
+        ["Speed of the orbit."] = "Velocidad de la órbita.",
+        ["Goes to every landing trash item, picks it up and drops it so it becomes a dropped item. Combine with Orbit / Auto Scrap / Bring Dropped Items."] = "Va a cada basura que cae, la recoge y la suelta para que se vuelva un objeto soltado. Combínalo con Orbit / Auto Scrap / Bring Dropped Items.",
+        ["Turns off the collision and the kill triggers of the Crushers (the basic wall stays)."] = "Quita la colisión y los disparadores de muerte de los Crushers (la pared básica se queda).",
+        ["Deletes the Crushers completely (except the basic wall)."] = "Borra los Crushers por completo (excepto la pared básica).",
+        ["Deletes Meld's walls, pads and data folders in every loaded room."] = "Borra las paredes, plataformas y carpetas de datos de Meld en cada sala cargada.",
+        ["Sends the Noise TV underground while you hold it (it breaks for everyone, the server sees it)."] = "Manda el Noise TV bajo tierra mientras lo sostienes (se rompe para todos, el servidor lo ve).",
+        ["Keeps every cart on top of Creak so it glitches out. DO NOT touch the carts yourself."] = "Mantiene cada carrito encima de Creak para que se glitchee. NO toques los carritos tú mismo.",
+        ["Shows Creak's aggression percentage at the bottom of the screen while it is near you."] = "Muestra el porcentaje de agresión de Creak en la parte inferior de la pantalla mientras está cerca de ti.",
+        ["How close (in studs) Creak must be for the text to appear."] = "Qué tan cerca (en studs) debe estar Creak para que aparezca el texto.",
+        ["Marks the boxes of the Honcho room that match a deposit, and the deposits themselves (needs ESP Items on). Also marks matching boxes that were dropped."] = "Marca las cajas de la sala de Honcho que coinciden con un depósito, y los depósitos mismos (necesita ESP Items activo). También marca las cajas coincidentes que fueron soltadas.",
+        ["When you hold a correct box and stand within 10 studs of its deposit, the deposit prompt is pressed for you."] = "Cuando sostienes una caja correcta y estás a menos de 10 studs de su depósito, el prompt del depósito se pulsa por ti.",
+        ["Teleports to each correct box, picks it up and delivers it to its deposit, then returns you. Stops by itself when no box is left."] = "Se teletransporta a cada caja correcta, la recoge y la entrega en su depósito, luego te devuelve. Se detiene solo cuando no queda ninguna caja.",
+        ["Keeps telling the clock that you looked at it, which stops the Drones Stampede from attacking you."] = "Le sigue diciendo al reloj que lo miraste, lo que evita que Drones Stampede te ataque.",
+        ["Shows the Archives clock time at the bottom of the screen."] = "Muestra la hora del reloj de Archives en la parte inferior de la pantalla.",
+        ["Deletes Ransom as soon as it appears."] = "Borra a Ransom en cuanto aparece.",
+        ["Deletes the trash that falls from the closets (binders, shoes, shelves)."] = "Borra la basura que cae de los armarios (carpetas, zapatos, estantes).",
+        ["Puts a safe platform over the electric water of each room. Position Spoof breaks it, so keep that off."] = "Pone una plataforma segura sobre el agua eléctrica de cada sala. Position Spoof la rompe, así que déjalo apagado.",
+        ["Fires the Forget-Me-Not looks and opens the hidden door of the next room, then sends you to the void while it resolves. Use together with the Anticheat Bypass."] = "Dispara las miradas de Forget-Me-Not y abre la puerta oculta de la siguiente sala, luego te manda al vacío mientras se resuelve. Úsalo junto con el Anticheat Bypass.",
+        ["Marks Forget-Me-Not anomalies (needs ESP Entities on)."] = "Marca las anomalías de Forget-Me-Not (necesita ESP Entities activo).",
+        ["Tells you whether to go back or forward (and how many rooms) when an anomaly is found."] = "Te dice si ir hacia atrás o hacia delante (y cuántas salas) cuando se encuentra una anomalía.",
+        ["Prevents 'Drones' from attacking you (removes their hit detection, disables their touch parts and blocks the ragdoll)."] = "Evita que 'Drones' te ataque (quita su detección de golpes, desactiva sus partes de contacto y bloquea el ragdoll).",
+        ["Prevents 'Alma' from spawning (deletes it as soon as it appears)."] = "Evita que 'Alma' aparezca (la borra en cuanto aparece).",
+        ["Disables the touch parts of 'Scribbles' and removes its exploit check. Use together with Bypass Scribbles."] = "Desactiva las partes de contacto de 'Scribbles' y quita su revisión de exploits. Úsalo junto con Bypass Scribbles.",
+        ["Mutes and hides 'Noise' and its TV and disables their touch parts so it cannot hurt you."] = "Silencia y oculta 'Noise' y su TV y desactiva sus partes de contacto para que no pueda hacerte daño.",
+        ["Presses the buttons of the Alma minigame screen automatically (best effort)."] = "Pulsa automáticamente los botones de la pantalla del minijuego de Alma (mejor esfuerzo).",
+        ["Adds [current/your ticket] to the Teller ESP, e.g. [2/37]."] = "Agrega [actual/tu boleto] al ESP del Teller, por ejemplo [2/37].",
+        ["Notifies when the Teller reaches your ticket number."] = "Avisa cuando el Teller llega a tu número de boleto.",
+        ["Raises FPS without deleting textures or changing how the game looks up close: shadows of far lights and far particles are paused and come back as you get close. Turning it off restores everything."] = "Sube los FPS sin borrar texturas ni cambiar cómo se ve el juego de cerca: las sombras de luces lejanas y las partículas lejanas se pausan y vuelven al acercarte. Apagarlo lo restaura todo.",
+        ["Balanced: only far shadows and particles. Strong: closer limits, also pauses far trails/beams/smoke, turns off sun rays and depth of field and lowers the render quality a bit."] = "Balanced: solo sombras y partículas lejanas. Strong: límites más cercanos, también pausa rastros/rayos/humo lejanos, apaga rayos de sol y profundidad de campo y baja un poco la calidad de render.",
+        ["Applies the Field of View slider below. Turn it off to go back to the normal FOV."] = "Aplica el control de Field of View de abajo. Apágalo para volver al FOV normal.",
+        ["Camera field of view (1 - 120)."] = "Campo de visión de la cámara (1 - 120).",
+        ["Moves the camera behind your character so you can see yourself. Offsets below."] = "Mueve la cámara detrás de tu personaje para que te veas. Ajustes abajo.",
+        ["Left / right."] = "Izquierda / derecha.",
+        ["Up / down."] = "Arriba / abajo.",
+        ["Distance behind you."] = "Distancia detrás de ti.",
+        ["Stops the camera from shaking."] = "Evita que la cámara tiemble.",
+        ["Stops the camera from bobbing while you walk."] = "Evita que la cámara se balancee al caminar.",
+        ["Makes the hiding spot you are inside of see-through."] = "Hace transparente el escondite en el que estás.",
+        ["How see-through the hiding spot becomes (0 - 100)."] = "Qué tan transparente se vuelve el escondite (0 - 100).",
+        ["Removes the dark screen effect while hiding."] = "Quita el efecto de pantalla oscura al esconderte.",
+        ["Disables the jumpscare of Glitch."] = "Desactiva el susto de Glitch.",
+        ["Disables the jumpscare of Timothy."] = "Desactiva el susto de Timothy.",
+        ["Disables the jumpscare of Void."] = "Desactiva el susto de Void.",
+        ["Mutes the music of the Jammin modifier."] = "Silencia la música del modificador Jammin.",
+        ["Mutes the sounds of proximity prompts."] = "Silencia los sonidos de los prompts de proximidad.",
+        ["Keeps teleporting you to the next closed door. Can trigger the anticheat: use it with the Anticheat Bypass."] = "Te sigue teletransportando a la siguiente puerta cerrada. Puede activar el anticheat: úsalo con el Anticheat Bypass.",
+        ["Seek, Honcho or Figure."] = "Seek, Honcho o Figure.",
+        ["Turns the transformation on / off. It always starts off."] = "Activa / desactiva la transformación. Siempre empieza apagada.",
+        ["Size of the model in percent (10 - 300)."] = "Tamaño del modelo en porcentaje (10 - 300).",
+        ["Moves the model up or down if it floats or sinks."] = "Sube o baja el modelo si flota o se hunde.",
+        ["If the model walks sideways or backwards, change where it looks."] = "Si el modelo camina de lado o hacia atrás, cambia hacia dónde mira.",
+        ["Hides your own body (only for you) while transformed."] = "Oculta tu propio cuerpo (solo para ti) mientras estás transformado.",
+        ["Moves the camera behind you so you can see the model. Your old camera mode comes back when you revert."] = "Mueve la cámara detrás de ti para que veas el modelo. Tu modo de cámara anterior vuelve al revertir.",
+        ["Plays the looping sounds of the real entity while you are transformed."] = "Reproduce los sonidos en bucle de la entidad real mientras estás transformado.",
+        ["Plays the idle / walk animations of the model when it has them."] = "Reproduce las animaciones de reposo / caminar del modelo cuando las tiene.",
+        ["Every ESP (objects, entities, players, doors, gold...) cycles through the rainbow colors. Turn it off to go back to your colors."] = "Todo el ESP (objetos, entidades, jugadores, puertas, oro...) recorre los colores del arcoíris. Apágalo para volver a tus colores.",
+        ["How fast the colors change (1 slow - 10 fast)."] = "Qué tan rápido cambian los colores (1 lento - 10 rápido).",
+        ["Adapts how much work the script does per frame to your FPS (room loading, ESP updates). Always recommended."] = "Adapta cuánto trabajo hace el script por frame según tus FPS (carga de salas, actualizaciones del ESP). Siempre recomendado.",
+        ["If your FPS stay very low it lightens the ESP (fewer Highlights, slower refresh, rainbow paused) and restores it when they recover."] = "Si tus FPS se quedan muy bajos aligera el ESP (menos Highlights, refresco más lento, arcoíris en pausa) y lo restaura cuando se recuperan.",
+        ["Recommended Presets"] = "Presets Recomendados",
+        ["Mode Preset"] = "Preset de Modo",
+        ["Apply Mode Preset"] = "Aplicar Preset de Modo",
+        ["Distance Preset"] = "Preset de Distancia",
         ["Interface"] = "Interfaz",
         ["UI Theme"] = "Tema de la UI",
         ["UI Library"] = "Librería de la UI",
@@ -1495,6 +1867,358 @@ R4N_I18N = {
         ["Ladder Safe Mode"] = "Безопасный режим лестниц",
         ["Knob Farm Auto Start"] = "Автозапуск фарма ручек",
         ["Fun"] = "Веселье",
+        ["Arrows"] = "Стрелки",
+        ["ESP Arrows"] = "Стрелки ESP",
+        ["Arrow Radius"] = "Радиус стрелок",
+        ["Draws an arrow at the edge of the screen pointing to every marked object that is off screen."] = "Рисует у края экрана стрелку на каждый отмеченный объект вне экрана.",
+        ["How far from the center of the screen the arrows are drawn."] = "Как далеко от центра экрана рисуются стрелки.",
+        ["This tab has no features yet."] = "В этой вкладке пока нет функций.",
+        ["Reading game data..."] = "Чтение данных игры...",
+        ["A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.6"] = "Специальный скрипт для DOORS от Team CHX (созданный 2 разработчиками).\nВерсия: 1.0.6",
+        ["Visuals: ESP, chase paths (Seek / Eyestalk) and lighting.\n"] = "Visuals: ESP, пути погони (Seek / Eyestalk) и освещение.\n",
+        ["Features marked experimental may fail on some floors: check the console if something does not respond.\n"] = "Функции с пометкой «экспериментально» могут не работать на некоторых этажах: проверьте консоль, если что-то не отвечает.\n",
+        ["The script detects the game mode when it starts and only loads the ESP options and detectors that mode needs. "] = "Скрипт определяет режим игры при запуске и загружает только те опции ESP и детекторы, которые нужны этому режиму. ",
+        ["Reads the game data again. Use it if the mode was not detected correctly on load."] = "Заново читает данные игры. Используйте, если режим определился неверно при загрузке.",
+        ["Forces the script to use a specific mode instead of auto-detecting it. Choose Auto (detect) to go back to normal detection (the Lobby is detected automatically)."] = "Заставляет скрипт использовать конкретный режим вместо автоопределения. Выберите Auto (detect), чтобы вернуться к обычному определению (лобби определяется автоматически).",
+        ["One-click: enables every ESP category that exists in the detected mode (Interactables stays off)."] = "Один клик: включает все категории ESP, существующие в определённом режиме (Interactables остаётся выключенным).",
+        ["Turn tracers on only for the ESP you want using the 'Tracer: ...' toggle under each category above. Origin and thickness below apply to all of them."] = "Включайте трейсеры только для нужного ESP переключателем 'Tracer: ...' в каждой категории. Начало и толщина ниже действуют на все.",
+        ["Choose which items ESP Items marks. Unchecked items stay hidden."] = "Выберите, какие предметы отмечает ESP Items. Снятые с отметки остаются скрытыми.",
+        ["Show every item in the list."] = "Показать все предметы из списка.",
+        ["Hide every listed item (useful to pick just a few afterwards)."] = "Скрыть все предметы из списка (удобно, чтобы потом выбрать несколько).",
+        ["Only lists the entities of the detected mode. Unchecked entities are not marked."] = "Показывает только сущности определённого режима. Снятые с отметки сущности не отмечаются.",
+        ["Show every entity of this mode."] = "Показать все сущности этого режима.",
+        ["Hide every entity (useful to pick just a few afterwards)."] = "Скрыть всех сущностей (удобно, чтобы потом выбрать несколько).",
+        ["Shows how many objects are tracked per category right now."] = "Показывает, сколько объектов сейчас отслеживается по категориям.",
+        ["Copies everything logged so far to the clipboard."] = "Копирует в буфер обмена всё записанное на данный момент.",
+        ["Copies the detected mode, GameData values, room names and Workspace contents. Send it when the mode is detected wrong."] = "Копирует определённый режим, значения GameData, названия комнат и содержимое Workspace. Отправьте, если режим определён неверно.",
+        ["Copies the names/paths of models and prompts around you. Stand next to the thing that fails and press it."] = "Копирует названия/пути моделей и подсказок вокруг вас. Встаньте рядом с тем, что не работает, и нажмите.",
+        ["Only the entities of the detected mode are listed. Harmless or low-value ones (Timothy, Snare, Bob, Jeff...) start unchecked, but you can turn them on."] = "Перечислены только сущности определённого режима. Безвредные или малоценные (Timothy, Snare, Bob, Jeff...) изначально сняты с отметки, но их можно включить.",
+        ["Checks only the dangerous entities of this mode."] = "Отмечает только опасных сущностей этого режима.",
+        ["Notify about every entity of this mode."] = "Уведомлять обо всех сущностях этого режима.",
+        ["Uncheck every entity."] = "Снять отметку со всех сущностей.",
+        ["Shows a sample \"Rush has appeared!\" popup using your current settings."] = "Показывает пример окна «Rush появился!» с вашими текущими настройками.",
+        ["Applies the selected profile to the options and sliders below."] = "Применяет выбранный профиль к опциям и ползункам ниже.",
+        ["Selects the best options below for the mode you are in."] = "Выбирает лучшие опции ниже для вашего режима.",
+        ["Shows the detected mode, the room, what the bot is doing and the session statistics."] = "Показывает определённый режим, комнату, действия бота и статистику сессии.",
+        ["Runs the auto-fix right now (only while Auto Doors is on)."] = "Запускает автоисправление прямо сейчас (только при включённом Auto Doors).",
+        ["Resets the doors / loot / hides / auto-fix counters and the timer."] = "Сбрасывает счётчики дверей / добычи / укрытий / автоисправлений и таймер.",
+        ["The Anticheat Manipulator now uses Velocity Manipulation: it moves your character forward very slowly (or pivots it relative to the camera), "] = "Anticheat Manipulator теперь использует Velocity Manipulation: очень медленно двигает персонажа вперёд (или поворачивает его относительно камеры), ",
+        ["Items that will not be consumed while Infinite Items is on."] = "Предметы, которые не будут расходоваться при включённом Infinite Items.",
+        ["Both options work by name (anything called 'meld'). Stop Growth only disables Meld's scripts/modules, so its ropes and doors stay untouched. "] = "Обе опции работают по имени (всё, что называется 'meld'). Stop Growth отключает только скрипты/модули Meld, поэтому его верёвки и двери не затрагиваются. ",
+        ["Teleports to each water pump (highest first) and interacts with it, then returns you. Be in room 100."] = "Телепортирует к каждому водяному насосу (с самого высокого) и взаимодействует с ним, затем возвращает вас. Нужно быть в комнате 100.",
+        ["Teleports you to the end of the quest."] = "Телепортирует вас в конец квеста.",
+        ["Types of objects Auto Interact will NOT touch (all selected by default). Detection is by name/text. Specific items have their own list below."] = "Типы объектов, которых Авто взаимодействие НЕ коснётся (по умолчанию выбраны все). Определение по имени/тексту. У отдельных предметов свой список ниже.",
+        ["Selects every entry of the ignore list."] = "Выбирает все записи списка игнорирования.",
+        ["Clears the ignore list: Auto Interact will touch everything."] = "Очищает список игнорирования: Авто взаимодействие будет трогать всё.",
+        ["Sends the revive request. Works even after the revive timer ran out (needs a revive available)."] = "Отправляет запрос на возрождение. Работает даже после окончания таймера возрождения (нужно доступное возрождение).",
+        ["Every item is in the list, but only the important ones are selected by default (Crucifix, Gold Gun, Lockpicks, Skeleton Key...)."] = "В списке все предметы, но по умолчанию выбраны только важные (Crucifix, Gold Gun, Lockpicks, Skeleton Key...).",
+        ["Selects every item in the list."] = "Выбирает все предметы списка.",
+        ["Back to the default selection."] = "Возврат к выбору по умолчанию.",
+        ["Clears the selection."] = "Очищает выбор.",
+        ["These entities obey Max Distance and disappear when far away. Remove one from the list to go back to the normal behavior (always shown)."] = "Эти сущности подчиняются Max Distance и пропадают вдали. Уберите сущность из списка, чтобы вернуть обычное поведение (всегда видна).",
+        ["Auto Interact will not pick these up. Default: Paper Plane, Fih Flakes and other useless items."] = "Авто взаимодействие не будет это подбирать. По умолчанию: Paper Plane, Fih Flakes и другие бесполезные предметы.",
+        ["Auto Interact will not pick up any item."] = "Авто взаимодействие не подберёт ни одного предмета.",
+        ["Auto Interact will pick up every item."] = "Авто взаимодействие подберёт все предметы.",
+        ["Back to the useless items list."] = "Возврат к списку бесполезных предметов.",
+        ["Starts the timer, pauses it, or resumes it (Restart after a finished run)."] = "Запускает таймер, ставит на паузу или продолжает (Restart после завершённого забега).",
+        ["Ends the run. If you reached at least 10 rooms and it is faster than your best, it is saved as your personal best for that floor."] = "Завершает забег. Если вы дошли минимум до 10 комнат и быстрее своего рекорда, он сохраняется как личный рекорд этажа.",
+        ["Clears the timer and the splits so it can start again."] = "Очищает таймер и промежуточные отметки, чтобы начать заново.",
+        ["Use this if proximity prompts stop appearing: restores real prompts, removes leftover fake ones and refreshes the ones near you."] = "Используйте, если подсказки взаимодействия перестали появляться: восстанавливает настоящие, убирает оставшиеся поддельные и обновляет ближайшие.",
+        ["Prints (and copies) every prompt within 20 studs with the reason Auto Interact skips it, or says it is allowed."] = "Выводит (и копирует) каждую подсказку в радиусе 20 studs с причиной, по которой Авто взаимодействие её пропускает, или сообщает, что она разрешена.",
+        ["Teleports you next to the nearest Stairwell fire alarm lever."] = "Телепортирует к ближайшему рычагу пожарной сигнализации Stairwell.",
+        ["Teleports you next to the nearest Emergency Exit sign."] = "Телепортирует к ближайшей табличке аварийного выхода.",
+        ["Teleports you next to the nearest Depot / scrapper."] = "Телепортирует к ближайшему Depot / scrapper.",
+        ["Teleports you next to the nearest shopping cart (in a room or loose in the map)."] = "Телепортирует к ближайшей тележке (в комнате или на карте).",
+        ["Walks (teleports) to every Stairwell item and picks it up on the server, then returns you. Unlike moving items, this really goes to your inventory."] = "Идёт (телепортируется) к каждому предмету Stairwell и подбирает его на сервере, затем возвращает вас. В отличие от перемещения предметов, это действительно попадает в инвентарь.",
+        ["Moves every DROPPED item (Workspace.Drops) to you. Dropped items are physical, so the server and other players see it too."] = "Перемещает к вам каждый ВЫБРОШЕННЫЙ предмет (Workspace.Drops). Выброшенные предметы физические, их видят сервер и другие игроки.",
+        ["Sends every dropped item to the Grinder closest to you."] = "Отправляет каждый выброшенный предмет в ближайший Grinder.",
+        ["Brings every shopping cart to you. Carts are physical, so everyone sees them move. Do not stand where they land."] = "Притягивает к вам все тележки. Тележки физические, все видят их движение. Не стойте там, куда они падают.",
+        ["Triggers the open prompt of every loaded Cubby door."] = "Запускает подсказку открытия каждой загруженной двери Cubby.",
+        ["Starts a new run. Press twice to confirm."] = "Начинает новый забег. Нажмите дважды для подтверждения.",
+        ["Takes you back to the lobby. Press twice to confirm."] = "Возвращает вас в лобби. Нажмите дважды для подтверждения.",
+        ["Gets you out of the closet / hiding spot you are in."] = "Выводит вас из шкафа / укрытия, в котором вы находитесь.",
+        ["Teleports you to the next door that is still closed."] = "Телепортирует к следующей ещё закрытой двери.",
+        ["Copies the character's attributes, Humanoid values and any remote named like jump, slide, crouch or speed. Send it if Jump or Slide still misbehave in your game mode."] = "Копирует атрибуты персонажа, значения Humanoid и любые remote с названиями вроде jump, slide, crouch или speed. Отправьте, если Jump или Slide всё ещё работают неверно в вашем режиме.",
+        ["Client side only: you see yourself as the model, other players do not. Pick one, turn it on and your camera goes to third person. "] = "Только на стороне клиента: вы видите себя моделью, другие игроки нет. Выберите, включите, и камера перейдёт на третье лицо. ",
+        ["Searches the game again for the real Seek, Honcho and Figure models."] = "Снова ищет в игре настоящие модели Seek, Honcho и Figure.",
+        ["Goes back to your normal character."] = "Возвращает обычного персонажа.",
+        ["Add the link of a script or mod made by another player (for example a DOORS add-on), save it in the list and run it when you want. "] = "Добавьте ссылку на скрипт или мод другого игрока (например, дополнение для DOORS), сохраните в списке и запускайте, когда нужно. ",
+        ["Name shown in the notification."] = "Название, показываемое в уведомлении.",
+        ["Creator of the script (required, shown as credits)."] = "Автор скрипта (обязательно, показывается как кредиты).",
+        ["Direct link (https://) to the script."] = "Прямая ссылка (https://) на скрипт.",
+        ["Your saved list."] = "Ваш сохранённый список.",
+        ["Saves the script of the fields above in your list."] = "Сохраняет в список скрипт из полей выше.",
+        ["Runs the script selected in the list and shows its credits."] = "Запускает выбранный в списке скрипт и показывает его кредиты.",
+        ["Runs the link of the fields above without saving it."] = "Запускает ссылку из полей выше без сохранения.",
+        ["Deletes the selected script from the list."] = "Удаляет выбранный скрипт из списка.",
+        ["What 'Load Selected Config' and the imports apply: everything, or only one tab's options."] = "Что применяют 'Load Selected Config' и импорты: всё или только опции одной вкладки.",
+        ["Overwrites the selected config with the current settings."] = "Перезаписывает выбранный конфиг текущими настройками.",
+        ["Type the new name above, then press this."] = "Введите новое имя выше и нажмите это.",
+        ["Press twice within 5 seconds to confirm."] = "Нажмите дважды в течение 5 секунд для подтверждения.",
+        ["This config loads by itself every time you execute the script."] = "Этот конфиг загружается сам при каждом запуске скрипта.",
+        ["The share code appears here (it is also copied to your clipboard when your executor allows it)."] = "Код для обмена появится здесь (также копируется в буфер обмена, если экзекутор позволяет).",
+        ["Creates a code with the whole selected config. Anyone can import it, no files needed."] = "Создаёт код со всем выбранным конфигом. Любой может его импортировать, без файлов.",
+        ["Creates a code with what you have enabled right now (no need to save it first)."] = "Создаёт код с тем, что включено прямо сейчас (сохранять заранее не нужно).",
+        ["Uploads the selected config and gives you a short code. Needs internet access from the executor."] = "Загружает выбранный конфиг и выдаёт короткий код. Нужен доступ экзекутора в интернет.",
+        ["Paste a share code here (portable R4N2-... or online short code)."] = "Вставьте код для обмена (переносимый R4N2-... или короткий онлайн-код).",
+        ["English (default), Español, Русский. Titles and descriptions are translated; re-execute the script to apply."] = "English (по умолчанию), Español, Русский. Переводятся заголовки и описания; перезапустите скрипт, чтобы применить.",
+        ["When the game sends you into a run, the script runs again by itself, silently. The lobby is not included unless you turn on the option below."] = "Когда игра отправляет вас в забег, скрипт сам запускается снова, тихо. Лобби не включено, пока вы не включите опцию ниже.",
+        ["Also run the script again when you teleport to the lobby. Off by default (only the run itself)."] = "Также запускает скрипт снова при телепорте в лобби. По умолчанию выключено (только забег).",
+        ["Recommended setup for each floor and sub-floor: it turns on the ESP of that mode, sets the distance and turns on the best functions of every tab (alerts, Auto Interact, antis, visuals and the extras of that mode). Rooms only turns on the visuals."] = "Рекомендуемая настройка для каждого этажа и подэтажа: включает ESP режима, задаёт дистанцию и включает лучшие функции всех вкладок (оповещения, Авто взаимодействие, анти, визуал и дополнения режима). Rooms включает только визуальное.",
+        ["Applies the selected preset right now."] = "Сразу применяет выбранный пресет.",
+        ["Changes the colors of the menu right away. It is remembered."] = "Мгновенно меняет цвета меню. Запоминается.",
+        ["Which UI build the menu uses. Re-execute the script to apply it."] = "Какая сборка интерфейса используется в меню. Перезапустите скрипт, чтобы применить.",
+        ["Removes everything the script did, clears the screen and runs the script again from scratch."] = "Убирает всё, что сделал скрипт, очищает экран и запускает скрипт заново с нуля.",
+        ["Removes everything the script did and leaves the screen without it. It does not run again."] = "Убирает всё, что сделал скрипт, и оставляет экран без него. Заново не запускается.",
+        ["Entities Auto Closet will NOT hide from."] = "Сущности, от которых Auto Closet НЕ будет прятаться.",
+        ["Where the camera looks from."] = "Откуда смотрит камера.",
+        ["Starts farming knobs, click this when you have enough gold."] = "Начинает фарм ручек, нажмите, когда золота достаточно.",
+        ["Fixes getting stuck after a ladder."] = "Исправляет застревание после лестницы.",
+        ["Prints the current floor to the console."] = "Выводит текущий этаж в консоль.",
+        ["Prints the current room number to the console."] = "Выводит номер текущей комнаты в консоль.",
+        ["Teleports your character to Y -120."] = "Телепортирует персонажа на Y -120.",
+        ["Kills your character."] = "Убивает вашего персонажа.",
+        ["Kills your character on the server (can take ~20s if replicatesignal is not supported)."] = "Убивает персонажа на сервере (может занять ~20 с, если replicatesignal не поддерживается).",
+        ["Marks the exit door of every room ahead as 'Door N' (adds [Locked] when it needs a key). Doors of rooms you already passed are hidden."] = "Отмечает выходную дверь каждой комнаты впереди как 'Door N' (добавляет [Locked], если нужен ключ). Двери пройденных комнат скрыты.",
+        ["Marks only the trapped fake doors made by Dupe, labeled 'Dupe [Fake Door]'. Real doors are never tagged as Dupe. It only shows up in rooms where Dupe is active."] = "Отмечает только ловушечные поддельные двери Dupe с подписью 'Dupe [Fake Door]'. Настоящие двери никогда не помечаются как Dupe. Появляется только в комнатах, где Dupe активен.",
+        ["Marks the ladders and stairs of The Mines (climbable trusses and objects named Ladder or Stairs). Only available in that mode. Presets leave it off."] = "Отмечает лестницы The Mines (лазаемые фермы и объекты Ladder или Stairs). Доступно только в этом режиме. Пресеты оставляют выключенным.",
+        ["Gold piles on the floor. Shows the amount in brackets when the game exposes it."] = "Кучи золота на полу. Показывает количество в скобках, когда игра его раскрывает.",
+        ["Keys, Electrical Room keys and Fuses needed to unlock doors or start machinery."] = "Ключи, ключи Электрической комнаты и предохранители, нужные для открытия дверей или запуска механизмов.",
+        ["Regular, locked and vine-covered chests. Locked chests need a key or lockpicks."] = "Обычные, запертые и обвитые лозами сундуки. Запертые требуют ключ или отмычки.",
+        ["Loot containers: drawers, desks, dressers, cabinets and makeshift drawers. Hidden after you open them (see Hide Looted Containers)."] = "Контейнеры с добычей: ящики, столы, комоды, шкафы и самодельные ящики. Скрываются после открытия (см. Hide Looted Containers).",
+        ["Item lockers, small lockers and toolboxes that contain loot. These are not hiding spots. Hidden after you open them."] = "Шкафчики для предметов, малые шкафчики и ящики с инструментами. Это не укрытия. Скрываются после открытия.",
+        ["Pickup items lying around (Flashlight, Lockpicks, Vitamins, Crucifix...). Choose which ones to show in the Item Filter below."] = "Предметы, лежащие вокруг (Flashlight, Lockpicks, Vitamins, Crucifix...). Выберите, какие показывать, в Фильтре предметов ниже.",
+        ["Stardust pickups (internally StardustPickup). They have their own ESP and never show in ESP Items."] = "Подбираемый Stardust (внутри StardustPickup). У него свой ESP, и он никогда не показывается в ESP Items.",
+        ["The rare Glitch Fragment (internally GlitchCube). It has its own ESP and never shows in ESP Items. Glitched Rush, Ambush and Screech are handled by ESP Entities instead."] = "Редкий Glitch Fragment (внутри GlitchCube). У него свой ESP, и он никогда не показывается в ESP Items. Rush, Ambush и Screech с глитчем обрабатывает ESP Entities.",
+        ["The module for the Scanner. It has its own ESP and never shows in ESP Items (the Scanner item itself is listed in ESP Items). Needs its Dex name in PENDING_DEX_NAMES to be detected."] = "Модуль Scanner. У него свой ESP, и он не показывается в ESP Items (сам предмет Scanner есть в ESP Items). Для обнаружения нужно имя из Dex в PENDING_DEX_NAMES.",
+        ["Lotus petals scattered around the Outdoors."] = "Лепестки лотоса, разбросанные по Outdoors.",
+        ["Places you can hide in: closets, beds, lockers and tool sheds."] = "Места, где можно спрятаться: шкафы, кровати, шкафчики и сараи.",
+        ["Room puzzle pieces: levers, timer levers, library books, breaker poles, Sally's toy (also when they are inside a drawer) and the Stairwell fire alarm lever."] = "Части головоломок комнат: рычаги, рычаги времени, книги библиотеки, столбы выключателей, игрушка Салли (в том числе в ящике) и рычаг пожарной сигнализации Stairwell.",
+        ["Marks the emergency exit sign of the Stairwell rooms. Only available in The Stairwell."] = "Отмечает табличку аварийного выхода комнат Stairwell. Доступно только в The Stairwell.",
+        ["Marks the shopping carts of the Stairwell (inside rooms or loose in the map). Only available in The Stairwell."] = "Отмечает тележки Stairwell (в комнатах или на карте). Доступно только в The Stairwell.",
+        ["Monsters that belong to the detected game mode only. Entities from other modes are never shown. Pick which ones in the Entity Filter below."] = "Монстры только определённого режима игры. Сущности других режимов никогда не показываются. Выберите, каких именно, в Фильтре сущностей ниже.",
+        ["Marks the other players in your run with their name and distance. Choose display name or username in the Display section."] = "Отмечает других игроков вашего забега с именем и дистанцией. Выберите отображаемое имя или ник в разделе Display.",
+        ["Any other object with an interaction prompt that does not fit another category (in The Stairwell it also marks the Depots). Can be noisy, so presets leave it off."] = "Любой другой объект с подсказкой взаимодействия, не подходящий к другой категории (в The Stairwell также отмечает Depot). Может быть шумным, поэтому пресеты оставляют выключенным.",
+        ["Turns on every ESP of the detected mode when the mode is detected or changes. It never turns anything off."] = "Включает весь ESP определённого режима при его определении или смене. Никогда ничего не выключает.",
+        ["Objects farther than this many studs are hidden. Entities are always shown, except the ones in the \"Entities with distance limit\" list."] = "Объекты дальше этого числа studs скрываются. Сущности показываются всегда, кроме тех, что в списке «Entities with distance limit».",
+        ["Quick distances: 1 Room (about 60 studs / 17 m) or 2 Rooms (about 120 studs / 34 m). It moves the Max Distance slider; you can still adjust it by hand."] = "Быстрые дистанции: 1 комната (около 60 studs / 17 м) или 2 комнаты (около 120 studs / 34 м). Двигает ползунок Max Distance; его всё равно можно настроить вручную.",
+        ["Most objects drawn at once (the closest ones win; entities always have priority). Lower it if the game lags, mainly in The Outdoors."] = "Наибольшее число объектов за раз (побеждают ближайшие; у сущностей всегда приоритет). Уменьшите, если игра лагает, особенно в The Outdoors.",
+        ["Hides drawers, lockers and chests once they have been opened or emptied."] = "Скрывает ящики, шкафчики и сундуки после того, как их открыли или опустошили.",
+        ["Shows the name label above each marked object."] = "Показывает название над каждым отмеченным объектом.",
+        ["Shows how far each marked object is from you."] = "Показывает, как далеко от вас каждый отмеченный объект.",
+        ["Meters (studs x 0.28) or raw stud values. Only the number is shown, never the word 'studs'."] = "Метры (studs x 0.28) или значения в studs. Показывается только число, никогда слово 'studs'.",
+        ["Size of the name and distance labels."] = "Размер подписей названия и дистанции.",
+        ["Font used by the ESP name and distance labels."] = "Шрифт подписей названия и дистанции ESP.",
+        ["0 = outline only, 100 = fully filled highlight."] = "0 = только контур, 100 = полностью залитая подсветка.",
+        ["Whether ESP Players shows display names or usernames."] = "Показывает ли ESP Players отображаемые имена или ники.",
+        ["Where the tracer lines start."] = "Откуда начинаются линии трейсеров.",
+        ["Line width in pixels."] = "Толщина линии в пикселях.",
+        ["Also marks pickups that are not in the list above, using their in-game name."] = "Также отмечает предметы, которых нет в списке выше, по их внутриигровому названию.",
+        ["Also marks NEW models that appear in Workspace with an unknown name. Off by default because it can mark objects that are not entities."] = "Также отмечает НОВЫЕ модели, появляющиеся в Workspace с неизвестным именем. По умолчанию выключено, так как может отметить объекты, не являющиеся сущностями.",
+        ["Also finds entities that live inside rooms (Figure, Seek, Snare, Teller...). Only exact internal names are matched, so decorations are never marked."] = "Также находит сущностей, живущих внутри комнат (Figure, Seek, Snare, Teller...). Совпадают только точные внутренние имена, поэтому декорации никогда не отмечаются.",
+        ["Records anything the ESP does not recognize (item, entity or prompt) with its full path, so you can report the exact name and get it fixed."] = "Записывает всё, что ESP не распознаёт (предмет, сущность или подсказку), с полным путём, чтобы вы могли сообщить точное имя и это исправили.",
+        ["Also logs every object the ESP registers. Needs Debug Mode on and can print a lot."] = "Также логирует каждый объект, который регистрирует ESP. Нужен включённый Debug Mode, может выводить очень много.",
+        ["On-screen panel: detected mode, room, GameData and tracked counts."] = "Панель на экране: определённый режим, комната, GameData и число отслеживаемых.",
+        ["Shows a DOORS achievement-style popup with a sound when one of the selected entities appears, for example \"Rush has appeared!\". It works even if ESP Entities is off."] = "Показывает окно в стиле достижения DOORS со звуком, когда появляется одна из выбранных сущностей, например «Rush появился!». Работает даже при выключенном ESP Entities.",
+        ["R4NS0M Card uses the new card design of the script. Doors Achievement clones the game's own badge popup with the same animation and the badge sound. Custom Toast draws a simple popup if the game's one is missing."] = "R4NS0M Card использует новый дизайн карточек скрипта. Doors Achievement копирует окно badge из игры с той же анимацией и звуком. Custom Toast рисует простое окно, если игрового нет.",
+        ["Plays a sound with every notification."] = "Проигрывает звук при каждом уведомлении.",
+        ["Loudness of the notification sound."] = "Громкость звука уведомлений.",
+        ["How long the popup stays on screen."] = "Как долго окно остаётся на экране.",
+        ["Avoids spam when the same entity appears several times in a row (glitched entities, Ambush returns...)."] = "Избегает спама, когда одна и та же сущность появляется несколько раз подряд (глитч-сущности, возвращения Ambush...).",
+        ["Adds a short survival tip under the message (Hide in a closet, Do not look at it...)."] = "Добавляет короткий совет по выживанию под сообщением (Спрячься в шкаф, Не смотри на неё...).",
+        ["Roblox audio asset ID to use instead of the default sound. Leave empty for the default."] = "ID аудио Roblox вместо звука по умолчанию. Оставьте пустым для звука по умолчанию.",
+        ["Roblox image asset ID shown in the popup. Leave empty for the default icon."] = "ID изображения Roblox для окна. Оставьте пустым для значка по умолчанию.",
+        ["Makes you faster than normal (up to 90)."] = "Делает вас быстрее обычного (до 90).",
+        ["Target speed in studs per second. Doors' normal walk speed is about 16."] = "Целевая скорость в studs в секунду. Обычная скорость ходьбы в DOORS около 16.",
+        ["Velocity (recommended): smooth push that the server tolerates best. CFrame: small position steps. WalkSpeed: changes the value directly (easiest to detect)."] = "Velocity (рекомендуется): плавный толчок, который сервер переносит лучше всего. CFrame: маленькие шаги позиции. WalkSpeed: меняет значение напрямую (легче всего обнаружить).",
+        ["Changes your real walk speed (1-100). Works together with the Anticheat Bypass."] = "Меняет вашу настоящую скорость ходьбы (1-100). Работает вместе с Anticheat Bypass.",
+        ["Walk speed in studs per second."] = "Скорость ходьбы в studs в секунду.",
+        ["Turns on the game's own jump and lets you set its power, also in places where the game disables it."] = "Включает собственный прыжок игры и позволяет задать его силу, в том числе там, где игра его отключает.",
+        ["How high you jump."] = "Как высоко вы прыгаете.",
+        ["Jump again in mid-air every time you press jump."] = "Прыжок в воздухе при каждом нажатии прыжка.",
+        ["Turns on the game's own slide and adds a forward slide with a lowered camera. It stops at walls. Keybind on PC, SLIDE button on mobile."] = "Включает собственное скольжение игры и добавляет скольжение вперёд с опущенной камерой. Останавливается у стен. Клавиша на ПК, кнопка SLIDE на мобильных.",
+        ["Starting speed of the slide. It fades out smoothly."] = "Начальная скорость скольжения. Плавно затухает.",
+        ["Fly freely. PC: Space goes up, Left Ctrl goes down. Mobile: look up or down while moving."] = "Свободный полёт. ПК: Пробел вверх, левый Ctrl вниз. Мобильные: смотрите вверх или вниз при движении.",
+        ["Flight speed in studs per second."] = "Скорость полёта в studs в секунду.",
+        ["Walk through walls and objects. Simple version: for the careful one, use the Anticheat Manipulator."] = "Проход сквозь стены и объекты. Простая версия: для аккуратной используйте Anticheat Manipulator.",
+        ["Removes darkness so you can see everything. Brightness and ambient light are adjustable below."] = "Убирает темноту, чтобы видеть всё. Яркость и окружающий свет настраиваются ниже.",
+        ["Lighting brightness while Fullbright is on (0 = dark, 10 = very bright). The game's default is about 2."] = "Яркость освещения при включённом Fullbright (0 = темно, 10 = очень ярко). Значение игры по умолчанию около 2.",
+        ["How strong the flat ambient light is. Lower it for a darker, more natural look; raise it to see everything."] = "Насколько сильный плоский окружающий свет. Уменьшите для более тёмного естественного вида; увеличьте, чтобы видеть всё.",
+        ["Removes the fog and the atmosphere haze. Works with or without Fullbright."] = "Убирает туман и дымку атмосферы. Работает с Fullbright или без него.",
+        ["A bot plays the floor for you. It walks (no teleports), jumps, crouches and moves your camera. It loots, grabs the key when a door is locked, opens doors and hides in a closet before Rush / Ambush / A-60 / A-120 reach you. Risky. If nothing below is selected it applies the recommended setup for the mode."] = "Бот проходит этаж за вас. Ходит (без телепортов), прыгает, приседает и двигает камеру. Собирает добычу, берёт ключ, когда дверь заперта, открывает двери и прячется в шкаф перед Rush / Ambush / A-60 / A-120.",
+        ["Preset of options, timings and bot speed. Press Apply Profile to use it (it only enables what exists in the current mode)."] = "Пресет опций, таймингов и скорости бота. Нажмите Apply Profile, чтобы использовать (включает только то, что есть в текущем режиме).",
+        ["The bot walks with the Bot Speed below (a real walk speed hack). Turn it off to walk at your normal speed."] = "Бот ходит со скоростью Bot Speed ниже (настоящий спидхак). Выключите, чтобы ходить с обычной скоростью.",
+        ["Walk speed of the bot in studs per second (4 - 100). Very high values can trigger the anticheat: use it with the Anticheat Bypass. It drops to a slow walk while sneaking past a Figure."] = "Скорость бота в studs в секунду (4 - 100). Очень высокие значения могут сработать на античит: используйте с Anticheat Bypass. Падает до медленной ходьбы при подкрадывании мимо Figure.",
+        ["The bot turns your camera towards where it walks and what it interacts with. Turn it off if you want to keep control of the camera."] = "Бот поворачивает камеру туда, куда идёт и с чем взаимодействует. Выключите, чтобы сохранить управление камерой.",
+        ["How fast the camera turns (2 = slow and smooth, 30 = instant)."] = "Как быстро поворачивается камера (2 = медленно и плавно, 30 = мгновенно).",
+        ["Lets the bot jump over low obstacles and where the path asks for it. It never jumps while Strong Position Spoof has the jump locked."] = "Позволяет боту перепрыгивать низкие препятствия и там, где этого требует путь. Никогда не прыгает, пока Strong Position Spoof блокирует прыжок.",
+        ["Lets the bot crouch under low ceilings and sneak while a Figure is in the room."] = "Позволяет боту приседать под низкими потолками и красться, пока в комнате Figure.",
+        ["Safety margin: the bot starts walking to a closet this many seconds before the entity would reach it."] = "Запас безопасности: бот начинает идти к шкафу за столько секунд до того, как сущность до него доберётся.",
+        ["When the path is blocked the bot uses a ladder (never while an entity is close)."] = "Когда путь заблокирован, бот использует лестницу (никогда при близкой сущности).",
+        ["Only works in Room 0. The bot collects all the gold and drawers of the first room, then starts the Knob Farm by itself."] = "Работает только в комнате 0. Бот собирает всё золото и ящики первой комнаты, затем сам запускает Knob Farm.",
+        ["Only after 5 failed auto-fixes in a row the bot may teleport next to the room entrance. Off = the bot never teleports."] = "Только после 5 неудачных автоисправлений подряд бот может телепортироваться ко входу в комнату. Выкл = бот никогда не телепортируется.",
+        ["Walks to the next door and opens it when the room is done."] = "Идёт к следующей двери и открывает её, когда комната готова.",
+        ["Collects every gold pile and stardust in the room."] = "Собирает все кучи золота и stardust в комнате.",
+        ["Opens every drawer and takes what is inside."] = "Открывает каждый ящик и забирает содержимое.",
+        ["Opens chests, toolboxes and lockers (locked ones are skipped)."] = "Открывает сундуки, ящики с инструментами и шкафчики (запертые пропускаются).",
+        ["Takes the door key and uses it on locked doors. If a door is locked and you have no key, the bot loots the room (drawers, chests, gold...) until it finds one."] = "Берёт ключ от двери и использует на запертых дверях. Если дверь заперта, а ключа нет, бот обыскивает комнату (ящики, сундуки, золото...), пока не найдёт его.",
+        ["When a door is locked it keeps looking for the key even after the room time is over (library, puzzles...)."] = "Когда дверь заперта, продолжает искать ключ даже после окончания времени комнаты (библиотека, головоломки...).",
+        ["Picks up items (uses the Auto Interact ignored items list)."] = "Подбирает предметы (использует список игнорируемых предметов Авто взаимодействия).",
+        ["Predicts when Rush, Ambush, A-60, A-120 and similar reach you, walks to a closet and gets inside before they arrive, then leaves by itself. With no closet nearby it uses Position Spoof."] = "Предсказывает, когда Rush, Ambush, A-60, A-120 и подобные до вас доберутся, идёт к шкафу и прячется до их прихода, затем сам выходит. Если шкафа рядом нет, использует Position Spoof.",
+        ["Turns on Auto Library, Auto Padlock, Auto Breaker Room and Auto Anchors for the mode."] = "Включает Auto Library, Auto Padlock, Auto Breaker Room и Auto Anchors для режима.",
+        ["Skips the Seek sections (Hotel / Mines)."] = "Пропускает секции Seek (Hotel / Mines).",
+        ["If a door does not open with its prompt, it asks the door to open directly."] = "Если дверь не открывается подсказкой, просит её открыться напрямую.",
+        ["Wait between actions. Lower is faster but riskier."] = "Ожидание между действиями. Меньше — быстрее, но рискованнее.",
+        ["After this long it stops looting the room and moves on."] = "По истечении этого времени перестаёт обыскивать комнату и идёт дальше.",
+        ["How many times it tries an item, drawer or chest before giving up on it."] = "Сколько раз пытается взять предмет, ящик или сундук, прежде чем отказаться.",
+        ["Nearest First goes to the closest target. Keys & Gold First takes keys, then gold, then everything else."] = "Nearest First идёт к ближайшей цели. Keys & Gold First берёт ключи, затем золото, затем остальное.",
+        ["Detects when nothing advances and fixes it step by step: resets targets, leaves the closet, restarts helpers, forces the door and shakes the bot loose."] = "Определяет, когда ничего не движется, и исправляет шаг за шагом: сбрасывает цели, выходит из шкафа, перезапускает помощников, открывает дверь силой и вытряхивает бота.",
+        ["Seconds without progress before the watchdog acts."] = "Секунды без прогресса до вмешательства сторожа.",
+        ["Longest it waits inside a closet before it carries on anyway."] = "Дольше всего ждёт в шкафу, прежде чем всё равно продолжит.",
+        ["Turns Auto Doors off when you die."] = "Выключает Auto Doors, когда вы умираете.",
+        ["Turns Auto Doors off when this room is reached."] = "Выключает Auto Doors при достижении этой комнаты.",
+        ["Turns Auto Doors off after this much time running."] = "Выключает Auto Doors после такого времени работы.",
+        ["Turns Auto Doors off if your health drops under this percentage."] = "Выключает Auto Doors, если ваше здоровье ниже этого процента.",
+        ["Shows notifications for mode, auto-fixes and when it stops. Important warnings always show."] = "Показывает уведомления о режиме, автоисправлениях и остановке. Важные предупреждения показываются всегда.",
+        ["Small on-screen panel with the mode, room, current action and statistics."] = "Небольшая панель на экране с режимом, комнатой, текущим действием и статистикой.",
+        ["Removes the hold time of every interaction prompt (doors, drawers, levers, items...). Turning it off restores the original times."] = "Убирает время удержания у каждой подсказки взаимодействия (двери, ящики, рычаги, предметы...). Выключение возвращает исходное время.",
+        ["Main switch. PC: keybind (Keybinds tab). Mobile: the ACM floating button."] = "Главный переключатель. ПК: клавиша (вкладка Keybinds). Мобильные: плавающая кнопка ACM.",
+        ["Velocity: a tiny forward push (recommended). Pivot: moves the character relative to the camera."] = "Velocity: крошечный толчок вперёд (рекомендуется). Pivot: двигает персонажа относительно камеры.",
+        ["If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot."] = "Если вы упали далеко ниже последней безопасной точки при прохождении сквозь объекты, ноклипе или полёте, вас вернут в эту точку.",
+        ["Completely disables the anticheat, after interacting with a ladder. It comes back after a cutscene, a Halt room, Void or Glitch: use a ladder again."] = "Полностью отключает античит после взаимодействия с лестницей. Возвращается после катсцены, комнаты Halt, Void или Glitch: снова используйте лестницу.",
+        ["Moves your real position underground while your body stays visible at floor level for other players, so they see you standing normally. Protects you from rush-like entities."] = "Перемещает вашу настоящую позицию под землю, пока ваше тело остаётся видимым на уровне пола для других игроков, и они видят вас стоящим как обычно. Защищает от сущностей типа Rush.",
+        ["Makes the game think you are always crouching."] = "Заставляет игру думать, что вы всегда приседаете.",
+        ["Makes Position Spoof hold up: while an entity is in kill range it locks jumping, pushes you back down when a step, a jump or a boost lifts you, and blocks ladder prompts. Needs Position Spoof on."] = "Делает Position Spoof устойчивым: пока сущность в зоне убийства, блокирует прыжок, толкает вас вниз, когда ступенька, прыжок или ускорение поднимают вас, и блокирует подсказки лестниц. Нужен включённый Position Spoof.",
+        ["When you use a ladder the anticheat bypass does its trick and your speed hacks (Speed, Speed Hack, Velocity Manipulation, Noclip, Fly) pause. They come back on their own when you finish climbing. Only affects the ones you have on."] = "Когда вы используете лестницу, обход античита делает своё дело, а ваши спидхаки (Speed, Speed Hack, Velocity Manipulation, Noclip, Fly) приостанавливаются. Они возвращаются сами, когда вы закончите подъём.",
+        ["Prevents the 'Figure' minigame from ever failing."] = "Не даёт мини-игре 'Figure' когда-либо провалиться.",
+        ["Disables the 'Seek' chase trigger (Old Hotel / Fools)."] = "Отключает триггер погони 'Seek' (Old Hotel / Fools).",
+        ["Completely removes the entity 'Figure' (doesn't always work)."] = "Полностью убирает сущность 'Figure' (работает не всегда).",
+        ["Automatically revives after dying, with unlimited respawns (Old Hotel / Fools)."] = "Автоматически возрождает после смерти, с неограниченным числом возрождений (Old Hotel / Fools).",
+        ["Prevents 'Figure' from hurting you (all floors: underground spoof while a Figure is near)."] = "Не даёт 'Figure' вас ранить (все этажи: подземный спуф, пока рядом Figure).",
+        ["Removes the gate from basement rooms."] = "Убирает решётку из комнат подвала.",
+        ["Removes the fireplace doors from painting rooms."] = "Убирает двери камина из комнат с картинами.",
+        ["Removes the skeleton door from the infirmary."] = "Убирает дверь со скелетом из лазарета.",
+        ["Automatically solves the elevator breaker box. Interact with it once and the rest is done for you."] = "Автоматически решает щиток лифта. Взаимодействуйте с ним один раз, остальное сделается само.",
+        ["Automatically triggers nearby prompts (items, gold, levers...). It skips hiding spots, locks, dropped items, glitch fragments and fake doors."] = "Автоматически срабатывает на ближайшие подсказки (предметы, золото, рычаги...). Пропускает укрытия, замки, выброшенные предметы, глитч-фрагменты и поддельные двери.",
+        ["Lets the selected items open locks, vines and chests without losing uses. Needs fireproximityprompt. Works by hiding the real lock prompt and replacing it with a fake one."] = "Позволяет выбранным предметам открывать замки, лозы и сундуки без расхода использований. Нужен fireproximityprompt. Работает, скрывая настоящую подсказку замка и заменяя её поддельной.",
+        ["Multiplies how far away you can interact with prompts (1 = normal)."] = "Умножает дистанцию, с которой можно взаимодействовать с подсказками (1 = обычно).",
+        ["Lets you interact with prompts through walls."] = "Позволяет взаимодействовать с подсказками сквозь стены.",
+        ["Opens doors from further away (up to 75 studs)."] = "Открывает двери издалека (до 75 studs).",
+        ["Shows how much oxygen you have left every time it drops."] = "Показывает, сколько кислорода осталось, при каждом уменьшении.",
+        ["Shows the time remaining before 'Haste' spawns."] = "Показывает время до появления 'Haste'.",
+        ["Removes the short window where you can't exit a closet after the animation finishes."] = "Убирает короткое окно, когда нельзя выйти из шкафа после окончания анимации.",
+        ["Your character stops right away instead of sliding while moving."] = "Персонаж сразу останавливается, а не скользит при движении.",
+        ["Mutes the sound of walking."] = "Отключает звук ходьбы.",
+        ["Mutes the sounds of interacting with prompts. Turning it off restores them."] = "Отключает звуки взаимодействия с подсказками. Выключение возвращает их.",
+        ["Prevents the kick for being idle for 20 minutes."] = "Предотвращает кик за бездействие в 20 минут.",
+        ["Disables the scripts that make Meld grow. Ropes and doors are not removed."] = "Отключает скрипты, из-за которых растёт Meld. Верёвки и двери не удаляются.",
+        ["Hides Meld and removes its collision/touch, except its ropes and doors."] = "Скрывает Meld и убирает его коллизию/касание, кроме верёвок и дверей.",
+        ["Small draggable buttons for ACM, SLIDE and FLY. On by default on touch devices."] = "Маленькие перетаскиваемые кнопки для ACM, SLIDE и FLY. Включены по умолчанию на сенсорных устройствах.",
+        ["Show the ACM floating button."] = "Показывает плавающую кнопку ACM.",
+        ["Show the FLY floating button."] = "Показывает плавающую кнопку FLY.",
+        ["Show the SPD (Speed Hack) floating button."] = "Показывает плавающую кнопку SPD (Speed Hack).",
+        ["Completes the Seek minecart chase (Mines floor 2): steers at each turn and crouches under boards."] = "Проходит погоню Seek на вагонетке (Mines, этаж 2): поворачивает на каждом повороте и приседает под досками.",
+        ["Tries random codes on the padlock in room 50, keeping the digits you already know. You still need to collect some books."] = "Пробует случайные коды на замке в комнате 50, сохраняя уже известные цифры. Всё равно нужно собрать несколько книг.",
+        ["Shows the 5 digits at the bottom of the screen (_ for the ones you don't have yet; you need the paper and the matching books). Hides when door 51 opens, and notifies when complete."] = "Показывает 5 цифр внизу экрана (_ для ещё не найденных; нужны бумага и соответствующие книги). Скрывается, когда открывается дверь 51, и уведомляет о завершении.",
+        ["Draws the correct path during the Seek chase."] = "Рисует правильный путь во время погони Seek.",
+        ["Draws the safe path to the exit in Eyestalk rooms (calculated from where you stand)."] = "Рисует безопасный путь к выходу в комнатах Eyestalk (рассчитывается от вашей позиции).",
+        ["Lines draws a continuous line; Nodes draws one ball per point."] = "Lines рисует сплошную линию; Nodes рисует по шару на точку.",
+        ["Shows a notification when a selected item appears in the level."] = "Показывает уведомление, когда на уровне появляется выбранный предмет.",
+        ["Also notifies pickups that are not in the list below."] = "Также уведомляет о предметах, которых нет в списке ниже.",
+        ["Risky! Drops and picks the Crucifix up again when an entity is close so it never breaks. You can die or lose it; low ping recommended."] = "Рискованно! Выбрасывает и снова подбирает Crucifix, когда рядом сущность, чтобы он никогда не сломался. Можно умереть или потерять его; рекомендуется низкий пинг.",
+        ["Skips the Figure, Seek and Eyestalk cutscenes."] = "Пропускает катсцены Figure, Seek и Eyestalk.",
+        ["Disables the jumpscares of entities like Rush and Ambush."] = "Отключает скримеры сущностей вроде Rush и Ambush.",
+        ["Removes the firedamp screen effect."] = "Убирает экранный эффект рудничного газа.",
+        ["Experimental. Disables the Seek jumpscare, bypasses its obstacles, deletes the trigger where supported (Old Hotel / Fools) and moves you underground automatically while the chase is running."] = "Экспериментально. Отключает скример Seek, обходит его препятствия, удаляет триггер, где возможно (Old Hotel / Fools), и автоматически перемещает под землю во время погони.",
+        ["Experimental. Crouch Spoof + Auto Heartbeat Minigame + Figure Godmode, and moves you underground automatically while a Figure is near."] = "Экспериментально. Crouch Spoof + Auto Heartbeat Minigame + Figure Godmode и автоматически перемещает под землю, пока рядом Figure.",
+        ["Turns Position Spoof on only while a Rush-like entity (Rush, Ambush, A-60, A-120, Glitch...) exists, and returns you to normal as soon as it despawns. Leave the manual Position Spoof off to use it."] = "Включает Position Spoof только пока существует сущность типа Rush (Rush, Ambush, A-60, A-120, Glitch...) и возвращает обычное состояние сразу после её исчезновения. Оставьте ручной Position Spoof выключенным.",
+        ["Notifies as soon as Ransom enters the Workspace, before its jumpscare reaches you."] = "Уведомляет, как только Ransom появляется в Workspace, до того как его скример до вас доберётся.",
+        ["Draws fewer Highlights (the nearest ones first), fewer objects and refreshes slower. Use it if the game lags."] = "Рисует меньше Highlight (сначала ближайшие), меньше объектов и обновляется медленнее. Используйте, если игра лагает.",
+        ["Lightens the ESP by itself when your FPS drops, and restores it when they recover."] = "Сам облегчает ESP, когда падает FPS, и возвращает, когда он восстанавливается.",
+        ["How many times per second the ESP updates (lower = less lag)."] = "Сколько раз в секунду обновляется ESP (меньше = меньше лагов).",
+        ["Tells you when an entity you were notified about is gone. Uses the same entity selection as the spawn alerts."] = "Сообщает, когда сущности, о которой вас уведомляли, больше нет. Использует тот же выбор сущностей, что и оповещения о появлении.",
+        ["Shows the timer on screen. Drag its title bar to move it anywhere."] = "Показывает таймер на экране. Перетащите его заголовок, чтобы переместить куда угодно.",
+        ["Preset corners and edges. Dragging the title bar overrides it."] = "Готовые углы и края. Перетаскивание заголовка отменяет выбор.",
+        ["Scales the whole timer."] = "Масштабирует весь таймер.",
+        ["How solid the timer background is."] = "Насколько плотный фон таймера.",
+        ["Shows the last room splits with their difference against your personal best."] = "Показывает последние промежуточные отметки комнат с разницей относительно вашего рекорда.",
+        ["Shows the Start / Stop / Reset buttons on the timer (useful on mobile)."] = "Показывает кнопки Start / Stop / Reset на таймере (удобно на мобильных).",
+        ["Starts by itself the first time you move: joystick, WASD / arrows, jump, crouch or Anticheat Manipulation. Moving the camera does not count."] = "Запускается сам при первом движении: джойстик, WASD / стрелки, прыжок, приседание или Anticheat Manipulation. Движение камеры не считается.",
+        ["Records a split each time you enter a new room."] = "Записывает промежуточную отметку при входе в каждую новую комнату.",
+        ["Stops the timer by itself when the game ends: final cutscene (Hotel door 100, Mines door 200), end screen or when the game sends you back to the lobby."] = "Останавливает таймер сам, когда игра заканчивается: финальная катсцена (дверь 100 Hotel, дверь 200 Mines), экран конца или возврат в лобби.",
+        ["Also stops the timer if you stay dead for 3 seconds (a revive keeps it running)."] = "Также останавливает таймер, если вы мертвы 3 секунды (возрождение оставляет его работать).",
+        ["Finishes the run when you reach this room (0 = off)."] = "Завершает забег при достижении этой комнаты (0 = выкл).",
+        ["Also marks Stairwell doors and items that the normal scan missed (needs ESP Doors / Items on)."] = "Также отмечает двери и предметы Stairwell, которые обычное сканирование пропустило (нужны включённые ESP Doors / Items).",
+        ["Brings the dropped items to you every X seconds (interval below)."] = "Притягивает выброшенные предметы к вам каждые X секунд (интервал ниже).",
+        ["How often the automatic bring / scrap runs (0 = every frame-ish)."] = "Как часто запускается автоматическое притягивание / переработка (0 = почти каждый кадр).",
+        ["Keeps sending dropped items to the nearest Grinder (uses the interval above)."] = "Постоянно отправляет выброшенные предметы в ближайший Grinder (использует интервал выше).",
+        ["Shows how many dropped items there are on the screen."] = "Показывает на экране, сколько выброшенных предметов.",
+        ["Orbits the dropped items around you. Every 10s they are brought to you so they do not despawn."] = "Вращает выброшенные предметы вокруг вас. Каждые 10 с они притягиваются к вам, чтобы не исчезли.",
+        ["Height of the orbit."] = "Высота орбиты.",
+        ["Distance of the orbit."] = "Расстояние орбиты.",
+        ["Speed of the orbit."] = "Скорость орбиты.",
+        ["Goes to every landing trash item, picks it up and drops it so it becomes a dropped item. Combine with Orbit / Auto Scrap / Bring Dropped Items."] = "Идёт к каждому падающему мусору, подбирает его и бросает, чтобы он стал выброшенным предметом. Сочетайте с Orbit / Auto Scrap / Bring Dropped Items.",
+        ["Turns off the collision and the kill triggers of the Crushers (the basic wall stays)."] = "Отключает коллизию и убивающие триггеры Crushers (базовая стена остаётся).",
+        ["Deletes the Crushers completely (except the basic wall)."] = "Полностью удаляет Crushers (кроме базовой стены).",
+        ["Deletes Meld's walls, pads and data folders in every loaded room."] = "Удаляет стены, площадки и папки данных Meld в каждой загруженной комнате.",
+        ["Sends the Noise TV underground while you hold it (it breaks for everyone, the server sees it)."] = "Отправляет Noise TV под землю, пока вы его держите (он ломается для всех, сервер это видит).",
+        ["Keeps every cart on top of Creak so it glitches out. DO NOT touch the carts yourself."] = "Держит каждую тележку на Creak, чтобы он глючил. НЕ трогайте тележки сами.",
+        ["Shows Creak's aggression percentage at the bottom of the screen while it is near you."] = "Показывает процент агрессии Creak внизу экрана, пока он рядом.",
+        ["How close (in studs) Creak must be for the text to appear."] = "Насколько близко (в studs) должен быть Creak, чтобы появился текст.",
+        ["Marks the boxes of the Honcho room that match a deposit, and the deposits themselves (needs ESP Items on). Also marks matching boxes that were dropped."] = "Отмечает ящики комнаты Honcho, подходящие к депозиту, и сами депозиты (нужен включённый ESP Items). Также отмечает подходящие выброшенные ящики.",
+        ["When you hold a correct box and stand within 10 studs of its deposit, the deposit prompt is pressed for you."] = "Когда вы держите правильный ящик и стоите в 10 studs от его депозита, подсказка депозита нажимается за вас.",
+        ["Teleports to each correct box, picks it up and delivers it to its deposit, then returns you. Stops by itself when no box is left."] = "Телепортируется к каждому правильному ящику, подбирает и доставляет в его депозит, затем возвращает вас. Останавливается сам, когда ящиков не остаётся.",
+        ["Keeps telling the clock that you looked at it, which stops the Drones Stampede from attacking you."] = "Постоянно сообщает часам, что вы на них смотрели, из-за чего Drones Stampede вас не атакует.",
+        ["Shows the Archives clock time at the bottom of the screen."] = "Показывает время часов Archives внизу экрана.",
+        ["Deletes Ransom as soon as it appears."] = "Удаляет Ransom, как только он появляется.",
+        ["Deletes the trash that falls from the closets (binders, shoes, shelves)."] = "Удаляет мусор, падающий из шкафов (папки, обувь, полки).",
+        ["Puts a safe platform over the electric water of each room. Position Spoof breaks it, so keep that off."] = "Ставит безопасную платформу над электрической водой каждой комнаты. Position Spoof её ломает, поэтому держите его выключенным.",
+        ["Fires the Forget-Me-Not looks and opens the hidden door of the next room, then sends you to the void while it resolves. Use together with the Anticheat Bypass."] = "Запускает взгляды Forget-Me-Not и открывает скрытую дверь следующей комнаты, затем отправляет вас в пустоту, пока это решается. Используйте вместе с Anticheat Bypass.",
+        ["Marks Forget-Me-Not anomalies (needs ESP Entities on)."] = "Отмечает аномалии Forget-Me-Not (нужен включённый ESP Entities).",
+        ["Tells you whether to go back or forward (and how many rooms) when an anomaly is found."] = "Сообщает, идти назад или вперёд (и на сколько комнат), когда найдена аномалия.",
+        ["Prevents 'Drones' from attacking you (removes their hit detection, disables their touch parts and blocks the ragdoll)."] = "Не даёт 'Drones' вас атаковать (убирает их обнаружение ударов, отключает их части касания и блокирует рэгдолл).",
+        ["Prevents 'Alma' from spawning (deletes it as soon as it appears)."] = "Не даёт 'Alma' появиться (удаляет её, как только она появляется).",
+        ["Disables the touch parts of 'Scribbles' and removes its exploit check. Use together with Bypass Scribbles."] = "Отключает части касания 'Scribbles' и убирает его проверку эксплойтов. Используйте вместе с Bypass Scribbles.",
+        ["Mutes and hides 'Noise' and its TV and disables their touch parts so it cannot hurt you."] = "Заглушает и скрывает 'Noise' и его телевизор и отключает их части касания, чтобы он не мог навредить.",
+        ["Presses the buttons of the Alma minigame screen automatically (best effort)."] = "Автоматически нажимает кнопки экрана мини-игры Alma (по мере возможности).",
+        ["Adds [current/your ticket] to the Teller ESP, e.g. [2/37]."] = "Добавляет [текущий/ваш билет] в ESP Teller, например [2/37].",
+        ["Notifies when the Teller reaches your ticket number."] = "Уведомляет, когда Teller доходит до номера вашего билета.",
+        ["Raises FPS without deleting textures or changing how the game looks up close: shadows of far lights and far particles are paused and come back as you get close. Turning it off restores everything."] = "Повышает FPS без удаления текстур и без изменения вида вблизи: тени дальних источников света и дальние частицы приостанавливаются и возвращаются при приближении. Выключение всё восстанавливает.",
+        ["Balanced: only far shadows and particles. Strong: closer limits, also pauses far trails/beams/smoke, turns off sun rays and depth of field and lowers the render quality a bit."] = "Balanced: только дальние тени и частицы. Strong: ближе пределы, также приостанавливает дальние следы/лучи/дым, отключает солнечные лучи и глубину резкости и немного снижает качество рендера.",
+        ["Applies the Field of View slider below. Turn it off to go back to the normal FOV."] = "Применяет ползунок Field of View ниже. Выключите, чтобы вернуть обычный FOV.",
+        ["Camera field of view (1 - 120)."] = "Поле зрения камеры (1 - 120).",
+        ["Moves the camera behind your character so you can see yourself. Offsets below."] = "Перемещает камеру за персонажа, чтобы вы видели себя. Смещения ниже.",
+        ["Left / right."] = "Влево / вправо.",
+        ["Up / down."] = "Вверх / вниз.",
+        ["Distance behind you."] = "Расстояние позади вас.",
+        ["Stops the camera from shaking."] = "Останавливает тряску камеры.",
+        ["Stops the camera from bobbing while you walk."] = "Останавливает покачивание камеры при ходьбе.",
+        ["Makes the hiding spot you are inside of see-through."] = "Делает укрытие, в котором вы находитесь, прозрачным.",
+        ["How see-through the hiding spot becomes (0 - 100)."] = "Насколько прозрачным становится укрытие (0 - 100).",
+        ["Removes the dark screen effect while hiding."] = "Убирает эффект тёмного экрана при укрытии.",
+        ["Disables the jumpscare of Glitch."] = "Отключает скример Glitch.",
+        ["Disables the jumpscare of Timothy."] = "Отключает скример Timothy.",
+        ["Disables the jumpscare of Void."] = "Отключает скример Void.",
+        ["Mutes the music of the Jammin modifier."] = "Заглушает музыку модификатора Jammin.",
+        ["Mutes the sounds of proximity prompts."] = "Заглушает звуки подсказок взаимодействия.",
+        ["Keeps teleporting you to the next closed door. Can trigger the anticheat: use it with the Anticheat Bypass."] = "Постоянно телепортирует к следующей закрытой двери. Может сработать на античит: используйте с Anticheat Bypass.",
+        ["Seek, Honcho or Figure."] = "Seek, Honcho или Figure.",
+        ["Turns the transformation on / off. It always starts off."] = "Включает / выключает превращение. Всегда начинается выключенным.",
+        ["Size of the model in percent (10 - 300)."] = "Размер модели в процентах (10 - 300).",
+        ["Moves the model up or down if it floats or sinks."] = "Поднимает или опускает модель, если она парит или проваливается.",
+        ["If the model walks sideways or backwards, change where it looks."] = "Если модель идёт боком или назад, измените, куда она смотрит.",
+        ["Hides your own body (only for you) while transformed."] = "Скрывает ваше тело (только для вас), пока вы превращены.",
+        ["Moves the camera behind you so you can see the model. Your old camera mode comes back when you revert."] = "Перемещает камеру за вас, чтобы вы видели модель. Прежний режим камеры возвращается при отмене.",
+        ["Plays the looping sounds of the real entity while you are transformed."] = "Проигрывает зацикленные звуки настоящей сущности, пока вы превращены.",
+        ["Plays the idle / walk animations of the model when it has them."] = "Проигрывает анимации покоя / ходьбы модели, если они есть.",
+        ["Every ESP (objects, entities, players, doors, gold...) cycles through the rainbow colors. Turn it off to go back to your colors."] = "Весь ESP (объекты, сущности, игроки, двери, золото...) проходит цвета радуги. Выключите, чтобы вернуть ваши цвета.",
+        ["How fast the colors change (1 slow - 10 fast)."] = "Как быстро меняются цвета (1 медленно - 10 быстро).",
+        ["Adapts how much work the script does per frame to your FPS (room loading, ESP updates). Always recommended."] = "Подстраивает объём работы скрипта за кадр под ваш FPS (загрузка комнат, обновления ESP). Всегда рекомендуется.",
+        ["If your FPS stay very low it lightens the ESP (fewer Highlights, slower refresh, rainbow paused) and restores it when they recover."] = "Если FPS остаётся очень низким, облегчает ESP (меньше Highlight, медленнее обновление, радуга на паузе) и возвращает, когда он восстановится.",
+        ["Recommended Presets"] = "Рекомендуемые пресеты",
+        ["Mode Preset"] = "Пресет режима",
+        ["Apply Mode Preset"] = "Применить пресет режима",
+        ["Distance Preset"] = "Пресет дистанции",
         ["Interface"] = "Интерфейс",
         ["UI Theme"] = "Тема интерфейса",
         ["UI Library"] = "Библиотека интерфейса",
@@ -1534,6 +2258,10 @@ do
             if type(cfg) == "table" and type(cfg.Title) == "string" then
                 local t = dict[cfg.Title]
                 if t then cfg.Title = t end
+            end
+            if type(cfg) == "table" and type(cfg.Desc) == "string" then
+                local t = dict[cfg.Desc]
+                if t then cfg.Desc = t end
             end
         end
         local METHODS = { "Section", "Button", "Toggle", "Slider", "Dropdown", "Input", "Keybind", "Colorpicker", "ColorPicker", "Paragraph" }
@@ -2345,6 +3073,7 @@ print("[R4NS0M] Loading Visual Instances")
 -- se va a dibujar y se liberan cuando lleva unos segundos oculto. Antes se creaban 5 instancias por
 -- cada objeto detectado aunque el ESP estuviera apagado.
 Mode.Free = function(e)
+    if e.Arrow then pcall(e.Arrow.Destroy, e.Arrow) e.Arrow = nil end
     local hl, box, bb, line = e.HL, e.Box, e.BB, e.Line
     e.HL, e.Box, e.BB, e.TL, e.Line = nil, nil, nil, nil, nil
     e.Col, e.Fill, e.Out, e.Text, e.TS, e.TF, e.BoxT, e.HidSince = nil, nil, nil, nil, nil, nil, nil, nil
@@ -3117,6 +3846,41 @@ local function ProcessLoose(d)
     RegisterEntityWhenReady(d, label, true)
 end
 
+-- 1.0.6: nombres de objetos del juego (objetivos, palancas, cofres, extras). Solo agrega los que aun no estan marcados.
+local MAIN_OBJ = {
+    KeyObtain = { "keys", "Door Key" }, ElectricalKeyObtain = { "keys", "Electrical Key" },
+    TimerLever = { "objectives", "Time Lever" }, StairwellScrapper = { "objectives", "Scrapper" },
+    ArchivesPackageDeposit = { "objectives", "Package Deposit" }, Cellar = { "objectives", "Cellar" },
+    LiveHintBook = { "objectives", "Hint Book" }, LiveBreakerPolePickup = { "objectives", "Fuse Breaker" },
+    LibraryHintPaper = { "objectives", "Hint Paper" }, MinesAnchor = { "objectives", "Anchor" },
+    WaterPump = { "objectives", "Water Pump", "Wheel" }, CringlePresent = { "objectives", "Present" },
+    LeverForGate = { "objectives", "Gate Lever" }, VineGuillotine = { "objectives", "Vine Lever", "Lever" },
+    MinesGenerator = { "objectives", "Generator" }, FuseObtain = { "objectives", "Generator Fuse" },
+    MinesGateButton = { "objectives", "Gate Button" }, GardenGateButton = { "objectives", "Gate Button" },
+    StairwellLockpickDoor = { "interactables", "Garage Door" }, Mirror = { "interactables", "Mirror" },
+    StairwellFireAlarm = { "interactables", "Fire Alarm" }, ShoppingCart = { "interactables", "Shopping Cart" },
+    ArchivesFihTank = { "interactables", "Fih Tank" }, Ladder = { "interactables", "Ladder" },
+    ChestBox = { "chests", "Chest" }, ChestBoxLocked = { "chests", "Locked Chest" },
+    Toolbox = { "chests", "Toolbox" }, Toolbox_Locked = { "chests", "Locked Toolbox" },
+    Chest_Vine = { "chests", "Vine Chest" }, Toolshed_Small = { "chests", "Toolshed" },
+    Locker_Small_Locked = { "chests", "Locked Item Locker" }, MouseHole = { "chests", "Mouse" },
+    GloomPile = { "entities", "Gloombat Eggs" }, GiggleCeiling = { "entities", "Giggle" },
+}
+local function ProcessMain(d)
+    local m = MAIN_OBJ[d.Name]
+    if not m or Tracked[d] then return end
+    if not (d:IsA("Model") or d:IsA("BasePart")) then return end
+    local cat = m[1]
+    if not Active[cat] then return end
+    local target = d
+    if m[3] then
+        target = d:FindFirstChild(m[3])
+        if not target then return end
+    end
+    if Tracked[target] then return end
+    Register(target, cat, m[2], { Part = (target:IsA("BasePart") and target) or nil })
+end
+
 local function OnDescendant(d)
     -- PERF: solo estas clases importan; el resto (Decals, Sounds, Attachments, Scripts...) se descarta ya
     if not (d:IsA("ProximityPrompt") or d:IsA("Model") or d:IsA("BasePart") or d:IsA("Humanoid") or d:IsA("AnimationController")) then return end
@@ -3130,6 +3894,7 @@ local function OnDescendant(d)
         end
     end
     Process(d)
+    pcall(ProcessMain, d)
     ProcessStairs(d)
     ProcessNoise(d)
     ProcessLoose(d)
@@ -3351,6 +4116,9 @@ local function Refresh()
             if e.NoGeo then
                 kn = kn + 1
                 kept[kn] = e
+            elseif e.OnScr == false then
+                kn = kn + 1       -- fuera de pantalla: no gasta un Highlight
+                kept[kn] = e
             elseif used < maxHL then
                 used = used + 1
                 kn = kn + 1
@@ -3411,7 +4179,7 @@ local function Refresh()
             if e.Line then e.Line.BackgroundColor3 = color end
         end
 
-        hl.Enabled = not useBox
+        hl.Enabled = (not useBox) and e.OnScr ~= false
         box.Visible = useBox
         if useBox then
             -- las cajas de entidades/jugadores se actualizan siempre; el resto cada 1.5s
@@ -3675,27 +4443,48 @@ print("[R4NS0M] Loading Main Tab")
 MainTab:Section({ Title = "What's New" })
 do
     local NOTES = {
-        en = "+ Added a brand new notification look: cards with an icon, a color by type, a time bar, slide animations, stacking and tap to dismiss.\n"
-            .. "+ Added UI Theme, UI Library, Re-execute Script and Destroy Script in Configs.\n"
-            .. "+ Added the real animations and sounds of the entity to the Fun morphs (captured from the game) and the accessories are hidden now.\n"
-            .. "+- Changed Auto Execute On Teleport: it runs the release version silently, with nothing visual from the loader.\n"
+        en = "+ Added a brand new notification look (cards with an icon, color by type, time bar, animations, stacking) with the badge sound, also for entity spawn and despawn alerts.\n"
+            .. "+ Added Recommended Presets in Configs for every mode (Hotel, Fools, Mines, Backdoor, Outdoors, Archives, Stairwell, Rooms).\n"
+            .. "+ The presets now turn on the best functions of every tab for each mode.\n"
+            .. "+ Added ESP Arrows for objects that are off screen.\n"
+            .. "+- Changed the ESP render: Highlights only while the object is on screen.\n"
+            .. "+ Added the Distance Preset: 1 Room or 2 Rooms (you can still adjust the meters by hand).\n"
+            .. "+ Added UI Theme (Red by default), UI Library, Re-execute Script and Destroy Script in Configs.\n"
+            .. "+ Added more ESP objects: gate levers and buttons, generators, fuses, anchors, water pump, hint books and papers, mirrors, fire alarms, ladders, chests and more.\n"
+            .. "+ Added the real animations and sounds of the entity to the Fun morphs and the accessories are hidden now.\n"
+            .. "+ Added translated descriptions for the language you choose.\n"
+            .. "+- Fixed Auto Interact (it was not interacting).\n"
+            .. "+- Fixed Auto Execute On Teleport.\n"
             .. "+- Changed the startup: heavy scans are delayed so the game no longer crashes on some devices.\n"
-            .. "- Removed the approximate morph models (they looked bad).\n"
-            .. "- Removed Save Script From Clipboard and Auto Execute Status.",
-        es = "+ Se añadió un diseño totalmente nuevo de notificaciones: tarjetas con icono, color por tipo, barra de tiempo, animaciones de entrada y salida, apilado y toque para cerrar.\n"
-            .. "+ Se añadió Tema de UI, Librería de UI, Re-execute Script y Destroy Script en Configs.\n"
-            .. "+ Se añadieron las animaciones y sonidos reales de la entidad a los morphs de Fun (capturados del juego) y ahora se ocultan los accesorios.\n"
-            .. "+- Se cambió Auto Execute On Teleport: ejecuta la versión release en silencio, sin nada visual del loader.\n"
+            .. "- Removed the approximate morph models (they looked bad).",
+        es = "+ Se añadió un diseño totalmente nuevo de notificaciones (tarjetas con icono, color por tipo, barra de tiempo, animaciones, apilado) con el sonido de badge, también en los avisos de aparición y desaparición de entidades.\n"
+            .. "+ Se añadieron Presets Recomendados en Configs para cada modo (Hotel, Fools, Mines, Backdoor, Outdoors, Archives, Stairwell, Rooms).\n"
+            .. "+ Los presets ahora activan las mejores funciones de todas las pestañas para cada modo.\n"
+            .. "+ Se añadieron Flechas del ESP para los objetos fuera de pantalla.\n"
+            .. "+- Se cambió el render del ESP: Highlights solo mientras el objeto está en pantalla.\n"
+            .. "+ Se añadió el Preset de Distancia: 1 Habitación o 2 Habitaciones (aún puedes ajustar los metros a mano).\n"
+            .. "+ Se añadieron Tema de UI (Red por defecto), Librería de UI, Re-execute Script y Destroy Script en Configs.\n"
+            .. "+ Se añadieron más objetos al ESP: palancas y botones de puertas, generadores, fusibles, anclas, bomba de agua, libros y papeles de pista, espejos, alarmas, escaleras, cofres y más.\n"
+            .. "+ Se añadieron las animaciones y sonidos reales de la entidad a los morphs de Fun y ahora se ocultan los accesorios.\n"
+            .. "+ Se añadieron descripciones traducidas según el idioma que elijas.\n"
+            .. "+- Se arregló el Auto Interact (no interactuaba).\n"
+            .. "+- Se arregló el Auto Execute On Teleport.\n"
             .. "+- Se cambió el arranque: los escaneos pesados se retrasan para que el juego ya no se crashee en algunos dispositivos.\n"
-            .. "- Se quitaron los modelos aproximados de los morphs (se veían feos).\n"
-            .. "- Se quitaron Guardar Script desde el Portapapeles y Estado del Auto Execute.",
-        ru = "+ Добавлен совершенно новый вид уведомлений: карточки с иконкой, цветом по типу, полосой времени, анимациями, стеком и закрытием по нажатию.\n"
-            .. "+ Добавлены UI Theme, UI Library, Re-execute Script и Destroy Script в Configs.\n"
-            .. "+ В морфы Fun добавлены настоящие анимации и звуки сущности (записываются из игры), аксессуары теперь скрываются.\n"
-            .. "+- Изменён Auto Execute On Teleport: тихо запускает релизную версию, без визуальных элементов загрузчика.\n"
+            .. "- Se quitaron los modelos aproximados de los morphs (se veían feos).",
+        ru = "+ Добавлен совершенно новый вид уведомлений (карточки с иконкой, цветом по типу, полосой времени, анимациями, стеком) со звуком badge, в том числе для оповещений о появлении и исчезновении сущностей.\n"
+            .. "+ Добавлены Рекомендуемые пресеты в Configs для каждого режима (Hotel, Fools, Mines, Backdoor, Outdoors, Archives, Stairwell, Rooms).\n"
+            .. "+ Пресеты теперь включают лучшие функции всех вкладок для каждого режима.\n"
+            .. "+ Добавлены стрелки ESP для объектов вне экрана.\n"
+            .. "+- Изменён рендер ESP: Highlight только пока объект на экране.\n"
+            .. "+ Добавлен пресет дистанции: 1 комната или 2 комнаты (метры можно настроить вручную).\n"
+            .. "+ Добавлены UI Theme (по умолчанию Red), UI Library, Re-execute Script и Destroy Script в Configs.\n"
+            .. "+ Добавлены новые объекты ESP: рычаги и кнопки ворот, генераторы, предохранители, якоря, водяной насос, книги и записки-подсказки, зеркала, пожарные сигнализации, лестницы, сундуки и другое.\n"
+            .. "+ В морфы Fun добавлены настоящие анимации и звуки сущности, аксессуары теперь скрываются.\n"
+            .. "+ Добавлены переведённые описания для выбранного языка.\n"
+            .. "+- Исправлено Авто взаимодействие (не срабатывало).\n"
+            .. "+- Исправлен Auto Execute On Teleport.\n"
             .. "+- Изменён запуск: тяжёлые сканирования отложены, чтобы игра не вылетала на некоторых устройствах.\n"
-            .. "- Удалены приблизительные модели морфов (выглядели плохо).\n"
-            .. "- Удалены Save Script From Clipboard и Auto Execute Status.",
+            .. "- Удалены приблизительные модели морфов (выглядели плохо).",
     }
     local TITLES = { en = "Version 1.0.6", es = "Versión 1.0.6", ru = "Версия 1.0.6" }
     MainTab:Paragraph({ Title = TITLES[R4N_LANG] or TITLES.en, Desc = NOTES[R4N_LANG] or NOTES.en })
@@ -3782,6 +4571,15 @@ VisualsTab:Section({ Title = "Display" })
 AddSlider(VisualsTab, "MaxDistance", "Max Distance",
     "Objects farther than this many studs are hidden. Entities are always shown, except the ones in the \"Entities with distance limit\" list.",
     50, 2000, Cfg.MaxDistance, function(v) Cfg.MaxDistance = v end)
+AddDropdown(VisualsTab, "DistPreset", "Distance Preset",
+    "Quick distances: 1 Room (about 60 studs / 17 m) or 2 Rooms (about 120 studs / 34 m). It moves the Max Distance slider; you can still adjust it by hand.",
+    { "Custom", "1 Room", "2 Rooms" }, "Custom", function(v)
+        local d = (v == "1 Room" and 60) or (v == "2 Rooms" and 120) or nil
+        if d then
+            Cfg.MaxDistance = d
+            if Setters.MaxDistance then pcall(Setters.MaxDistance, d) end
+        end
+    end)
 AddSlider(VisualsTab, "MaxObjects", "Max ESP Objects",
     "Most objects drawn at once (the closest ones win; entities always have priority). Lower it if the game lags, mainly in The Outdoors.",
     20, 400, Cfg.MaxObjects, function(v) Cfg.MaxObjects = v end)
@@ -4104,7 +4902,7 @@ local ENTITY_TIPS = {
 
 local Ex = {
     -- Notifier
-    Notify = false, NotifyStyle = "Doors Achievement", NotifySound = true, NotifyVolume = 100,
+    Notify = false, NotifyStyle = "R4NS0M Card", NotifySound = true, NotifyVolume = 100,
     NotifyDuration = 5, NotifyCooldown = 4, NotifyTips = true, NotifySoundId = "", NotifyIconId = "",
     NotifyFilter = {},
     -- Movement
@@ -4142,6 +4940,7 @@ local St = {
     BadgeSound = "rbxassetid://10469938989", -- sonido de badge/logro de DOORS
 }
 
+R4N_EX = Ex
 local function AssetUrl(v)
     v = tostring(v or ""):gsub("%s", "")
     if v == "" then return nil end
@@ -4341,6 +5140,12 @@ local function CustomToast(title, desc, accent)
 end
 
 function FX.ShowToast(title, desc, reason, accent)
+    if Ex.NotifyStyle == "R4NS0M Card" and R4N_Card then
+        local body = tostring(desc or "")
+        if reason and reason ~= "" then body = body .. (body ~= "" and "\n" or "") .. tostring(reason) end
+        R4N_Card({ Title = title, Content = body, Duration = Ex.NotifyDuration or 5, Accent = accent, Type = "warn" })
+        return
+    end
     if Ex.NotifyStyle == "Doors Achievement" then
         local ok, shown = pcall(NativeToast, title, desc, reason)
         if ok and shown then return end
@@ -5031,8 +5836,8 @@ AlertsTab:Button({
 
 AlertsTab:Section({ Title = "Notification Settings" })
 AddDropdown(AlertsTab, "NotifyStyle", "Notification Style",
-    "Doors Achievement clones the game's own badge popup with the same animation and the badge sound. Custom Toast draws a simple popup if the game's one is missing.",
-    { "Doors Achievement", "Custom Toast" }, Ex.NotifyStyle, function(v) Ex.NotifyStyle = v end)
+    "R4NS0M Card uses the new card design of the script. Doors Achievement clones the game's own badge popup with the same animation and the badge sound. Custom Toast draws a simple popup if the game's one is missing.",
+    { "R4NS0M Card", "Doors Achievement", "Custom Toast" }, Ex.NotifyStyle, function(v) Ex.NotifyStyle = v end)
 AddToggle(AlertsTab, "NotifySound", "Play Sound", "Plays a sound with every notification.", Ex.NotifySound, function(v) Ex.NotifySound = v end)
 AddSlider(AlertsTab, "NotifyVolume", "Volume (%)", "Loudness of the notification sound.", 0, 100, Ex.NotifyVolume, function(v) Ex.NotifyVolume = v end)
 AddSlider(AlertsTab, "NotifyDuration", "Duration (seconds)", "How long the popup stays on screen.", 2, 12, Ex.NotifyDuration, function(v) Ex.NotifyDuration = v end)
@@ -7093,8 +7898,7 @@ end
 
 AI.Loop = function()
 	local lastScan = os.clock()
-	task.wait(6) -- 1.0.7: el primer escaneo espera a que el juego cargue (evita cierres al ejecutar)
-	pcall(AI.Rescan)
+	task.delay(6, function() pcall(AI.Rescan) end) -- el primer escaneo espera a que el juego cargue (sin bloquear el ciclo)
 	while true do
 		RunService.Heartbeat:Wait()
 		AI.Beat = os.clock()
@@ -14194,6 +14998,62 @@ end)
 end)()
 
 -- ============================================================================================
+-- RENDER DEL ESP (1.0.6): Highlight solo mientras el objeto esta en pantalla + flechas fuera de pantalla
+-- ============================================================================================
+;(function()
+local cam = Workspace.CurrentCamera
+Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function() cam = Workspace.CurrentCamera end)
+Cfg.Arrows, Cfg.ArrowRadius = false, 200
+VisualsTab:Section({ Title = "Arrows" })
+AddToggle(VisualsTab, "ESPArrows", "ESP Arrows", "Draws an arrow at the edge of the screen pointing to every marked object that is off screen.", false, function(v) Cfg.Arrows = v end)
+AddSlider(VisualsTab, "ESPArrowRadius", "Arrow Radius", "How far from the center of the screen the arrows are drawn.", 50, 400, 200, function(v) Cfg.ArrowRadius = v end)
+local acc = 0
+RunService.Heartbeat:Connect(function(dt)
+	acc = acc + dt
+	if acc < 1 / 60 then return end
+	acc = 0
+	cam = cam or Workspace.CurrentCamera
+	if not cam then return end
+	local vp = cam.ViewportSize
+	local center = Vector2.new(vp.X / 2, vp.Y / 2)
+	local mx, my = vp.X * 0.25, vp.Y * 0.25
+	for _, e in pairs(Tracked) do
+		local part, arr = e.Part, e.Arrow
+		if e.Shown and e.HL and part and part.Parent then
+			local sp = cam:WorldToViewportPoint(part.Position)
+			local on = sp.Z > 0 and sp.X > -mx and sp.X < vp.X + mx and sp.Y > -my and sp.Y < vp.Y + my
+			e.OnScr = on
+			if not e.NoGeo and e.HL.Enabled ~= on then e.HL.Enabled = on end
+			if Cfg.Arrows and not on then
+				if not arr then
+					arr = Instance.new("ImageLabel")
+					arr.Image = "rbxassetid://16368985219"
+					arr.Size = UDim2.fromOffset(40, 40)
+					arr.AnchorPoint = Vector2.new(0.5, 0.5)
+					arr.BackgroundTransparency = 1
+					arr.Parent = Gui
+					e.Arrow = arr
+				end
+				local dir = Vector2.new(sp.X, sp.Y) - center
+				if sp.Z <= 0 then dir = -dir end
+				if dir.Magnitude < 1 then dir = Vector2.new(0, -1) end
+				local rad = math.min(vp.X, vp.Y) / 2 - (400 - Cfg.ArrowRadius)
+				local p = center + dir.Unit * rad
+				arr.Position = UDim2.fromOffset(p.X, p.Y)
+				arr.Rotation = math.deg(math.atan2(dir.Y, dir.X)) - 90
+				arr.ImageColor3 = e.Col or Color3.new(1, 1, 1)
+				arr.Visible = true
+			elseif arr and arr.Visible then
+				arr.Visible = false
+			end
+		elseif arr and arr.Visible then
+			arr.Visible = false
+		end
+	end
+end)
+end)()
+
+-- ============================================================================================
 -- RENDIMIENTO INTELIGENTE (1.0.5)
 -- ============================================================================================
 ;(function()
@@ -14272,6 +15132,58 @@ local function FromInputs()
 	if not url:match("^https://") then NotifyUI("Community Scripts", "The link must start with https://") return nil end
 	if name == "" then name = "Script" end
 	return { name = name, creator = creator, url = url }
+end
+
+-- Presets recomendados por modo: ESP del modo + distancia. Rooms es solo vision (ESP); el resto activa tambien los avisos de entidades.
+local PRESET_DIST = { Hotel = 120, Fools = 120, Mines = 120, Backdoor = 120, Outdoors = 120, Archives = 60, Stairwell = 60, Rooms = 60 }
+local PRESET_COMMON = { "Notify", "NotifyDespawn", "AutoInteract", "Fullbright", "NoFog", "NoCamShake", "NoCamBob", "NoHideVignette", "NoClosetDelay", "DisableIdleKick", "TransHide", "NoGlitchJumpscare", "NoTimothyJumpscare", "NoVoidJumpscare", "DisableEntityJumpscares", "HideLooted", "ShowName", "ShowDistance", "SmartPerf", "FPSGuard" }
+local PRESET_VISUAL = { "Fullbright", "NoFog", "NoCamShake", "NoCamBob", "NoHideVignette", "TransHide", "HideLooted", "ShowName", "ShowDistance", "SmartPerf", "FPSGuard" }
+local HOTEL_SET = { "AutoBreakerBox", "GuessLibraryCode", "NotifyLibraryCode", "ShowSeekPath", "ShowEyestalkPath", "RemoveSeekTrigger", "RemoveBasementGate", "RemovePaintingsDoor", "RemoveSkeletonDoor" }
+local PRESET_MODE = {
+	Hotel = HOTEL_SET, Fools = HOTEL_SET,
+	Mines = { "AutoSteerMinecart", "ShowSeekPath", "DisableFiredamp" },
+	Backdoor = { "NotifyHaste" },
+	Outdoors = {},
+	Archives = { "HonchoESP", "StopTimeStampede", "TimeShower", "AntiRansom", "AntiClosetTrash", "FMNAnomalyESP", "FMNAnomalyNotify", "TellerNumber", "TellerNotify", "BypassDrones", "NotifyRansom" },
+	Stairwell = { "StairwellExtraESP", "DropCounter", "MeldStopGrowth", "CreakText", "AntiNoise" },
+	Rooms = {},
+}
+local function PresetSet(id, v)
+	pcall(function()
+		if Ex[id] ~= nil and Ex[id] == v then
+			if Setters[id] then Setters[id](v) end
+		else
+			SetFeature(id, v)
+		end
+	end)
+end
+R4N_ApplyModePreset = function(name)
+	local list = MODE_CATS[name]
+	if not list then return false end
+	-- 1) ESP del modo + distancia
+	local on = {}
+	for _, id in ipairs(list) do
+		if id ~= "interactables" and id ~= "stairs" then on[id] = true end
+	end
+	for id, c in pairs(Cfg.Categories) do
+		local want = on[id] == true
+		c.Enabled = want
+		if Setters["cat_" .. id] then pcall(Setters["cat_" .. id], want) end
+	end
+	local d = PRESET_DIST[name] or 120
+	Cfg.MaxDistance = d
+	if Setters.MaxDistance then pcall(Setters.MaxDistance, d) end
+	-- 2) funciones de todas las pestañas: se apagan las propias de otros modos y se encienden las recomendadas
+	local want = {}
+	for _, id in ipairs(name == "Rooms" and PRESET_VISUAL or PRESET_COMMON) do want[id] = true end
+	for _, id in ipairs(PRESET_MODE[name] or {}) do want[id] = true end
+	for _, ids in pairs(PRESET_MODE) do
+		for _, id in ipairs(ids) do
+			if not want[id] and Ex[id] == true then PresetSet(id, false) end
+		end
+	end
+	for id in pairs(want) do PresetSet(id, true) end
+	return true
 end
 
 R4N_TurnOffAll = function()
@@ -15116,7 +16028,7 @@ ConfigsTab:Section({ Title = "Language" })
 local LANG_NAMES = { en = "English", es = "Español", ru = "Русский" }
 ConfigsTab:Dropdown({
     Title = "Language",
-    Desc = "English (default), Español, Русский. Titles are translated; re-execute the script to apply.",
+    Desc = "English (default), Español, Русский. Titles and descriptions are translated; re-execute the script to apply.",
     Values = { "English", "Español", "Русский" },
     Value = LANG_NAMES[R4N_LANG] or "English",
     Callback = function(option)
@@ -15182,6 +16094,21 @@ ConfigsTab:Toggle({
 -- ------------------------------------------------------------------------------------------
 -- Interface: tema, libreria, re-ejecutar y destruir
 -- ------------------------------------------------------------------------------------------
+ConfigsTab:Section({ Title = "Recommended Presets" })
+local presetNames = { "Hotel", "Fools", "Mines", "Backdoor", "Outdoors", "Archives", "Stairwell", "Rooms" }
+local presetSel = presetNames[1]
+ConfigsTab:Dropdown({
+    Title = "Mode Preset", Desc = "Recommended setup for each floor and sub-floor: it turns on the ESP of that mode, sets the distance and turns on the best functions of every tab (alerts, Auto Interact, antis, visuals and the extras of that mode). Rooms only turns on the visuals.",
+    Values = presetNames, Value = presetSel, Callback = function(v) presetSel = v end,
+})
+ConfigsTab:Button({
+    Title = "Apply Mode Preset", Desc = "Applies the selected preset right now.",
+    Callback = function()
+        local ok = R4N_ApplyModePreset and R4N_ApplyModePreset(presetSel)
+        Notify("Preset", ok and (presetSel .. " " .. Msg("preset applied.", "preset aplicado.", "пресет применён.")) or Msg("Could not apply the preset.", "No se pudo aplicar el preset.", "Не удалось применить пресет."), 3)
+    end,
+})
+
 ConfigsTab:Section({ Title = "Interface" })
 local themeNames = {}
 pcall(function()
@@ -15191,14 +16118,14 @@ end)
 if #themeNames == 0 then
     themeNames = { "Dark", "Light", "Rose", "Plant", "Red", "Indigo", "Sky", "Violet", "Amber", "Emerald", "Midnight", "Crimson", "MonaSpace", "Rainbow" }
 end
-local curTheme = "Dark"
+local curTheme = "Red"
 pcall(function()
     if isfile and readfile and isfile("R4NS0M_Theme.txt") then
         local t = readfile("R4NS0M_Theme.txt"):gsub("%s+", "")
         if t ~= "" then curTheme = t end
     end
 end)
-if curTheme ~= "Dark" then pcall(function() WindUI:SetTheme(curTheme) end) end
+pcall(function() WindUI:SetTheme(curTheme) end)
 ConfigsTab:Dropdown({
     Title = "UI Theme", Desc = "Changes the colors of the menu right away. It is remembered.",
     Values = themeNames, Value = curTheme,
