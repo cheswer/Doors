@@ -1,8 +1,14 @@
-warn("--- [R4NS0M] EXECUTING SCRIPT ---")
-pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "R4NS0M", Text = "Script iniciado, cargando UI...", Duration = 6 }) end)
+R4N_T0 = os.clock()
+do
+    local g = (getgenv and getgenv()) or _G
+    if not g.R4N_AUTOEXEC then
+        warn("--- [R4NS0M] EXECUTING SCRIPT ---")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "R4NS0M", Text = "Script iniciado, cargando UI...", Duration = 6 }) end)
+    end
+end
 --[[
   R4NS0M CD-1  |  Team CHX
-  Version 1.0.5
+  Version 1.0.6
   Tabs: Main, Info, Visuals, Player, Automation, Anticheat, Antis, Archives, Stairwell, Alerts, Misc, Fun, Keybinds, Configs
   Ransomity is real
 ]]
@@ -39,6 +45,7 @@ do
         pcall(function() LocalPlayer:Kick(msgs[R4N_LANG] or msgs.en) end)
         return
     end
+    R4N_SILENT = genv.R4N_AUTOEXEC == true
     genv.R4N_AUTOEXEC = nil
 end
 
@@ -52,68 +59,33 @@ pcall(function()
     if type(s) == "string" and #s > 20000 and s:sub(1, 1) ~= "@" and s:sub(1, 1) ~= "=" then R4N_SRC = s end
 end)
 R4N_AE_STATUS = "off"
+R4N_RELEASE_URL = "https://raw.githubusercontent.com/cheswer/Doors/refs/heads/main/R4NS0M-HUB-RELEASE.lua"
 function R4N_QueueAutoExec()
     pcall(function()
-        local CACHE = "R4NS0M_Cache.lua"
         local qot = queue_on_teleport or queueonteleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
-        if not (isfile and readfile and isfile("R4NS0M_AutoExec.json")) then return end
+        if not (isfile and readfile and isfile("R4NS0M_AutoExec.json")) then R4N_AE_STATUS = "off" return end
         local d = HttpService:JSONDecode(readfile("R4NS0M_AutoExec.json"))
         if type(d) ~= "table" or not d.on then R4N_AE_STATUS = "off" return end
         if not qot then R4N_AE_STATUS = "noqueue" return end
-        local loader
-        local function useCache()
-            return "loadstring(readfile(" .. string.format("%q", CACHE) .. "))()"
-        end
-        -- 1) el codigo ejecutado (si el ejecutor lo expone)
-        if R4N_SRC then
-            if writefile then pcall(writefile, CACHE, R4N_SRC) end
-            if isfile(CACHE) then
-                loader = useCache()
-            elseif #R4N_SRC < 2000000 then
-                loader = "loadstring(" .. string.format("%q", R4N_SRC) .. ")()"
-            end
-            R4N_AE_STATUS = loader and "ok" or "nosource"
-        end
-        -- 2) cualquier archivo del script en tu carpeta workspace (el nombre debe contener R4NS0M)
-        if not loader and listfiles and writefile then
+        local genv = (getgenv and getgenv()) or _G
+        if genv.R4N_QUEUED and os.time() - genv.R4N_QUEUED < 600 then R4N_AE_STATUS = "ok" return end
+        genv.R4N_QUEUED = os.time()
+        if not genv.R4N_AE_CONN then
+            genv.R4N_AE_CONN = true
             pcall(function()
-                local found = {}
-                for _, p in ipairs(listfiles("")) do
-                    local l = p:lower()
-                    if l:find("r4ns0m", 1, true) and (l:match("%.lua$") or l:match("%.luau$") or l:match("%.txt$"))
-                        and not l:find("cache", 1, true) and not l:find("autoexec", 1, true) and not l:find("lang", 1, true)
-                        and not l:find("speedrun", 1, true) and not l:find("config", 1, true) then
-                        found[#found + 1] = p
-                    end
-                end
-                table.sort(found, function(x, y) return x:lower() > y:lower() end)
-                for _, p in ipairs(found) do
-                    local okr, c = pcall(readfile, p)
-                    if okr and type(c) == "string" and #c > 20000 and c:find("EXECUTING SCRIPT", 1, true) then
-                        writefile(CACHE, c)
-                        loader = useCache()
-                        R4N_AE_STATUS = "file"
-                        break
-                    end
-                end
+                Players.LocalPlayer.OnTeleport:Connect(function(st)
+                    if st == Enum.TeleportState.Started then genv.R4N_QUEUED = nil end -- la cola se consume al teletransportar
+                end)
             end)
         end
-        -- 3) copia guardada de una ejecucion anterior
-        if not loader and isfile(CACHE) then
-            loader = useCache()
-            R4N_AE_STATUS = "cache"
-        end
-        if not loader then R4N_AE_STATUS = "nosource" end
-        if not loader then return end
-        local genv = (getgenv and getgenv()) or _G
-        if genv.R4N_QUEUED then return end
-        genv.R4N_QUEUED = true
-        -- al llegar al destino: solo se ejecuta si es la partida (DOORS en si). El lobby es una opcion aparte
+        -- al llegar al destino se ejecuta en silencio la version release; el lobby es una opcion aparte
         qot("local g=(getgenv and getgenv()) or _G;g.R4N_QUEUED=nil;"
             .. "if not game:IsLoaded() then game.Loaded:Wait() end;"
             .. "local okf,f=pcall(readfile,\"R4NS0M_AutoExec.json\");if not(okf and f and f:find('\"on\":true',1,true)) then return end;"
             .. "if game.PlaceId==6516141723 and not f:find('\"lobby\":true',1,true) then return end;"
-            .. "g.R4N_AUTOEXEC=true;task.wait(1.5);" .. loader)
+            .. "g.R4N_AUTOEXEC=true;task.wait(1.5);"
+            .. "loadstring(game:HttpGet(\"" .. R4N_RELEASE_URL .. "\"))()")
+        R4N_AE_STATUS = "ok"
     end)
 end
 R4N_QueueAutoExec()
@@ -335,6 +307,12 @@ local WindUI, Window = (function()
     end
 
     local lib, win
+    pcall(function()
+        if isfile and readfile and isfile("R4NS0M_UILib.txt") then
+            local idx = ({ latest = 1, dist = 2, stable = 3 })[readfile("R4NS0M_UILib.txt"):gsub("%s+", "")]
+            if idx and idx > 1 and sources[idx] then table.insert(sources, 1, table.remove(sources, idx)) end
+        end
+    end)
     for _, url in ipairs(sources) do
         local candidate = withTimeout(25, function() return tryLoadRaw(url) end)
         if candidate then
@@ -367,6 +345,236 @@ local WindUI, Window = (function()
     end
     return lib, win
 end)()
+
+-- ============================================================================================
+-- Notificaciones (1.0.7): tarjetas con icono, color por tipo, barra de tiempo, animacion y apilado
+-- ============================================================================================
+;(function()
+local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
+local parent
+pcall(function() parent = (gethui and gethui()) or game:GetService("CoreGui") end)
+parent = parent or game:GetService("CoreGui")
+
+local sg = Instance.new("ScreenGui")
+sg.Name = "R4N_Notifs"
+sg.ResetOnSpawn = false
+sg.IgnoreGuiInset = false
+sg.DisplayOrder = 1000
+sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() if syn and syn.protect_gui then syn.protect_gui(sg) end end)
+sg.Parent = parent
+R4N_NotifGui = sg
+
+local cam = workspace.CurrentCamera
+local width = 320
+pcall(function() if cam and cam.ViewportSize.X < 420 then width = math.max(220, cam.ViewportSize.X - 28) end end)
+
+local holder = Instance.new("Frame")
+holder.Name = "Stack"
+holder.BackgroundTransparency = 1
+holder.AnchorPoint = Vector2.new(1, 0)
+holder.Position = UDim2.new(1, -12, 0, 12)
+holder.Size = UDim2.new(0, width, 1, -24)
+holder.Parent = sg
+local lay = Instance.new("UIListLayout")
+lay.SortOrder = Enum.SortOrder.LayoutOrder
+lay.Padding = UDim.new(0, 8)
+lay.HorizontalAlignment = Enum.HorizontalAlignment.Right
+lay.VerticalAlignment = Enum.VerticalAlignment.Top
+lay.Parent = holder
+
+local TYPES = {
+	info    = { Color3.fromRGB(116, 148, 255), "i" },
+	success = { Color3.fromRGB(78, 224, 140), "✓" },
+	warn    = { Color3.fromRGB(255, 192, 72), "!" },
+	error   = { Color3.fromRGB(255, 92, 104), "✕" },
+}
+local function Classify(title, content)
+	local t = (title .. " " .. content):lower()
+	for _, w in ipairs({ "error", "failed", "fail ", "could not", "cannot", "can't", "not supported", "invalid", "no se pudo", "no soporta" }) do
+		if t:find(w, 1, true) then return "error" end
+	end
+	for _, w in ipairs({ "first", "warning", "needs", "missing", "not available", "only works", "no longer" }) do
+		if t:find(w, 1, true) then return "warn" end
+	end
+	for _, w in ipairs({ "enabled", "saved", "copied", "captured", "found", "loaded", "ready", "done", "success", "activado", "guardado", "copiado" }) do
+		if t:find(w, 1, true) then return "success" end
+	end
+	return "info"
+end
+
+local stack, counter, byKey = {}, 0, {}
+local function Dismiss(item)
+	if not item or item.Dead then return end
+	item.Dead = true
+	byKey[item.Key] = nil
+	for i, v in ipairs(stack) do
+		if v == item then table.remove(stack, i) break end
+	end
+	local t = TweenService:Create(item.Card, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Position = UDim2.new(0, width + 40, 0, 0) })
+	t:Play()
+	t.Completed:Connect(function() pcall(function() item.Wrap:Destroy() end) end)
+end
+
+local function Show(data)
+	if R4N_SILENT and R4N_T0 and os.clock() - R4N_T0 < 12 then return end -- auto ejecucion: nada visual al cargar
+	local title = tostring(data.Title or "R4NS0M")
+	local content = tostring(data.Content or "")
+	local dur = tonumber(data.Duration) or 3
+	local key = title .. "\0" .. content
+	local old = byKey[key]
+	if old and not old.Dead then
+		old.Count = old.Count + 1
+		old.Badge.Text = "x" .. old.Count
+		old.Badge.Visible = true
+		old.Gen = old.Gen + 1
+		local g = old.Gen
+		old.Bar.Size = UDim2.new(1, 0, 1, 0)
+		TweenService:Create(old.Bar, TweenInfo.new(dur, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 1, 0) }):Play()
+		task.delay(dur, function() if old.Gen == g then Dismiss(old) end end)
+		return
+	end
+	local kind = TYPES[data.Type] and data.Type or Classify(title, content)
+	local accent, glyph = TYPES[kind][1], TYPES[kind][2]
+	counter = counter + 1
+
+	local wrap = Instance.new("Frame")
+	wrap.BackgroundTransparency = 1
+	wrap.Size = UDim2.new(1, 0, 0, 0)
+	wrap.AutomaticSize = Enum.AutomaticSize.Y
+	wrap.LayoutOrder = counter
+	wrap.Parent = holder
+
+	local card = Instance.new("Frame")
+	card.BackgroundColor3 = Color3.fromRGB(17, 19, 27)
+	card.BackgroundTransparency = 0.04
+	card.Size = UDim2.new(1, 0, 0, 0)
+	card.AutomaticSize = Enum.AutomaticSize.Y
+	card.Position = UDim2.new(0, width + 40, 0, 0)
+	card.ClipsDescendants = true
+	card.Parent = wrap
+	local cr = Instance.new("UICorner") cr.CornerRadius = UDim.new(0, 12) cr.Parent = card
+	local st = Instance.new("UIStroke") st.Color = accent st.Transparency = 0.55 st.Thickness = 1.2 st.Parent = card
+	local grad = Instance.new("UIGradient")
+	grad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 210, 230))
+	grad.Rotation = 90
+	grad.Parent = card
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft, pad.PaddingRight, pad.PaddingTop, pad.PaddingBottom = UDim.new(0, 56), UDim.new(0, 30), UDim.new(0, 11), UDim.new(0, 16)
+	pad.Parent = card
+
+	local bar = Instance.new("Frame")
+	bar.BackgroundColor3 = accent
+	bar.BorderSizePixel = 0
+	bar.Size = UDim2.new(0, 4, 1, -20)
+	bar.Position = UDim2.new(0, -48, 0, -1)
+	bar.Parent = card
+	local bc = Instance.new("UICorner") bc.CornerRadius = UDim.new(1, 0) bc.Parent = bar
+
+	local icon = Instance.new("Frame")
+	icon.BackgroundColor3 = accent
+	icon.BackgroundTransparency = 0.8
+	icon.Size = UDim2.fromOffset(30, 30)
+	icon.Position = UDim2.new(0, -42, 0, 0)
+	icon.Parent = card
+	local ic = Instance.new("UICorner") ic.CornerRadius = UDim.new(1, 0) ic.Parent = icon
+	local is = Instance.new("UIStroke") is.Color = accent is.Transparency = 0.4 is.Thickness = 1 is.Parent = icon
+	local gl = Instance.new("TextLabel")
+	gl.BackgroundTransparency = 1
+	gl.Size = UDim2.new(1, 0, 1, 0)
+	gl.Font = Enum.Font.GothamBold
+	gl.Text = glyph
+	gl.TextSize = 16
+	gl.TextColor3 = accent
+	gl.Parent = icon
+
+	local body = Instance.new("Frame")
+	body.BackgroundTransparency = 1
+	body.Size = UDim2.new(1, 0, 0, 0)
+	body.AutomaticSize = Enum.AutomaticSize.Y
+	body.Parent = card
+	local bl = Instance.new("UIListLayout") bl.Padding = UDim.new(0, 3) bl.SortOrder = Enum.SortOrder.LayoutOrder bl.Parent = body
+	local tl = Instance.new("TextLabel")
+	tl.BackgroundTransparency = 1
+	tl.Size = UDim2.new(1, 0, 0, 0)
+	tl.AutomaticSize = Enum.AutomaticSize.Y
+	tl.Font = Enum.Font.GothamBold
+	tl.TextSize = 15
+	tl.TextColor3 = Color3.fromRGB(245, 247, 255)
+	tl.TextXAlignment = Enum.TextXAlignment.Left
+	tl.TextWrapped = true
+	tl.Text = title
+	tl.LayoutOrder = 1
+	tl.Parent = body
+	if content ~= "" then
+		local cl = Instance.new("TextLabel")
+		cl.BackgroundTransparency = 1
+		cl.Size = UDim2.new(1, 0, 0, 0)
+		cl.AutomaticSize = Enum.AutomaticSize.Y
+		cl.Font = Enum.Font.Gotham
+		cl.TextSize = 13
+		cl.TextColor3 = Color3.fromRGB(176, 183, 205)
+		cl.TextXAlignment = Enum.TextXAlignment.Left
+		cl.TextYAlignment = Enum.TextYAlignment.Top
+		cl.TextWrapped = true
+		cl.Text = content
+		cl.LayoutOrder = 2
+		cl.Parent = body
+	end
+
+	local badge = Instance.new("TextLabel")
+	badge.BackgroundColor3 = accent
+	badge.BackgroundTransparency = 0.75
+	badge.Size = UDim2.fromOffset(30, 16)
+	badge.Position = UDim2.new(1, 24, 0, -2)
+	badge.AnchorPoint = Vector2.new(1, 0)
+	badge.Font = Enum.Font.GothamBold
+	badge.TextSize = 11
+	badge.TextColor3 = accent
+	badge.Text = "x1"
+	badge.Visible = false
+	badge.Parent = card
+	local bgc = Instance.new("UICorner") bgc.CornerRadius = UDim.new(1, 0) bgc.Parent = badge
+
+	local track = Instance.new("Frame")
+	track.BackgroundColor3 = accent
+	track.BackgroundTransparency = 0.82
+	track.BorderSizePixel = 0
+	track.Size = UDim2.new(1, 86, 0, 3)
+	track.Position = UDim2.new(0, -56, 1, 13)
+	track.Parent = card
+	local fill = Instance.new("Frame")
+	fill.BackgroundColor3 = accent
+	fill.BorderSizePixel = 0
+	fill.Size = UDim2.new(1, 0, 1, 0)
+	fill.Parent = track
+
+	local btn = Instance.new("TextButton")
+	btn.BackgroundTransparency = 1
+	btn.Text = ""
+	btn.Size = UDim2.new(1, 86, 1, 27)
+	btn.Position = UDim2.new(0, -56, 0, -11)
+	btn.ZIndex = 10
+	btn.Parent = card
+
+	local item = { Wrap = wrap, Card = card, Bar = fill, Badge = badge, Count = 1, Key = key, Gen = 0, Dead = false }
+	byKey[key] = item
+	stack[#stack + 1] = item
+	btn.MouseButton1Click:Connect(function() Dismiss(item) end)
+	while #stack > 5 do Dismiss(stack[1]) end
+
+	TweenService:Create(card, TweenInfo.new(0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
+	TweenService:Create(fill, TweenInfo.new(dur, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 1, 0) }):Play()
+	task.delay(dur, function() if item.Gen == 0 then Dismiss(item) end end)
+end
+
+WindUI.Notify = function(_, data)
+	if type(data) ~= "table" then data = { Content = tostring(data) } end
+	pcall(Show, data)
+end
+end)()
+
 
 if not WindUI or not Window then
     return
@@ -815,6 +1023,19 @@ R4N_I18N = {
         ["Ladder Safe Mode"] = "Modo Seguro de Escaleras",
         ["Knob Farm Auto Start"] = "Inicio Automático del Farmeo de Perillas",
         ["Fun"] = "Diversión",
+        ["Interface"] = "Interfaz",
+        ["UI Theme"] = "Tema de la UI",
+        ["UI Library"] = "Librería de la UI",
+        ["Re-execute Script"] = "Re-ejecutar Script",
+        ["Destroy Script"] = "Destruir Script",
+        ["Play Model Sounds"] = "Reproducir Sonidos del Modelo",
+        ["Add To List"] = "Agregar a la Lista",
+        ["Run Selected Script"] = "Ejecutar Script Seleccionado",
+        ["Run Link Now"] = "Ejecutar Link Ahora",
+        ["Remove Selected Script"] = "Quitar Script Seleccionado",
+        ["Saved Scripts"] = "Scripts Guardados",
+        ["Save Script From Clipboard"] = "Guardar Script desde el Portapapeles",
+        ["Auto Execute Status"] = "Estado del Auto Execute",
         ["Auto Execute In Lobby"] = "Auto Ejecutar en el Lobby",
         ["Rainbow ESP"] = "ESP Arcoíris",
         ["Rainbow Speed"] = "Velocidad del Arcoíris",
@@ -1274,6 +1495,19 @@ R4N_I18N = {
         ["Ladder Safe Mode"] = "Безопасный режим лестниц",
         ["Knob Farm Auto Start"] = "Автозапуск фарма ручек",
         ["Fun"] = "Веселье",
+        ["Interface"] = "Интерфейс",
+        ["UI Theme"] = "Тема интерфейса",
+        ["UI Library"] = "Библиотека интерфейса",
+        ["Re-execute Script"] = "Перезапустить скрипт",
+        ["Destroy Script"] = "Уничтожить скрипт",
+        ["Play Model Sounds"] = "Звуки модели",
+        ["Add To List"] = "Добавить в список",
+        ["Run Selected Script"] = "Запустить выбранный скрипт",
+        ["Run Link Now"] = "Запустить ссылку",
+        ["Remove Selected Script"] = "Удалить выбранный скрипт",
+        ["Saved Scripts"] = "Сохранённые скрипты",
+        ["Save Script From Clipboard"] = "Сохранить скрипт из буфера",
+        ["Auto Execute Status"] = "Статус Auto Execute",
         ["Auto Execute In Lobby"] = "Автозапуск в лобби",
         ["Rainbow ESP"] = "Радужный ESP",
         ["Rainbow Speed"] = "Скорость радуги",
@@ -1401,7 +1635,7 @@ InfoTab:Section({ Title = "Script Information" })
 
 InfoTab:Paragraph({
     Title = "About R4NS0M CD-1",
-    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.5"
+    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.6"
 })
 
 InfoTab:Paragraph({
@@ -2287,7 +2521,7 @@ local function Register(inst, cat, label, opts)
 
     Tracked[inst] = {
         Inst = inst, Cat = cat, Label = label, Part = part, Conn = conn,
-        Known = opts and opts.Known, Key = opts and opts.Key, Prompt = opts and opts.Prompt, GeoT = 0, NoGeo = false, RoomNum = opts and opts.RoomNum, Door = opts and opts.Door,
+        Known = opts and opts.Known, Key = opts and opts.Key, Prompt = opts and opts.Prompt, GeoT = 0, NoGeo = false, RoomNum = opts and opts.RoomNum, Door = opts and opts.Door, NoText = opts and opts.NoText,
         Dist = 0, Shown = false,
     }
 
@@ -2666,60 +2900,16 @@ local function RegisterDoor(room, door)
     if not door:IsA("Model") or door.Name ~= "Door" then return end
     local num = tonumber(room.Name)
     local label = "Door " .. (num and (num + 1) or room.Name)
-    -- Puertas dobles: dos paneles "Door" dentro del modelo. Se resaltan solo los dos paneles
-    -- (un modelo auxiliar invisible) y no todo el marco, con la etiqueta centrada entre ambos.
-    local panels = {}
+    -- 1.0.6: se resaltan las hojas REALES de la puerta (Highlight sobre su forma real, sin partes auxiliares)
+    local leaves = {}
     for _, c in ipairs(door:GetChildren()) do
-        if c.Name == "Door" and c:IsA("BasePart") then panels[#panels + 1] = c end
+        if c.Name == "Door" and c:IsA("BasePart") then leaves[#leaves + 1] = c end
     end
-    if #panels == 2 then
-        local hm = door:FindFirstChild("R4N_HighlightModel")
-        if not hm then
-            hm = Instance.new("Model")
-            hm.Name = "R4N_HighlightModel"
-            for _, p in ipairs(panels) do
-                local hp = Instance.new("Part")
-                hp.Name = "HighlightPart"
-                hp.Transparency = 0.999
-                hp.Size = p.Size
-                hp.CFrame = p.CFrame
-                hp.CanCollide, hp.CanQuery, hp.CanTouch, hp.CastShadow = false, false, false, false
-                hp.Massless = true
-                hp.Anchored = false
-                hp.Parent = hm
-                local w = Instance.new("WeldConstraint")
-                w.Part0, w.Part1 = hp, p
-                w.Parent = hp
-            end
-            hm.Parent = door
-        end
-        local first = hm:FindFirstChild("HighlightPart")
-        if first then
-            if Tracked[door] then RemoveEntry(door) end
-            Register(hm, "doors", label, { Part = first, RoomNum = num, Door = door })
-            return
-        end
-    end
-    -- 1.0.5: puerta simple (o sin hojas separadas): se resalta SOLO la hoja con una parte invisible soldada
-    local leaf = door:FindFirstChild("Door")
-    if leaf and leaf:IsA("BasePart") then
-        local hp = door:FindFirstChild("HighlightPart")
-        if not hp then
-            hp = Instance.new("Part")
-            hp.Name = "HighlightPart"
-            hp.Transparency = 0.999
-            hp.Size = leaf.Size
-            hp.CFrame = leaf.CFrame
-            hp.CanCollide, hp.CanQuery, hp.CanTouch, hp.CastShadow = false, false, false, false
-            hp.Massless = true
-            hp.Anchored = false
-            local w = Instance.new("WeldConstraint")
-            w.Part0, w.Part1 = hp, leaf
-            w.Parent = hp
-            hp.Parent = door
-        end
+    if #leaves > 0 then
         if Tracked[door] then RemoveEntry(door) end
-        Register(hp, "doors", label, { Part = hp, RoomNum = num, Door = door })
+        for i, lf in ipairs(leaves) do
+            Register(lf, "doors", label, { Part = lf, RoomNum = num, Door = door, NoText = i > 1 })
+        end
         return
     end
     Register(door, "doors", label, {
@@ -3193,7 +3383,7 @@ local function Refresh()
 
         if cat == "doors" then
             e.Base = e.Base or e.Label
-            e.Label = e.Base .. (((e.Door or e.Inst):FindFirstChild("Lock")) and " [Locked]" or "")
+            e.Label = e.NoText and "" or (e.Base .. (((e.Door or e.Inst):FindFirstChild("Lock")) and " [Locked]" or ""))
         elseif cat == "players" then
             local plr = Players:GetPlayerFromCharacter(e.Inst)
             if plr then e.Label = (Cfg.PlayerNames == "Username") and plr.Name or plr.DisplayName end
@@ -3485,50 +3675,29 @@ print("[R4NS0M] Loading Main Tab")
 MainTab:Section({ Title = "What's New" })
 do
     local NOTES = {
-        en = "+ Added the Fun tab: transform into Seek, Honcho or Figure (client side, only you see it).\n"
-            .. "+ Added Community Scripts in Fun: run a script from another player by its link; it always shows a notification with the creator credits.\n"
-            .. "+ Added Rainbow ESP at the end of Visuals (a smooth color cycle for every ESP).\n"
-            .. "+ Added Smart Performance: adaptive budgets, lighter room loading and an FPS guard so the game does not freeze or lag.\n"
-            .. "+ Added a Highlight limit guard: the ESP never goes over what Roblox can draw.\n"
-            .. "+- Changed the ESP Highlight to the Main style: the real shape of every object, player, entity, gold and door, with Fill 0.75 / Outline 0 (your text and colors are kept).\n"
-            .. "+- Changed Auto Interact to the Main logic: it fires every frame in range, with lock / key / tool checks, and it works even without fireproximityprompt.\n"
-            .. "+- Changed Auto Doors movement: the bot now walks like a real WASD / joystick input (no more mini teleports).\n"
-            .. "+- Changed Auto Execute On Teleport: it now runs again only when the game sends you into a run (the lobby is an option).\n"
-            .. "+- Changed Bot Speed: it only applies with the Anticheat Bypass on, so the game stops pulling you back.\n"
-            .. "+- Changed Auto Doors unstuck: it jumps or crouches only when it detects a real obstacle.\n"
-            .. "+- Changed double and single doors: only the door leaves are highlighted (no more side doors).\n"
-            .. "- Removed the block (box) fallback of the ESP: objects past the limit are hidden instead of drawn as blocks.\n"
-            .. "- Removed the old Auto Interact rescan of the whole map every 6 seconds (it caused lag spikes).",
-        es = "+ Se añadió la pestaña Fun: transfórmate en Seek, Honcho o Figure (del lado del cliente, solo tú lo ves).\n"
-            .. "+ Se añadió Community Scripts en Fun: ejecuta el script de otro jugador con su link; siempre muestra una notificación con los créditos del creador.\n"
-            .. "+ Se añadió ESP Arcoíris al final de Visuals (un ciclo de color suave para todo el ESP).\n"
-            .. "+ Se añadió Rendimiento Inteligente: presupuestos adaptativos, carga de cuartos más ligera y un guardia de FPS para que el juego no se trabe ni lagee.\n"
-            .. "+ Se añadió un límite de Highlights: el ESP nunca pasa de lo que Roblox puede dibujar.\n"
-            .. "+- Se cambió el Highlight del ESP al estilo del Main: la forma real de cada objeto, jugador, entidad, oro y puerta, con Relleno 0.75 / Contorno 0 (se mantienen tu texto y tus colores).\n"
-            .. "+- Se cambió el Auto Interact a la lógica del Main: dispara cada frame en rango, con revisión de candados / llaves / herramientas, y funciona aunque no exista fireproximityprompt.\n"
-            .. "+- Se cambió el movimiento de Auto Doors: el bot ahora camina como un WASD / joystick real (se acabaron los mini teletransportes).\n"
-            .. "+- Se cambió Auto Execute On Teleport: ahora se vuelve a ejecutar solo cuando el juego te manda a la partida (el lobby es una opción).\n"
-            .. "+- Se cambió la Velocidad del Bot: solo se aplica con el Anticheat Bypass activado, así el juego deja de regresarte.\n"
-            .. "+- Se cambió el destrabado de Auto Doors: salta o se agacha solo si detecta un obstáculo real.\n"
-            .. "+- Se cambiaron las puertas dobles y simples: solo se resaltan las hojas de la puerta (se acabaron las puertas a los costados).\n"
-            .. "- Se quitó el respaldo de cajas (bloques) del ESP: los objetos que pasan el límite se ocultan en vez de dibujarse como bloques.\n"
-            .. "- Se quitó el reescaneo de todo el mapa del Auto Interact cada 6 segundos (causaba tirones de lag).",
-        ru = "+ Добавлена вкладка Fun: превращение в Seek, Honcho или Figure (на стороне клиента, видите только вы).\n"
-            .. "+ Добавлены Community Scripts во вкладке Fun: запуск скрипта другого игрока по ссылке; всегда показывается уведомление с кредитами автора.\n"
-            .. "+ Добавлен радужный ESP в конце Visuals (плавная смена цвета для всего ESP).\n"
-            .. "+ Добавлена умная производительность: адаптивные бюджеты, более лёгкая загрузка комнат и защита по FPS, чтобы игра не зависала и не лагала.\n"
-            .. "+ Добавлен лимит Highlight: ESP никогда не превышает то, что может отрисовать Roblox.\n"
-            .. "+- Изменён Highlight ESP в стиле Main: реальная форма каждого объекта, игрока, сущности, золота и двери, заливка 0.75 / контур 0 (ваш текст и цвета сохранены).\n"
-            .. "+- Изменено Авто взаимодействие по логике Main: срабатывает каждый кадр в радиусе, с проверкой замков / ключей / инструментов, и работает даже без fireproximityprompt.\n"
-            .. "+- Изменено движение Авто дверей: бот теперь ходит как настоящий ввод WASD / джойстика (больше никаких мини-телепортов).\n"
-            .. "+- Изменён Auto Execute On Teleport: теперь скрипт запускается снова только когда игра отправляет вас в забег (лобби — отдельная опция).\n"
-            .. "+- Изменена скорость бота: применяется только с включённым обходом античита, чтобы игра не откатывала вас.\n"
-            .. "+- Изменён вывод из застревания Авто дверей: прыжок или приседание только при реальном препятствии.\n"
-            .. "+- Изменены двойные и одинарные двери: подсвечиваются только створки (больше никаких боковых дверей).\n"
-            .. "- Удалена запасная отрисовка ESP блоками: объекты сверх лимита скрываются, а не рисуются блоками.\n"
-            .. "- Удалено пересканирование всей карты Авто взаимодействием каждые 6 секунд (вызывало скачки лага).",
+        en = "+ Added a brand new notification look: cards with an icon, a color by type, a time bar, slide animations, stacking and tap to dismiss.\n"
+            .. "+ Added UI Theme, UI Library, Re-execute Script and Destroy Script in Configs.\n"
+            .. "+ Added the real animations and sounds of the entity to the Fun morphs (captured from the game) and the accessories are hidden now.\n"
+            .. "+- Changed Auto Execute On Teleport: it runs the release version silently, with nothing visual from the loader.\n"
+            .. "+- Changed the startup: heavy scans are delayed so the game no longer crashes on some devices.\n"
+            .. "- Removed the approximate morph models (they looked bad).\n"
+            .. "- Removed Save Script From Clipboard and Auto Execute Status.",
+        es = "+ Se añadió un diseño totalmente nuevo de notificaciones: tarjetas con icono, color por tipo, barra de tiempo, animaciones de entrada y salida, apilado y toque para cerrar.\n"
+            .. "+ Se añadió Tema de UI, Librería de UI, Re-execute Script y Destroy Script en Configs.\n"
+            .. "+ Se añadieron las animaciones y sonidos reales de la entidad a los morphs de Fun (capturados del juego) y ahora se ocultan los accesorios.\n"
+            .. "+- Se cambió Auto Execute On Teleport: ejecuta la versión release en silencio, sin nada visual del loader.\n"
+            .. "+- Se cambió el arranque: los escaneos pesados se retrasan para que el juego ya no se crashee en algunos dispositivos.\n"
+            .. "- Se quitaron los modelos aproximados de los morphs (se veían feos).\n"
+            .. "- Se quitaron Guardar Script desde el Portapapeles y Estado del Auto Execute.",
+        ru = "+ Добавлен совершенно новый вид уведомлений: карточки с иконкой, цветом по типу, полосой времени, анимациями, стеком и закрытием по нажатию.\n"
+            .. "+ Добавлены UI Theme, UI Library, Re-execute Script и Destroy Script в Configs.\n"
+            .. "+ В морфы Fun добавлены настоящие анимации и звуки сущности (записываются из игры), аксессуары теперь скрываются.\n"
+            .. "+- Изменён Auto Execute On Teleport: тихо запускает релизную версию, без визуальных элементов загрузчика.\n"
+            .. "+- Изменён запуск: тяжёлые сканирования отложены, чтобы игра не вылетала на некоторых устройствах.\n"
+            .. "- Удалены приблизительные модели морфов (выглядели плохо).\n"
+            .. "- Удалены Save Script From Clipboard и Auto Execute Status.",
     }
-    local TITLES = { en = "Version 1.0.5", es = "Versión 1.0.5", ru = "Версия 1.0.5" }
+    local TITLES = { en = "Version 1.0.6", es = "Versión 1.0.6", ru = "Версия 1.0.6" }
     MainTab:Paragraph({ Title = TITLES[R4N_LANG] or TITLES.en, Desc = NOTES[R4N_LANG] or NOTES.en })
 end
 MainTab:Section({ Title = "Game Mode" })
@@ -6924,6 +7093,7 @@ end
 
 AI.Loop = function()
 	local lastScan = os.clock()
+	task.wait(6) -- 1.0.7: el primer escaneo espera a que el juego cargue (evita cierres al ejecutar)
 	pcall(AI.Rescan)
 	while true do
 		RunService.Heartbeat:Wait()
@@ -13468,7 +13638,7 @@ local RunSvc = game:GetService("RunService")
 local FUN = { T = {}, Model = nil, Root = nil, Fallback = false, Kind = nil, Drop = 3, Base = 1, PrevTP = nil, Cap = {}, CapT = 0, Bob = 0 }
 R4N_FUN = FUN
 Ex.Fun_Kind, Ex.Fun_Active, Ex.Fun_Size, Ex.Fun_YOff, Ex.Fun_Face = "Seek", false, 100, 0, "Forward"
-Ex.Fun_Hide, Ex.Fun_TP, Ex.Fun_Anim = true, true, true
+Ex.Fun_Hide, Ex.Fun_TP, Ex.Fun_Anim, Ex.Fun_Sound = true, true, true, true
 
 local holder = Instance.new("Folder")
 holder.Name = "R4N_FunHolder"
@@ -13516,15 +13686,50 @@ local function Valid(kind, m)
 	return true
 end
 
+-- guarda las animaciones y sonidos REALES que la entidad reproduce mientras esta en el juego
+local function Harvest(kind, m)
+	FUN.Anims = FUN.Anims or {}
+	FUN.Sounds = FUN.Sounds or {}
+	local A = FUN.Anims[kind] or {}
+	FUN.Anims[kind] = A
+	local S = FUN.Sounds[kind] or {}
+	FUN.Sounds[kind] = S
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("Animator") then
+			local ok, tracks = pcall(d.GetPlayingAnimationTracks, d)
+			if ok then
+				for _, t in ipairs(tracks) do
+					local id = t.Animation and t.Animation.AnimationId or ""
+					if id ~= "" and not A[id] then A[id] = { Id = id, Name = t.Name or "" } end
+				end
+			end
+		elseif d:IsA("Animation") then
+			if d.AnimationId ~= "" and not A[d.AnimationId] then A[d.AnimationId] = { Id = d.AnimationId, Name = d.Name } end
+		elseif d:IsA("Sound") then
+			if d.SoundId ~= "" and d.Looped and not S[d.SoundId] then S[d.SoundId] = { Id = d.SoundId, Volume = d.Volume, Name = d.Name } end
+		end
+	end
+end
+
 local function Capture(kind, m)
 	local ok, c = pcall(function() return m:Clone() end)
 	if not ok or not c then return false end
 	local old = FUN.T[kind]
 	FUN.T[kind] = c
 	if old then pcall(old.Destroy, old) end
+	pcall(Harvest, kind, m)
+	task.spawn(function() -- sigue recogiendo animaciones mientras la entidad exista
+		local n = 0
+		while m.Parent and n < 40 do
+			task.wait(0.7)
+			pcall(Harvest, kind, m)
+			n = n + 1
+		end
+	end)
 	NotifyUI("Fun", kind .. " model captured.")
-	if Ex.Fun_Active and Ex.Fun_Kind == kind and FUN.Fallback and FUN.Attach then
-		task.defer(FUN.Attach) -- cambia el modelo aproximado por el real
+	if Ex.Fun_Active and Ex.Fun_Kind == kind and FUN.Pending and FUN.Attach then
+		FUN.Pending = false
+		task.defer(FUN.Attach)
 	end
 	return true
 end
@@ -13651,27 +13856,31 @@ end
 -- ------------------------------------------------------------------------------------------
 -- Ocultar tu personaje (solo local) y volver a mostrarlo
 -- ------------------------------------------------------------------------------------------
-local Hidden = { Parts = {}, Decals = {}, T = 0 }
+local Hidden = { Parts = {}, Decals = {}, Orig = {}, T = 0 }
 local function RefreshChar()
 	Hidden.Parts, Hidden.T = {}, os.clock()
 	local char = LocalPlayer.Character
 	if not char then return end
 	for _, d in ipairs(char:GetDescendants()) do
-		if d:IsA("BasePart") then
+		if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
 			Hidden.Parts[#Hidden.Parts + 1] = d
+			if Hidden.Orig[d] == nil then Hidden.Orig[d] = d.Transparency end
 		elseif (d:IsA("Decal") or d:IsA("Texture")) and Hidden.Decals[d] == nil then
 			Hidden.Decals[d] = d.Transparency
 		end
 	end
 end
 local function ShowChar()
-	for _, p in ipairs(Hidden.Parts) do
-		if p.Parent then p.LocalTransparencyModifier = 0 end
+	for p, t in pairs(Hidden.Orig) do
+		if p.Parent then
+			p.LocalTransparencyModifier = 0
+			p.Transparency = t
+		end
 	end
 	for d, t in pairs(Hidden.Decals) do
 		if d.Parent then d.Transparency = t end
 	end
-	Hidden.Parts, Hidden.Decals = {}, {}
+	Hidden.Parts, Hidden.Decals, Hidden.Orig = {}, {}, {}
 end
 
 -- ------------------------------------------------------------------------------------------
@@ -13720,25 +13929,45 @@ local function Measure()
 	if ok then FUN.Drop = math.max(root.Position.Y - (cf.Position.Y - size.Y / 2), 0.5) end
 end
 
--- animaciones: solo si el modelo trae objetos Animation (idle / caminar)
+-- animaciones: las del propio modelo y las que se capturaron de la entidad real
 local function SetupAnims(model)
 	FUN.Idle, FUN.Walk, FUN.Playing = nil, nil, nil
 	local animator = model:FindFirstChildWhichIsA("Animator", true)
-	if not animator then return end
-	local idle, walk, any
+	if not animator then
+		local host = model:FindFirstChildWhichIsA("Humanoid", true) or model:FindFirstChildWhichIsA("AnimationController", true)
+		if not host then
+			host = Instance.new("AnimationController")
+			host.Parent = model
+		end
+		animator = Instance.new("Animator")
+		animator.Parent = host
+	end
+	local specs = {}
 	for _, d in ipairs(model:GetDescendants()) do
-		if d:IsA("Animation") and d.AnimationId ~= "" then
-			local l = d.Name:lower()
-			any = any or d
-			if l:find("idle", 1, true) or l:find("stand", 1, true) then idle = idle or d end
-			if l:find("walk", 1, true) or l:find("run", 1, true) or l:find("chase", 1, true) or l:find("move", 1, true) then walk = walk or d end
+		if d:IsA("Animation") and d.AnimationId ~= "" then specs[#specs + 1] = { Id = d.AnimationId, Name = d.Name } end
+	end
+	for _, sp in pairs((FUN.Anims or {})[FUN.Kind] or {}) do specs[#specs + 1] = sp end
+	local idle, walk, any
+	local seen = {}
+	for _, sp in ipairs(specs) do
+		if not seen[sp.Id] then
+			seen[sp.Id] = true
+			local anim = Instance.new("Animation")
+			anim.AnimationId = sp.Id
+			anim.Name = sp.Name or ""
+			local ok, tr = pcall(animator.LoadAnimation, animator, anim)
+			if ok and tr then
+				tr.Looped = true
+				pcall(function() tr.Priority = Enum.AnimationPriority.Action end)
+				local l = (sp.Name or ""):lower()
+				if l:find("idle", 1, true) or l:find("stand", 1, true) then idle = idle or tr end
+				if l:find("walk", 1, true) or l:find("run", 1, true) or l:find("chase", 1, true) or l:find("move", 1, true) or l:find("crawl", 1, true) then walk = walk or tr end
+				any = any or tr
+			end
 		end
 	end
-	pcall(function()
-		if idle then FUN.Idle = animator:LoadAnimation(idle) FUN.Idle.Looped = true end
-		if walk then FUN.Walk = animator:LoadAnimation(walk) FUN.Walk.Looped = true end
-		if not FUN.Idle and not FUN.Walk and any then FUN.Walk = animator:LoadAnimation(any) FUN.Walk.Looped = true end
-	end)
+	FUN.Idle, FUN.Walk = idle, walk
+	if not idle and not walk then FUN.Idle = any end
 end
 
 local function Detach()
@@ -13757,18 +13986,21 @@ function FUN.Attach()
 	FUN.Model, FUN.Root = nil, nil
 	local kind = Ex.Fun_Kind
 	FUN.Kind = kind
-	local tpl = FUN.T[kind]
+	if not FUN.T[kind] then
+		local found = FUN.Find(kind, false)
+		if found then Capture(kind, found) end
+	end
 	local model
-	if tpl then
-		local ok, c = pcall(function() return tpl:Clone() end)
+	if FUN.T[kind] then
+		local ok, c = pcall(function() return FUN.T[kind]:Clone() end)
 		if ok and c then model = c end
 	end
-	FUN.Fallback = model == nil
 	if not model then
-		model = Fallback(kind)
-		NotifyUI("Fun", "The real " .. kind .. " model has not been found yet: using an approximate one. It changes by itself when the real one is captured.")
-		FUN.Rescan(false)
+		FUN.Pending = true
+		NotifyUI("Fun", "The real " .. kind .. " model is not available yet. It is applied by itself when that entity appears in the game.")
+		return
 	end
+	FUN.Pending = false
 	model.Name = "R4N_FunModel"
 	Prep(model)
 	local root = PickRoot(model)
@@ -13793,6 +14025,17 @@ function FUN.Attach()
 	pcall(function() model:ScaleTo(FUN.Base * (Ex.Fun_Size or 100) / 100) end)
 	Measure()
 	if Ex.Fun_Anim then SetupAnims(model) end
+	if Ex.Fun_Sound then
+		for _, sp in pairs((FUN.Sounds or {})[kind] or {}) do
+			local snd = Instance.new("Sound")
+			snd.SoundId = sp.Id
+			snd.Looped = true
+			snd.Volume = math.clamp((sp.Volume or 1) * 0.6, 0, 1)
+			snd.RollOffMaxDistance = 90
+			snd.Parent = root
+			pcall(function() snd:Play() end)
+		end
+	end
 	if Ex.Fun_TP and FUN.PrevTP == nil then
 		FUN.PrevTP = Ex.ThirdPerson == true
 		if not Ex.ThirdPerson then pcall(SetFeature, "ThirdPerson", true) end
@@ -13811,9 +14054,12 @@ RunSvc:BindToRenderStep("R4N_FunFollow", Enum.RenderPriority.Camera.Value + 3, f
 
 	local now = os.clock()
 	if Ex.Fun_Hide then
-		if now - Hidden.T > 1.5 then RefreshChar() end
+		if now - Hidden.T > 0.4 then RefreshChar() end
 		for _, p in ipairs(Hidden.Parts) do
-			if p.Parent then p.LocalTransparencyModifier = 1 end
+			if p.Parent then
+				p.LocalTransparencyModifier = 1
+				if p.Transparency < 1 then p.Transparency = 1 end -- accesorios incluidos
+			end
 		end
 		for d in pairs(Hidden.Decals) do
 			if d.Parent then d.Transparency = 1 end
@@ -13878,8 +14124,8 @@ FunTab:Section({ Title = "Transform" })
 FunTab:Paragraph({
 	Title = "How it works",
 	Desc = "Client side only: you see yourself as the model, other players do not. Pick one, turn it on and your camera goes to third person. "
-		.. "The real model is saved every time that entity appears in the game (Seek chase, Figure in the Library, Honcho in Archives); "
-		.. "until then an approximate model is used and it is swapped by itself.",
+		.. "The real model, its animations and its sounds are saved every time that entity appears in the game (Seek chase, Figure in the Library, Honcho in Archives). "
+		.. "If it has not appeared yet, the transformation is applied by itself the moment it does.",
 })
 AddDropdown(FunTab, "Fun_Kind", "Transform Into", "Seek, Honcho or Figure.", { "Seek", "Honcho", "Figure" }, Ex.Fun_Kind, function(v)
 	Ex.Fun_Kind = v
@@ -13897,6 +14143,10 @@ AddToggle(FunTab, "Fun_Hide", "Hide My Character", "Hides your own body (only fo
 	if not v then ShowChar() end
 end)
 AddToggle(FunTab, "Fun_TP", "Force Third Person While Transformed", "Moves the camera behind you so you can see the model. Your old camera mode comes back when you revert.", Ex.Fun_TP, function(v) Ex.Fun_TP = v end)
+AddToggle(FunTab, "Fun_Sound", "Play Model Sounds", "Plays the looping sounds of the real entity while you are transformed.", Ex.Fun_Sound, function(v)
+	Ex.Fun_Sound = v
+	if Ex.Fun_Active then FUN.Attach() end
+end)
 AddToggle(FunTab, "Fun_Anim", "Play Model Animations", "Plays the idle / walk animations of the model when it has them.", Ex.Fun_Anim, function(v)
 	Ex.Fun_Anim = v
 	if Ex.Fun_Active then FUN.Attach() end
@@ -13906,8 +14156,6 @@ FunTab:Button({ Title = "Revert Transformation", Desc = "Goes back to your norma
 	if Ex.Fun_Active then SetFeature("Fun_Active", false) else Detach() end
 end })
 
--- primera busqueda en silencio (sin tocar nada del juego)
-task.delay(3, function() FUN.Rescan(false) end)
 end)()
 
 -- ============================================================================================
@@ -13987,32 +14235,109 @@ AddToggle(MiscTab, "SmartPerf", "Smart Performance", "Adapts how much work the s
 AddToggle(MiscTab, "FPSGuard", "FPS Guard", "If your FPS stay very low it lightens the ESP (fewer Highlights, slower refresh, rainbow paused) and restores it when they recover.", Ex.FPSGuard, function(v) Ex.FPSGuard = v end)
 end)()
 
--- Community Scripts (1.0.5): scripts de otros jugadores / mods. Se ejecutan SOLO al pulsar el boton y siempre con creditos.
+-- Community Scripts (1.0.6): lista guardada de scripts / mods de otros jugadores. Solo se ejecutan al pulsar el boton y siempre con creditos.
 ;(function()
+local FILE = "R4NS0M_Mods.json"
+local list, sel = {}, nil
 local CS = { Name = "", Creator = "", Url = "" }
+pcall(function()
+	if isfile and readfile and isfile(FILE) then
+		local d = HttpService:JSONDecode(readfile(FILE))
+		if type(d) == "table" then list = d end
+	end
+end)
+local function Save() if writefile then pcall(writefile, FILE, HttpService:JSONEncode(list)) end end
+local function Names()
+	local n = {}
+	for _, e in ipairs(list) do n[#n + 1] = e.name .. " - " .. e.creator end
+	if #n == 0 then n[1] = "(empty)" end
+	return n
+end
+local function Trim(x) return (tostring(x or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
+
+local function RunEntry(e)
+	task.spawn(function()
+		local ok, src = pcall(game.HttpGet, game, e.url)
+		if not ok or type(src) ~= "string" or src == "" then NotifyUI("Community Scripts", "Could not download " .. e.name .. ".") return end
+		local fn, err = loadstring(src)
+		if not fn then NotifyUI("Community Scripts", e.name .. " has an error: " .. tostring(err)) return end
+		NotifyUI("Community Scripts", e.name .. " - made by " .. e.creator .. ". All credits to the creator.")
+		local ran, e2 = pcall(fn)
+		if not ran then NotifyUI("Community Scripts", e.name .. " failed: " .. tostring(e2)) end
+	end)
+end
+local function FromInputs()
+	local name, creator, url = Trim(CS.Name), Trim(CS.Creator), Trim(CS.Url):gsub("%s+", "")
+	if creator == "" then NotifyUI("Community Scripts", "Write the creator first: credits are required.") return nil end
+	if not url:match("^https://") then NotifyUI("Community Scripts", "The link must start with https://") return nil end
+	if name == "" then name = "Script" end
+	return { name = name, creator = creator, url = url }
+end
+
+R4N_TurnOffAll = function()
+	for k, v in pairs(Ex) do
+		if v == true and Setters[k] then pcall(SetFeature, k, false) end
+	end
+	pcall(function() Cfg.Rainbow = false Cfg.RainbowColor = nil end)
+	for _, n in ipairs({ "R4N_BotMove", "R4N_BotCam", "R4N_FunFollow" }) do
+		pcall(function() RunService:UnbindFromRenderStep(n) end)
+	end
+	pcall(function() if R4N_FUN and R4N_FUN.Model then R4N_FUN.Model:Destroy() end end)
+	pcall(function() R4N_FunHolder:Destroy() end)
+	pcall(function() Holder:Destroy() end)
+	pcall(function() Gui:Destroy() end)
+end
+
 FunTab:Section({ Title = "Community Scripts" })
 FunTab:Paragraph({
-	Title = "Scripts from other players",
-	Desc = "Paste the link of a script or mod made by another player (for example a DOORS add-on) and press Run. It only runs when you press the button and it always shows a notification with the creator credits. "
-		.. "Only run links you trust: a script can do anything on your account.",
+	Title = "Mods from other players",
+	Desc = "Add the link of a script or mod made by another player (for example a DOORS add-on), save it in the list and run it when you want. "
+		.. "It only runs when you press the button and it always shows a notification with the creator credits. "
+		.. "Only add links you trust: a script can do anything on your account.",
 })
-FunTab:Input({ Title = "Script Name", Desc = "Name that will be shown in the notification.", Placeholder = "Name", Callback = function(v) CS.Name = tostring(v or "") end })
+FunTab:Input({ Title = "Script Name", Desc = "Name shown in the notification.", Placeholder = "Name", Callback = function(v) CS.Name = tostring(v or "") end })
 FunTab:Input({ Title = "Creator", Desc = "Creator of the script (required, shown as credits).", Placeholder = "Creator", Callback = function(v) CS.Creator = tostring(v or "") end })
 FunTab:Input({ Title = "Script Link", Desc = "Direct link (https://) to the script.", Placeholder = "https://", Callback = function(v) CS.Url = tostring(v or "") end })
-FunTab:Button({ Title = "Run Community Script", Desc = "Runs the script from the link and shows the credits.", Callback = function()
-	local name, creator, url = CS.Name:gsub("^%s+", ""):gsub("%s+$", ""), CS.Creator:gsub("^%s+", ""):gsub("%s+$", ""), CS.Url:gsub("%s+", "")
-	if creator == "" then NotifyUI("Community Scripts", "Write the creator first: credits are required.") return end
-	if not url:match("^https://") then NotifyUI("Community Scripts", "The link must start with https://") return end
-	if name == "" then name = "Script" end
-	task.spawn(function()
-		local ok, src = pcall(game.HttpGet, game, url)
-		if not ok or type(src) ~= "string" or src == "" then NotifyUI("Community Scripts", "Could not download " .. name .. ".") return end
-		local fn, err = loadstring(src)
-		if not fn then NotifyUI("Community Scripts", name .. " has an error: " .. tostring(err)) return end
-		NotifyUI("Community Scripts", name .. " - made by " .. creator .. ". All credits to the creator.")
-		local ran, e2 = pcall(fn)
-		if not ran then NotifyUI("Community Scripts", name .. " failed: " .. tostring(e2)) end
-	end)
+local dd = FunTab:Dropdown({
+	Title = "Saved Scripts", Desc = "Your saved list.", Values = Names(), Value = Names()[1],
+	Callback = function(v) sel = v end,
+})
+local function Refresh()
+	local n = Names()
+	sel = nil
+	pcall(function() dd:Refresh(n) end)
+	pcall(function() dd:Select(n[1]) end)
+end
+local function Selected()
+	local k = sel or Names()[1]
+	for _, e in ipairs(list) do
+		if e.name .. " - " .. e.creator == k then return e end
+	end
+end
+FunTab:Button({ Title = "Add To List", Desc = "Saves the script of the fields above in your list.", Callback = function()
+	local e = FromInputs()
+	if not e then return end
+	list[#list + 1] = e
+	Save()
+	Refresh()
+	NotifyUI("Community Scripts", e.name .. " saved.")
+end })
+FunTab:Button({ Title = "Run Selected Script", Desc = "Runs the script selected in the list and shows its credits.", Callback = function()
+	local e = Selected()
+	if e then RunEntry(e) else NotifyUI("Community Scripts", "The list is empty. Add a script first.") end
+end })
+FunTab:Button({ Title = "Run Link Now", Desc = "Runs the link of the fields above without saving it.", Callback = function()
+	local e = FromInputs()
+	if e then RunEntry(e) end
+end })
+FunTab:Button({ Title = "Remove Selected Script", Desc = "Deletes the selected script from the list.", Callback = function()
+	local e = Selected()
+	if not e then return end
+	for i, x in ipairs(list) do
+		if x == e then table.remove(list, i) break end
+	end
+	Save()
+	Refresh()
 end })
 end)()
 
@@ -14822,7 +15147,7 @@ end)
 
 ConfigsTab:Toggle({
     Title = "Auto Execute On Teleport",
-    Desc = "When the game sends you into a run, this same script is executed again by itself (the exact code you executed, no link needed). The lobby is not included unless you turn on the option below.",
+    Desc = "When the game sends you into a run, the script runs again by itself, silently. The lobby is not included unless you turn on the option below.",
     Value = ae.on,
     Callback = function(v)
         ae.on = v == true
@@ -14852,6 +15177,84 @@ ConfigsTab:Toggle({
         ae.lobby = v == true
         if writefile then pcall(writefile, "R4NS0M_AutoExec.json", HttpService:JSONEncode({ on = ae.on, lobby = ae.lobby })) end
     end
+})
+
+-- ------------------------------------------------------------------------------------------
+-- Interface: tema, libreria, re-ejecutar y destruir
+-- ------------------------------------------------------------------------------------------
+ConfigsTab:Section({ Title = "Interface" })
+local themeNames = {}
+pcall(function()
+    for n in pairs(WindUI:GetThemes()) do themeNames[#themeNames + 1] = n end
+    table.sort(themeNames)
+end)
+if #themeNames == 0 then
+    themeNames = { "Dark", "Light", "Rose", "Plant", "Red", "Indigo", "Sky", "Violet", "Amber", "Emerald", "Midnight", "Crimson", "MonaSpace", "Rainbow" }
+end
+local curTheme = "Dark"
+pcall(function()
+    if isfile and readfile and isfile("R4NS0M_Theme.txt") then
+        local t = readfile("R4NS0M_Theme.txt"):gsub("%s+", "")
+        if t ~= "" then curTheme = t end
+    end
+end)
+if curTheme ~= "Dark" then pcall(function() WindUI:SetTheme(curTheme) end) end
+ConfigsTab:Dropdown({
+    Title = "UI Theme", Desc = "Changes the colors of the menu right away. It is remembered.",
+    Values = themeNames, Value = curTheme,
+    Callback = function(v)
+        pcall(function() WindUI:SetTheme(v) end)
+        if writefile then pcall(writefile, "R4NS0M_Theme.txt", tostring(v)) end
+    end,
+})
+local LIBS = { ["WindUI (latest)"] = "latest", ["WindUI (dist build)"] = "dist", ["WindUI 1.6.41 (stable)"] = "stable" }
+local libNames = { "WindUI (latest)", "WindUI (dist build)", "WindUI 1.6.41 (stable)" }
+local curLib = libNames[1]
+pcall(function()
+    if isfile and readfile and isfile("R4NS0M_UILib.txt") then
+        local k = readfile("R4NS0M_UILib.txt"):gsub("%s+", "")
+        for name, key in pairs(LIBS) do if key == k then curLib = name end end
+    end
+end)
+ConfigsTab:Dropdown({
+    Title = "UI Library", Desc = "Which UI build the menu uses. Re-execute the script to apply it.",
+    Values = libNames, Value = curLib,
+    Callback = function(v)
+        if writefile and LIBS[v] then pcall(writefile, "R4NS0M_UILib.txt", LIBS[v]) end
+        Notify("UI Library", Msg("Saved. Press Re-execute Script to apply it.", "Guardado. Pulsa Re-execute Script para aplicarlo.", "Сохранено. Нажмите Re-execute Script, чтобы применить."), 4)
+    end,
+})
+local function KillAll()
+    pcall(function() if R4N_TurnOffAll then R4N_TurnOffAll() end end)
+    pcall(function() if R4N_NotifGui then R4N_NotifGui:Destroy() end end)
+    pcall(function() Window:Destroy() end)
+    pcall(function() local g = (getgenv and getgenv()) or _G g.R4N_QUEUED = nil end)
+end
+ConfigsTab:Button({
+    Title = "Re-execute Script",
+    Desc = "Removes everything the script did, clears the screen and runs the script again from scratch.",
+    Callback = function()
+        local ok, src = pcall(game.HttpGet, game, R4N_RELEASE_URL)
+        if not ok or type(src) ~= "string" or #src < 1000 then
+            Notify("Re-execute", Msg("Could not download the script. Nothing was changed.", "No se pudo descargar el script. No se cambió nada.", "Не удалось скачать скрипт. Ничего не изменено."), 5)
+            return
+        end
+        task.defer(function()
+            KillAll()
+            task.wait(0.5)
+            local g = (getgenv and getgenv()) or _G
+            g.R4N_AUTOEXEC = true
+            local fn = loadstring(src)
+            if fn then pcall(fn) end
+        end)
+    end,
+})
+ConfigsTab:Button({
+    Title = "Destroy Script",
+    Desc = "Removes everything the script did and leaves the screen without it. It does not run again.",
+    Callback = function()
+        task.defer(KillAll)
+    end,
 })
 
 -- ------------------------------------------------------------------------------------------
