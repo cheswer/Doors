@@ -8,7 +8,7 @@ do
 end
 --[[
   R4NS0M CD-1  |  Team CHX
-  Version 1.0.6
+  Version 1.0.7
   Tabs: Main, Info, Visuals, Player, Automation, Anticheat, Antis, Archives, Stairwell, Alerts, Misc, Fun, Keybinds, Configs
   Ransomity is real
 ]]
@@ -603,6 +603,15 @@ end
 -- Traduccion de la interfaz: se traducen los titulos (English es el idioma por defecto)
 R4N_I18N = {
     es = {
+        ["Halloween"] = "Halloween",
+        ["Skip Cutscenes (Halloween)"] = "Saltar Cinemáticas (Halloween)",
+        ["Remove Extra Fog"] = "Quitar Niebla Extra",
+        ["Bring Dropped Candy"] = "Traer Caramelos Soltados",
+        ["Auto Bring Candy"] = "Traer Caramelos Automático",
+        ["Bring Interval (s)"] = "Intervalo (s)",
+        ["Third-party Farms"] = "Farms de Terceros",
+        ["Start Death Farm"] = "Iniciar Death Farm",
+        ["Copy Death Farm Loadstring"] = "Copiar Loadstring de Death Farm",
         ["Auto Doors (beta)"] = "Auto Doors (beta)",
         ["Apply Recommended Setup"] = "Aplicar Configuración Recomendada",
         ["Show Auto Doors Status"] = "Mostrar Estado de Auto Doors",
@@ -1050,7 +1059,7 @@ R4N_I18N = {
         ["How far from the center of the screen the arrows are drawn."] = "Qué tan lejos del centro de la pantalla se dibujan las flechas.",
         ["This tab has no features yet."] = "Esta pestaña aún no tiene funciones.",
         ["Reading game data..."] = "Leyendo datos del juego...",
-        ["A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.6"] = "Un script especializado de DOORS desarrollado por Team CHX (creado por 2 desarrolladores).\nVersión: 1.0.6",
+        ["A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.7"] = "Un script especializado de DOORS desarrollado por Team CHX (creado por 2 desarrolladores).\nVersión: 1.0.6",
         ["Visuals: ESP, chase paths (Seek / Eyestalk) and lighting.\n"] = "Visuals: ESP, rutas de persecución (Seek / Eyestalk) e iluminación.\n",
         ["Features marked experimental may fail on some floors: check the console if something does not respond.\n"] = "Las funciones marcadas como experimentales pueden fallar en algunos pisos: revisa la consola si algo no responde.\n",
         ["The script detects the game mode when it starts and only loads the ESP options and detectors that mode needs. "] = "El script detecta el modo de juego al iniciar y solo carga las opciones de ESP y los detectores que ese modo necesita. ",
@@ -1427,6 +1436,15 @@ R4N_I18N = {
         ["Performance"] = "Rendimiento",
     },
     ru = {
+        ["Halloween"] = "Хэллоуин",
+        ["Skip Cutscenes (Halloween)"] = "Пропуск катсцен (Хэллоуин)",
+        ["Remove Extra Fog"] = "Убрать лишний туман",
+        ["Bring Dropped Candy"] = "Принести выпавшие конфеты",
+        ["Auto Bring Candy"] = "Авто принос конфет",
+        ["Bring Interval (s)"] = "Интервал (с)",
+        ["Third-party Farms"] = "Сторонние фармы",
+        ["Start Death Farm"] = "Запустить Death Farm",
+        ["Copy Death Farm Loadstring"] = "Копировать loadstring Death Farm",
         ["Auto Doors (beta)"] = "Авто двери (бета)",
         ["Apply Recommended Setup"] = "Применить рекомендуемые настройки",
         ["Show Auto Doors Status"] = "Показать статус Авто дверей",
@@ -1874,7 +1892,7 @@ R4N_I18N = {
         ["How far from the center of the screen the arrows are drawn."] = "Как далеко от центра экрана рисуются стрелки.",
         ["This tab has no features yet."] = "В этой вкладке пока нет функций.",
         ["Reading game data..."] = "Чтение данных игры...",
-        ["A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.6"] = "Специальный скрипт для DOORS от Team CHX (созданный 2 разработчиками).\nВерсия: 1.0.6",
+        ["A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.7"] = "Специальный скрипт для DOORS от Team CHX (созданный 2 разработчиками).\nВерсия: 1.0.6",
         ["Visuals: ESP, chase paths (Seek / Eyestalk) and lighting.\n"] = "Visuals: ESP, пути погони (Seek / Eyestalk) и освещение.\n",
         ["Features marked experimental may fail on some floors: check the console if something does not respond.\n"] = "Функции с пометкой «экспериментально» могут не работать на некоторых этажах: проверьте консоль, если что-то не отвечает.\n",
         ["The script detects the game mode when it starts and only loads the ESP options and detectors that mode needs. "] = "Скрипт определяет режим игры при запуске и загружает только те опции ESP и детекторы, которые нужны этому режиму. ",
@@ -2292,6 +2310,7 @@ local AntiCheatTab  = Window:Tab({ Title = "Anticheat", Icon = "shield" })
 local AntisTab      = Window:Tab({ Title = "Antis",      Icon = "ban" })
 ArchivesTab  = Window:Tab({ Title = "Archives",  Icon = "archive" }) -- global a proposito (limite de locales)
 StairwellTab = Window:Tab({ Title = "Stairwell", Icon = "layers" })  -- global a proposito (limite de locales)
+HalloweenTab = Window:Tab({ Title = "Halloween", Icon = "ghost" })    -- 1.0.7, global a proposito (limite de locales)
 local AlertsTab     = Window:Tab({ Title = "Alerts",     Icon = "bell" })
 local MiscTab       = Window:Tab({ Title = "Misc",       Icon = "ellipsis" })
 FunTab = Window:Tab({ Title = "Fun", Icon = "smile" }) -- global a proposito (limite de locales)
@@ -2363,7 +2382,7 @@ InfoTab:Section({ Title = "Script Information" })
 
 InfoTab:Paragraph({
     Title = "About R4NS0M CD-1",
-    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.6"
+    Desc = "A specialized DOORS script developed by Team CHX (Created by 2 developers).\nVersion: 1.0.7"
 })
 
 InfoTab:Paragraph({
@@ -2410,6 +2429,8 @@ local ITEM_NAMES = {
     "Snake Box", "Stop Sign", -- "Verity"
     -- Items nuevos (Dex): JerryCan, BrokenMonitor, DinkyLamp, BottleCrate, CoinRoll, PeachCobbler, Briefcase, ObjectScanner, LargeScrew
     "Fuel Can", "Broken Monitor", "Broken Lamp", "Bottle Crate", "Coin Roll", "Peach Cobbler", "Briefcase", "Scanner", "Large Screw",
+    "Candy Basket", "Broken Headstone", "Giant Gummyworm", "Crate of Chocolate", "Candy Bucket", "Large Candy Bag",
+    "Small Cauldron", "Haybale", "Wizard Hat", "Jewelry Key",
     "Abraham's Hat", -- el nombre interno (Dex) se pone en PENDING_DEX_NAMES.AbrahamHat (mas abajo)
 }
 
@@ -2479,6 +2500,10 @@ local INTERNAL_ALIASES = {
     JerryCan = "Fuel Can", BrokenMonitor = "Broken Monitor", DinkyLamp = "Broken Lamp", BottleCrate = "Bottle Crate",
     CoinRoll = "Coin Roll", PeachCobbler = "Peach Cobbler", Briefcase = "Briefcase", ObjectScanner = "Scanner",
     LargeScrew = "Large Screw",
+    -- Halloween (1.0.7, del Main)
+    CandyBasket = "Candy Basket", BrokenHeadstone = "Broken Headstone", GiantGummyworm = "Giant Gummyworm",
+    ChocolateCrate = "Crate of Chocolate", CandyBucket = "Candy Bucket", LargeCandyBag = "Large Candy Bag",
+    SmallCauldron = "Small Cauldron", Haybale = "Haybale", WizardHat = "Wizard Hat", KeyJewelry = "Jewelry Key",
 }
 for k, v in pairs(INTERNAL_ALIASES) do ITEM_LOOKUP[Norm(k)] = v end
 
@@ -3858,6 +3883,7 @@ local MAIN_OBJ = {
     MinesGenerator = { "objectives", "Generator" }, FuseObtain = { "objectives", "Generator Fuse" },
     MinesGateButton = { "objectives", "Gate Button" }, GardenGateButton = { "objectives", "Gate Button" },
     StairwellLockpickDoor = { "interactables", "Garage Door" }, Mirror = { "interactables", "Mirror" },
+    DepotHalloween = { "objectives", "Candy Magic" },
     StairwellFireAlarm = { "interactables", "Fire Alarm" }, ShoppingCart = { "interactables", "Shopping Cart" },
     ArchivesFihTank = { "interactables", "Fih Tank" }, Ladder = { "interactables", "Ladder" },
     ChestBox = { "chests", "Chest" }, ChestBoxLocked = { "chests", "Locked Chest" },
@@ -4443,50 +4469,41 @@ print("[R4NS0M] Loading Main Tab")
 MainTab:Section({ Title = "What's New" })
 do
     local NOTES = {
-        en = "+ Added a brand new notification look (cards with an icon, color by type, time bar, animations, stacking) with the badge sound, also for entity spawn and despawn alerts.\n"
-            .. "+ Added Recommended Presets in Configs for every mode (Hotel, Fools, Mines, Backdoor, Outdoors, Archives, Stairwell, Rooms).\n"
-            .. "+ The presets now turn on the best functions of every tab for each mode.\n"
-            .. "+ Added ESP Arrows for objects that are off screen.\n"
-            .. "+- Changed the ESP render: Highlights only while the object is on screen.\n"
-            .. "+ Added the Distance Preset: 1 Room or 2 Rooms (you can still adjust the meters by hand).\n"
-            .. "+ Added UI Theme (Red by default), UI Library, Re-execute Script and Destroy Script in Configs.\n"
-            .. "+ Added more ESP objects: gate levers and buttons, generators, fuses, anchors, water pump, hint books and papers, mirrors, fire alarms, ladders, chests and more.\n"
-            .. "+ Added the real animations and sounds of the entity to the Fun morphs and the accessories are hidden now.\n"
-            .. "+ Added translated descriptions for the language you choose.\n"
-            .. "+- Fixed Auto Interact (it was not interacting).\n"
-            .. "+- Fixed Auto Execute On Teleport.\n"
-            .. "+- Changed the startup: heavy scans are delayed so the game no longer crashes on some devices.\n"
-            .. "- Removed the approximate morph models (they looked bad).",
-        es = "+ Se añadió un diseño totalmente nuevo de notificaciones (tarjetas con icono, color por tipo, barra de tiempo, animaciones, apilado) con el sonido de badge, también en los avisos de aparición y desaparición de entidades.\n"
-            .. "+ Se añadieron Presets Recomendados en Configs para cada modo (Hotel, Fools, Mines, Backdoor, Outdoors, Archives, Stairwell, Rooms).\n"
-            .. "+ Los presets ahora activan las mejores funciones de todas las pestañas para cada modo.\n"
-            .. "+ Se añadieron Flechas del ESP para los objetos fuera de pantalla.\n"
-            .. "+- Se cambió el render del ESP: Highlights solo mientras el objeto está en pantalla.\n"
-            .. "+ Se añadió el Preset de Distancia: 1 Habitación o 2 Habitaciones (aún puedes ajustar los metros a mano).\n"
-            .. "+ Se añadieron Tema de UI (Red por defecto), Librería de UI, Re-execute Script y Destroy Script en Configs.\n"
-            .. "+ Se añadieron más objetos al ESP: palancas y botones de puertas, generadores, fusibles, anclas, bomba de agua, libros y papeles de pista, espejos, alarmas, escaleras, cofres y más.\n"
-            .. "+ Se añadieron las animaciones y sonidos reales de la entidad a los morphs de Fun y ahora se ocultan los accesorios.\n"
-            .. "+ Se añadieron descripciones traducidas según el idioma que elijas.\n"
-            .. "+- Se arregló el Auto Interact (no interactuaba).\n"
-            .. "+- Se arregló el Auto Execute On Teleport.\n"
-            .. "+- Se cambió el arranque: los escaneos pesados se retrasan para que el juego ya no se crashee en algunos dispositivos.\n"
-            .. "- Se quitaron los modelos aproximados de los morphs (se veían feos).",
-        ru = "+ Добавлен совершенно новый вид уведомлений (карточки с иконкой, цветом по типу, полосой времени, анимациями, стеком) со звуком badge, в том числе для оповещений о появлении и исчезновении сущностей.\n"
-            .. "+ Добавлены Рекомендуемые пресеты в Configs для каждого режима (Hotel, Fools, Mines, Backdoor, Outdoors, Archives, Stairwell, Rooms).\n"
-            .. "+ Пресеты теперь включают лучшие функции всех вкладок для каждого режима.\n"
-            .. "+ Добавлены стрелки ESP для объектов вне экрана.\n"
-            .. "+- Изменён рендер ESP: Highlight только пока объект на экране.\n"
-            .. "+ Добавлен пресет дистанции: 1 комната или 2 комнаты (метры можно настроить вручную).\n"
-            .. "+ Добавлены UI Theme (по умолчанию Red), UI Library, Re-execute Script и Destroy Script в Configs.\n"
-            .. "+ Добавлены новые объекты ESP: рычаги и кнопки ворот, генераторы, предохранители, якоря, водяной насос, книги и записки-подсказки, зеркала, пожарные сигнализации, лестницы, сундуки и другое.\n"
-            .. "+ В морфы Fun добавлены настоящие анимации и звуки сущности, аксессуары теперь скрываются.\n"
-            .. "+ Добавлены переведённые описания для выбранного языка.\n"
-            .. "+- Исправлено Авто взаимодействие (не срабатывало).\n"
-            .. "+- Исправлен Auto Execute On Teleport.\n"
-            .. "+- Изменён запуск: тяжёлые сканирования отложены, чтобы игра не вылетала на некоторых устройствах.\n"
-            .. "- Удалены приблизительные модели морфов (выглядели плохо).",
+        en = "NEW\n+ Halloween tab: Skip Cutscenes, Remove Extra Fog, Bring Dropped Candy (with auto interval) and the Death Farm buttons (third-party, only run when pressed).\n"
+            .. "+ ESP for Candy Magic and the new Halloween items (Candy Basket, Broken Headstone, Giant Gummyworm, Crate of Chocolate, Candy Bucket, Large Candy Bag, Small Cauldron, Haybale, Wizard Hat, Jewelry Key).\n"
+            .. "+ New notification cards (icon, color by type, time bar, animations, stacking) with the badge sound.\n"
+            .. "REPLACED\n+- Position Spoof now uses the real state of the character (it re-applies itself after respawn / new floor) instead of just the switch.\n"
+            .. "+- Entity detection (Position Spoof, Strong Spoof, Auto Closet) updated from Main: now includes Bash, Scribbles and Drones Stampede.\n"
+            .. "+- Slide state is read from the animations again instead of being cleared every frame.\n"
+            .. "FIXED\n+- Position Spoof: you no longer die to Rush / Ambush with it on. Removed the torso offset that made the server see you standing.\n"
+            .. "+- Crouch: collisions were moved as if you were underground when you were not, so you could not pass low gaps. Fixed.\n"
+            .. "+- Crouch HUD indicator restored.\n"
+            .. "IMPROVED\n+- Remove Extra Fog uses a listener instead of scanning the whole map every 0.5s (lighter on mobile).\n"
+            .. "IMPORTANT\n- Kill All with Carts from Main was not ported (it only exists to kill other players).",
+        es = "NUEVO\n+ Pestaña Halloween: Saltar Cinemáticas, Quitar Niebla Extra, Traer Caramelos Soltados (con intervalo automático) y los botones de Death Farm (de terceros, solo se ejecutan al pulsarlos).\n"
+            .. "+ ESP de Candy Magic y de los nuevos ítems de Halloween (Candy Basket, Broken Headstone, Giant Gummyworm, Crate of Chocolate, Candy Bucket, Large Candy Bag, Small Cauldron, Haybale, Wizard Hat, Jewelry Key).\n"
+            .. "+ Nuevas tarjetas de notificación (icono, color por tipo, barra de tiempo, animaciones, apilado) con el sonido de badge.\n"
+            .. "REEMPLAZADO\n+- Position Spoof ahora usa el estado real del personaje (se reaplica solo al reaparecer / piso nuevo) en vez de solo el interruptor.\n"
+            .. "+- Detección de entidades (Position Spoof, Strong Spoof, Auto Closet) actualizada desde Main: ahora incluye Bash, Scribbles y Drones Stampede.\n"
+            .. "+- El estado de Slide se lee de las animaciones en vez de borrarse cada frame.\n"
+            .. "CORREGIDO\n+- Position Spoof: ya no mueres por Rush / Ambush con él activado. Se quitó el desplazamiento del torso que hacía que el servidor te viera de pie.\n"
+            .. "+- Agacharse: las colisiones se movían como si estuvieras bajo tierra sin estarlo, así que no pasabas por espacios bajos. Arreglado.\n"
+            .. "+- Se restauró el indicador de agacharse en el HUD.\n"
+            .. "MEJORAS\n+- Quitar Niebla Extra usa un listener en vez de escanear todo el mapa cada 0.5s (más ligero en móvil).\n"
+            .. "IMPORTANTE\n- No se portó Kill All with Carts del Main (solo sirve para matar a otros jugadores).",
+        ru = "НОВОЕ\n+ Вкладка Halloween: пропуск катсцен, удаление лишнего тумана, принос выпавших конфет (с авто-интервалом) и кнопки Death Farm (сторонние, запускаются только по нажатию).\n"
+            .. "+ ESP для Candy Magic и новых предметов Хэллоуина.\n"
+            .. "+ Новые карточки уведомлений (иконка, цвет по типу, полоса времени, анимации, стек) со звуком badge.\n"
+            .. "ЗАМЕНЕНО\n+- Position Spoof теперь использует реальное состояние персонажа (повторно применяется после возрождения / нового этажа).\n"
+            .. "+- Обнаружение сущностей обновлено из Main: теперь включает Bash, Scribbles и Drones Stampede.\n"
+            .. "+- Состояние Slide читается из анимаций.\n"
+            .. "ИСПРАВЛЕНО\n+- Position Spoof: вы больше не умираете от Rush / Ambush. Убрано смещение торса.\n"
+            .. "+- Приседание: коллизии смещались, как будто вы под землёй, из-за чего нельзя было пройти низкие проходы. Исправлено.\n"
+            .. "+- Восстановлен индикатор приседания в HUD.\n"
+            .. "УЛУЧШЕНО\n+- Remove Extra Fog использует слушатель вместо сканирования всей карты (легче на мобильных).\n"
+            .. "ВАЖНО\n- Kill All with Carts из Main не перенесён (нужен только для убийства других игроков).",
     }
-    local TITLES = { en = "Version 1.0.6", es = "Versión 1.0.6", ru = "Версия 1.0.6" }
+    local TITLES = { en = "Version 1.0.7", es = "Versión 1.0.7", ru = "Версия 1.0.7" }
     MainTab:Paragraph({ Title = TITLES[R4N_LANG] or TITLES.en, Desc = NOTES[R4N_LANG] or NOTES.en })
 end
 MainTab:Section({ Title = "Game Mode" })
@@ -6080,6 +6097,9 @@ Globals.LastCrouchFire = tick()
 
 local EntityDistances = {
 	["RushMoving"]    = 85,
+	["Scribbles"]     = 100,
+	["BashMoving"]    = 150,
+	["DronesStampede"] = 100,
 	["AmbushMoving"]  = 150,
 	["A60"]           = 125,
 	["A120"]          = 85,
@@ -6088,28 +6108,33 @@ local EntityDistances = {
 	["BackdoorRush"]  = 85,
 	["CustomEntity"]  = 85,
 }
+FX.EntityDistances = EntityDistances
 
-Functions.IsCrouching = function()
-	if Floor == "Fools" or Floor == "OldHotel" then
-		return Character:GetAttribute("Crouching")
-	end
-	return CollisionPart.CollisionGroup == "PlayerCrouching"
-end
-
+-- 1.0.7: version del Main. Mira las entidades registradas Y los modelos directos del Workspace (antes solo miraba el
+-- Workspace y una entidad registrada en otro contenedor no contaba), y ya no revienta si el modelo no tiene PrimaryPart.
 Functions.GetNearestEntity = function(CheckDisabled, List, UseRaycasting)
 	local Nearest = { Distance = math.huge, Object = nil }
+	local Seen = {}
 
-	for _, Entity in Services.Workspace:GetChildren() do
-		if Entity and EntityDistances[Entity.Name] and Entity.PrimaryPart then
-			local Distance = LocalPlayer:DistanceFromCharacter(Entity.PrimaryPart.Position)
-			if Distance < EntityDistances[Entity.Name] and Distance < Nearest.Distance then
-				if not CheckDisabled or Entity:GetAttribute("Inactive") ~= true then
-					Nearest.Distance = Distance
-					Nearest.Object = Entity
-				end
+	local function Consider(Entity)
+		if not Entity or Seen[Entity] or not Entity:IsA("Model") then return end
+		Seen[Entity] = true
+		local Limit = EntityDistances[Entity.Name]
+		if not Limit or not Entity:IsDescendantOf(Services.Workspace) then return end
+		if List and List[Entity.Name] then return end
+		local Part = Entity.PrimaryPart or Entity:FindFirstChildWhichIsA("BasePart")
+		if not Part then return end
+		local Distance = LocalPlayer:DistanceFromCharacter(Part.Position)
+		if Distance < Limit and Distance < Nearest.Distance then
+			if not CheckDisabled or Entity:GetAttribute("Inactive") ~= true then
+				Nearest.Distance = Distance
+				Nearest.Object = Entity
 			end
 		end
 	end
+
+	for _, Entity in Services.Workspace:GetChildren() do Consider(Entity) end
+	for _, Entity in Objects.Entities do Consider(Entity) end
 	return Nearest.Object
 end
 
@@ -6181,18 +6206,32 @@ Hooks.DisableAnticheat = function(Value)
 	end
 end
 
-Hooks.PositionSpoof = function(Value)
-	if not (RootPart and Humanoid and RemotesFolder) then return end
-	if Floor ~= "Fools" and Floor ~= "OldHotel" then
-		if Value then
-			RootPart.CFrame = RootPart.CFrame * CFrame.new(0, -2.346, 0)
-			Humanoid.HipHeight = 0.05
-			RemotesFolder.Crouch:FireServer(true, true)
-		else
-			RootPart.CFrame = RootPart.CFrame * CFrame.new(0, 2.346, 0)
-			Humanoid.HipHeight = 2.396
-		end
+-- 1.0.7: el Position Spoof ya NO depende solo del interruptor. Globals.SpoofApplied guarda si el personaje esta
+-- REALMENTE bajado. Antes, al reaparecer, al cargar la config con el spoof activo o si el hook se llamaba antes de que
+-- existiera el personaje, el interruptor decia "activo" pero el personaje seguia arriba: Rush / Ambush te mataban y
+-- las colisiones (que ya se movian como si estuvieras abajo) quedaban mal puestas, por eso no podias agacharte bien.
+Globals.SpoofApplied = false
+Globals.SpoofHoldUntil = 0
+Functions.SyncPositionSpoof = function()
+	if not (RootPart and RootPart.Parent and Humanoid and Humanoid.Parent and RemotesFolder) then return end
+	if Floor == "Fools" or Floor == "OldHotel" then Globals.SpoofApplied = false return end
+	if tick() < Globals.SpoofHoldUntil then return end
+	local Want = Toggles.PositionSpoof.Value and true or false
+	if Want == Globals.SpoofApplied then return end
+	Globals.SpoofApplied = Want
+	if Want then
+		RootPart.CFrame = RootPart.CFrame * CFrame.new(0, -2.346, 0)
+		Humanoid.HipHeight = 0.05
+		local CrouchRemote = RemotesFolder:FindFirstChild("Crouch")
+		if CrouchRemote then CrouchRemote:FireServer(true, true) end
+	else
+		RootPart.CFrame = RootPart.CFrame * CFrame.new(0, 2.346, 0)
+		Humanoid.HipHeight = 2.396
 	end
+end
+
+Hooks.PositionSpoof = function(Value)
+	Functions.SyncPositionSpoof()
 end
 
 Hooks.CrouchSpoof = function(Value)
@@ -6823,7 +6862,12 @@ Functions.HandleCharacter = function(NewCharacter)
 	Globals.ManipulateBody.MaxForce = Vector3.new(9e9, 9e9, 9e9)
 
 	Globals.LastCrouchFire = tick()
+	Globals.LastAnimationCheck = tick()
+	Globals.Sliding = false
 	Globals.OriginalC1 = Character.LowerTorso.Root.C1
+	-- personaje nuevo (reaparecer / piso nuevo): el spoof anterior ya no aplica; se vuelve a aplicar tras 1s si sigue activo
+	Globals.SpoofApplied = false
+	Globals.SpoofHoldUntil = tick() + 1
 
 	local MainUI = LocalPlayer.PlayerGui:FindFirstChild("MainUI")
 	local MainFrame = MainUI and MainUI:FindFirstChild("MainFrame")
@@ -6855,9 +6899,26 @@ Functions.HandleCharacter = function(NewCharacter)
 		Globals.IsEyes    = Services.Workspace:FindFirstChild("Eyes") ~= nil or Services.Workspace:FindFirstChild("Lookman") ~= nil
 		Globals.IsLookman = Services.Workspace:FindFirstChild("BackdoorLookman") ~= nil
 
-		Character:SetAttribute("Sliding", Globals.Sliding)
+		Functions.SyncPositionSpoof()
+
+		-- 1.0.7: Sliding se calcula con las animaciones (antes quedaba en nil y se borraba el atributo del juego cada frame)
+		if tick() - Globals.LastAnimationCheck > 0.1 then
+			local Sliding = false
+			for _, Anim in Humanoid:GetPlayingAnimationTracks() do
+				if Anim.Name == "Slide" then Sliding = true break end
+			end
+			Globals.Sliding = Sliding
+			Globals.LastAnimationCheck = tick()
+		end
+		Character:SetAttribute("Sliding", Globals.Sliding == true)
 		if Character:GetAttribute("Crouching") ~= Functions.IsCrouching() then
 			Character:SetAttribute("Crouching", Functions.IsCrouching())
+		end
+
+		local HudFrame = LocalPlayer.PlayerGui:FindFirstChild("MainUI") and LocalPlayer.PlayerGui.MainUI:FindFirstChild("MainFrame")
+		local HudEffects = HudFrame and HudFrame:FindFirstChild("Healthbar") and HudFrame.Healthbar:FindFirstChild("Effects")
+		if HudEffects and HudEffects:FindFirstChild("Crouching") then
+			HudEffects.Crouching.Visible = Functions.IsCrouching()
 		end
 
 		if (Toggles.CrouchSpoof.Value or Toggles.PositionSpoof.Value) and RemotesFolder:FindFirstChild("Crouch") then
@@ -6894,26 +6955,29 @@ Functions.HandleCharacter = function(NewCharacter)
 				RootPart.CanCollide = not (Toggles.NoclipToggle.Value or Toggles.VelocityManipulationToggle.Value)
 			end
 
-			if Character:FindFirstChild("LowerTorso") and Character.LowerTorso:FindFirstChild("Root") then
-				Character.LowerTorso.Root.C1 = Globals.OriginalC1 * CFrame.new(0, Toggles.PositionSpoof.Value and -2.346 or 0, 0)
+			-- 1.0.7: ya no se desplaza Root.C1 (el torso se replicaba 2.3 studs mas arriba que el Root y el spoof no protegia).
+			-- Si quedo un valor viejo, se devuelve al original.
+			local RootMotor = Character:FindFirstChild("LowerTorso") and Character.LowerTorso:FindFirstChild("Root")
+			if RootMotor and Globals.OriginalC1 and RootMotor.C1 ~= Globals.OriginalC1 then
+				RootMotor.C1 = Globals.OriginalC1
 			end
 
-			local SpoofY = Toggles.PositionSpoof.Value and 2.328 or 0.18
+			local SpoofY = Globals.SpoofApplied and 2.328 or 0.18
 			Collision.Position     = RootPart.Position + Vector3.new(0, SpoofY, 0)
 			CollisionPart.Position = RootPart.Position + Vector3.new(0, SpoofY, 0)
 
 			if Collision:FindFirstChild("CollisionCrouch") and CollisionClone:FindFirstChild("CollisionCrouch") then
-				local CrouchY = Toggles.PositionSpoof.Value and 1.328 or -0.982
+				local CrouchY = Globals.SpoofApplied and 1.328 or -0.982
 				Collision.CollisionCrouch.Position = RootPart.Position + Vector3.new(0, CrouchY, 0)
 				CollisionClone.CollisionCrouch.CollisionGroup = Collision.CollisionCrouch.CollisionGroup
 			end
 			if CollisionClone:FindFirstChild("CollisionCrouch") then
-				CollisionClone.CollisionCrouch.Position = RootPart.Position + Vector3.new(0, Toggles.PositionSpoof.Value and 0.75 or -0.982, 0)
+				CollisionClone.CollisionCrouch.Position = RootPart.Position + Vector3.new(0, Globals.SpoofApplied and 0.75 or -0.982, 0)
 			end
 		end
 
 		CollisionClone.CollisionGroup = Collision.CollisionGroup
-		CollisionClone.Position = RootPart.Position + Vector3.new(0, Toggles.PositionSpoof.Value and 1.75 or 0.18, 0)
+		CollisionClone.Position = RootPart.Position + Vector3.new(0, Globals.SpoofApplied and 1.75 or 0.18, 0)
 
 		if Toggles.VelocityManipulationToggle.Value and Options.VelocityManipulationMode.Value == "Velocity" then
 			Globals.ManipulateBody.Parent = RootPart
@@ -7127,6 +7191,7 @@ FX.SpoofGuard = SG
 local KILL = {
     RushMoving = 85, AmbushMoving = 150, A60 = 125, A120 = 85,
     GlitchRush = 90, GlitchAmbush = 175, BackdoorRush = 85,
+    BashMoving = 150, DronesStampede = 100,
 }
 local PAUSE_IDS = { "ACM", "Noclip", "Fly" }   -- Speed / Speed Hack se pausan por FX.LadderPause
 
@@ -11679,6 +11744,92 @@ end)
 StairwellTab:Section({ Title = "Creak" })
 AddToggle(StairwellTab, "CreakText", "Creak Aggression Text", "Shows Creak's aggression percentage at the bottom of the screen while it is near you.", Ex.CreakText, function(v) Ex.CreakText = v end)
 AddSlider(StairwellTab, "CreakRange", "Creak Text Range", "How close (in studs) Creak must be for the text to appear.", 10, 300, Ex.CreakRange, function(v) Ex.CreakRange = v end)
+end)()
+
+-- ============================================================================================
+-- HALLOWEEN TAB (1.0.7, del Main): saltar cinematicas, quitar niebla extra, traer caramelos soltados y farms de terceros
+-- ============================================================================================
+;(function()
+local RS = game:GetService("ReplicatedStorage")
+local Gen = {}
+local function Loop(flag, fn, interval)
+	Gen[flag] = (Gen[flag] or 0) + 1
+	local my = Gen[flag]
+	task.spawn(function()
+		while Ex[flag] and Gen[flag] == my do
+			pcall(fn)
+			task.wait(interval)
+		end
+	end)
+end
+
+Ex.HW_SkipCutscenes, Ex.HW_RemoveFog, Ex.HW_AutoBring, Ex.HW_Interval = false, false, false, 1
+
+local function BringCandy()
+	local char = LocalPlayer.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	local drops = workspace:FindFirstChild("Drops")
+	if not (root and drops) then return 0 end
+	local n = 0
+	for _, it in ipairs(drops:GetChildren()) do
+		if it:IsA("Model") then it:PivotTo(root.CFrame) n = n + 1
+		elseif it:IsA("BasePart") then it.CFrame = root.CFrame n = n + 1 end
+	end
+	return n
+end
+
+HalloweenTab:Section({ Title = "Halloween" })
+AddToggle(HalloweenTab, "HW_SkipCutscenes", "Skip Cutscenes (Halloween)", "Skips the Halloween cutscenes by firing the game's own skip remote.", Ex.HW_SkipCutscenes, function(v)
+	Ex.HW_SkipCutscenes = v
+	if v then
+		Loop("HW_SkipCutscenes", function()
+			local fr = RS:FindFirstChild("FloorReplicated")
+			local cr = fr and fr:FindFirstChild("ClientRemote")
+			local sc = cr and cr:FindFirstChild("SkipCutscene")
+			local remote = sc and sc:FindFirstChild("Remote")
+			if remote then remote:FireServer(1, true) remote:FireServer(2, true) end
+		end, 0.5)
+	end
+end)
+
+local FogConn
+local function IsFog(d) return d.Name == "FogScout" or d.Name == "FogHolder" end
+AddToggle(HalloweenTab, "HW_RemoveFog", "Remove Extra Fog", "Removes the extra Halloween fog. Uses a listener instead of scanning the whole map, so it is light on mobile.", Ex.HW_RemoveFog, function(v)
+	Ex.HW_RemoveFog = v
+	if FogConn then FogConn:Disconnect() FogConn = nil end
+	if v then
+		FogConn = workspace.DescendantAdded:Connect(function(d) if IsFog(d) then task.defer(function() pcall(d.Destroy, d) end) end end)
+		Loop("HW_RemoveFog", function()
+			for _, d in ipairs(workspace:GetDescendants()) do if IsFog(d) then pcall(d.Destroy, d) end end
+		end, 5)
+	end
+end)
+
+HalloweenTab:Button({ Title = "Bring Dropped Candy", Desc = "Brings every dropped candy item to you (use it for the depot).", Callback = function()
+	local n = BringCandy()
+	NotifyUI("Halloween", n > 0 and (n .. " items brought.") or "Nothing to bring.")
+end })
+AddToggle(HalloweenTab, "HW_AutoBring", "Auto Bring Candy", "Brings dropped candy automatically at the chosen interval.", Ex.HW_AutoBring, function(v)
+	Ex.HW_AutoBring = v
+	if v then Loop("HW_AutoBring", BringCandy, math.max(Ex.HW_Interval or 1, 0.05)) end
+end)
+AddSlider(HalloweenTab, "HW_Interval", "Bring Interval (s)", "How often dropped candy is brought.", 0, 60, Ex.HW_Interval, function(v)
+	Ex.HW_Interval = v
+	if Ex.HW_AutoBring then Loop("HW_AutoBring", BringCandy, math.max(v, 0.05)) end
+end)
+
+local DF = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/bocaj111004/Abysall/refs/heads/main/Scripts/DeathFarm.luau"))()'
+HalloweenTab:Section({ Title = "Third-party Farms" })
+HalloweenTab:Button({ Title = "Start Death Farm", Desc = "Third-party script (Abysall / bocaj111004). Runs only when you press this. Farms deaths and joins new runs.", Callback = function()
+	NotifyUI("Death Farm", "Made by bocaj111004 (Abysall). All credits to the creator.")
+	task.spawn(function()
+		local ok, err = pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/bocaj111004/Abysall/refs/heads/main/Scripts/DeathFarm.luau"))() end)
+		if not ok then NotifyUI("Death Farm", "Failed: " .. tostring(err)) end
+	end)
+end })
+HalloweenTab:Button({ Title = "Copy Death Farm Loadstring", Desc = "Copies the Death Farm loadstring to your clipboard.", Callback = function()
+	if toclipboard then toclipboard(DF) NotifyUI("Death Farm", "Loadstring copied.") else NotifyUI("Death Farm", "Your executor has no clipboard function.") end
+end })
 end)()
 
 -- ============================================================================================
