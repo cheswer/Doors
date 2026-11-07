@@ -603,6 +603,7 @@ end
 -- Traduccion de la interfaz: se traducen los titulos (English es el idioma por defecto)
 R4N_I18N = {
     es = {
+        ["Discord coming very soon. When it is finished you will see it here."] = "Discord muy pronto, cuando esté finalizado lo verás aquí",
         ["Mobile keybinds (floating buttons)"] = "Teclas móviles (botones flotantes)",
         ["Your floating buttons"] = "Tus botones flotantes",
         ["Show floating buttons"] = "Mostrar botones flotantes",
@@ -1453,6 +1454,7 @@ R4N_I18N = {
         ["Performance"] = "Rendimiento",
     },
     ru = {
+        ["Discord coming very soon. When it is finished you will see it here."] = "Discord скоро, когда он будет готов, вы увидите его здесь",
         ["Mobile keybinds (floating buttons)"] = "Мобильные клавиши (плавающие кнопки)",
         ["Your floating buttons"] = "Ваши плавающие кнопки",
         ["Show floating buttons"] = "Показать плавающие кнопки",
@@ -2336,6 +2338,7 @@ end
 
 -- Tabs (orden fijo)
 local MainTab       = Window:Tab({ Title = "Main",       Icon = "house" })
+DiscordTab = Window:Tab({ Title = "Discord", Icon = "message-circle" }) -- global a proposito (limite de locales)
 local InfoTab       = Window:Tab({ Title = "Info",       Icon = "info" })
 local VisualsTab    = Window:Tab({ Title = "Visuals",    Icon = "eye" })
 local PlayerTab     = Window:Tab({ Title = "Player",     Icon = "user" })
@@ -2534,7 +2537,7 @@ local INTERNAL_ALIASES = {
     JerryCan = "Fuel Can", BrokenMonitor = "Broken Monitor", DinkyLamp = "Broken Lamp", BottleCrate = "Bottle Crate",
     CoinRoll = "Coin Roll", PeachCobbler = "Peach Cobbler", Briefcase = "Briefcase", ObjectScanner = "Scanner",
     LargeScrew = "Large Screw",
-    -- Halloween (1.0.7, del Main)
+    -- Halloween (1.0.7)
     CandyBasket = "Candy Basket", BrokenHeadstone = "Broken Headstone", GiantGummyworm = "Giant Gummyworm",
     ChocolateCrate = "Crate of Chocolate", CandyBucket = "Candy Bucket", LargeCandyBag = "Large Candy Bag",
     SmallCauldron = "Small Cauldron", Haybale = "Haybale", WizardHat = "Wizard Hat", KeyJewelry = "Jewelry Key",
@@ -4503,57 +4506,13 @@ print("[R4NS0M] Loading Main Tab")
 MainTab:Section({ Title = "What's New" })
 do
     local NOTES = {
-        en = "NEW\n+ Halloween tab: Skip Cutscenes, Remove Extra Fog and Bring Dropped Candy (with auto interval).\n+ Death Farm (third-party, by bocaj111004) is now a ready-made entry in Community Scripts; it only runs when you press its button.\n"
-            .. "+ Floating buttons remastered: they now live in Keybinds > Mobile keybinds (floating buttons). Create and delete as many as you want, pick the function (ACM, Noclip, Fly, Speed, Position Spoof, Slide, Hub...) or a custom toggle by name, drag them anywhere or lock them, and change their size. Buttons, positions and size are saved to a file, so you never recreate or move them again. You can also create custom keybinds for PC.\n"
-            .. "+ ESP for Candy Magic and the new Halloween items (Candy Basket, Broken Headstone, Giant Gummyworm, Crate of Chocolate, Candy Bucket, Large Candy Bag, Small Cauldron, Haybale, Wizard Hat, Jewelry Key).\n"
-            .. "+ New notification cards (icon, color by type, time bar, animations, stacking) with the badge sound.\n"
-            .. "REPLACED\n+- Position Spoof now uses the real state of the character (it re-applies itself after respawn / new floor) instead of just the switch.\n"
-            .. "+- Entity detection (Position Spoof, Strong Spoof, Auto Closet) updated from Main: now includes Bash, Scribbles and Drones Stampede.\n"
-            .. "+- Slide state is read from the animations again instead of being cleared every frame.\n"
-            .. "FIXED\n+- Position Spoof: you no longer die to Rush / Ambush with it on. Removed the torso offset that made the server see you standing.\n"
-            .. "+- Crouch: collisions were moved as if you were underground when you were not, so you could not pass low gaps. Fixed.\n"
-            .. "+- Crouch HUD indicator restored.\n"
-            .. "+- Anticheat Manipulator did nothing: a missing function (IsCrouching) crashed the character loop every frame, so collisions, the manipulator, Crouch Spoof and the Eyes bypass never ran. Defined it (it now detects any crouch collision group) and the manipulator also disables every collision part.\n"
-            .. "+- Position Spoof view: the camera is lifted back to normal height (client side only, nothing the server sees).\n"
-            .. "+- The Main Port block (Auto Library, Knob Farm, Auto Closet, etc.) was reading variables out of scope (Ex, FX, Hooks, Apply, SetFeature, NotifyUI). They are exported now.\n"
-            .. "+- The game's own Crouching attribute is no longer overwritten.\n"
-            .. "IMPROVED\n+- Remove Extra Fog uses a listener instead of scanning the whole map every 0.5s (lighter on mobile).\n"
-            .. "IMPORTANT\n- Kill All with Carts from Main was not ported (it only exists to kill other players).",
-        es = "NUEVO\n+ Pestaña Halloween: Saltar Cinemáticas, Quitar Niebla Extra y Traer Caramelos Soltados (con intervalo automático).\n+ Death Farm (de terceros, por bocaj111004) ahora es una entrada lista en Community Scripts; solo se ejecuta al pulsar su botón.\n"
-            .. "+ Botones flotantes remasterizados: ahora están en Keybinds > Teclas móviles (botones flotantes). Crea y borra los que quieras, elige la función (ACM, Noclip, Fly, Speed, Position Spoof, Slide, Hub...) o un toggle personalizado por nombre, arrástralos a donde quieras o bloquéalos, y cambia su tamaño. Los botones, sus posiciones y el tamaño se guardan en un archivo, así que no tienes que volver a crearlos ni moverlos. También puedes crear teclas personalizadas para PC.\n"
-            .. "+ ESP de Candy Magic y de los nuevos ítems de Halloween (Candy Basket, Broken Headstone, Giant Gummyworm, Crate of Chocolate, Candy Bucket, Large Candy Bag, Small Cauldron, Haybale, Wizard Hat, Jewelry Key).\n"
-            .. "+ Nuevas tarjetas de notificación (icono, color por tipo, barra de tiempo, animaciones, apilado) con el sonido de badge.\n"
-            .. "REEMPLAZADO\n+- Position Spoof ahora usa el estado real del personaje (se reaplica solo al reaparecer / piso nuevo) en vez de solo el interruptor.\n"
-            .. "+- Detección de entidades (Position Spoof, Strong Spoof, Auto Closet) actualizada desde Main: ahora incluye Bash, Scribbles y Drones Stampede.\n"
-            .. "+- El estado de Slide se lee de las animaciones en vez de borrarse cada frame.\n"
-            .. "CORREGIDO\n+- Position Spoof: ya no mueres por Rush / Ambush con él activado. Se quitó el desplazamiento del torso que hacía que el servidor te viera de pie.\n"
-            .. "+- Agacharse: las colisiones se movían como si estuvieras bajo tierra sin estarlo, así que no pasabas por espacios bajos. Arreglado.\n"
-            .. "+- Se restauró el indicador de agacharse en el HUD.\n"
-            .. "+- El Anticheat Manipulator no hacía nada: faltaba una función (IsCrouching) y el bucle del personaje fallaba en cada frame, así que las colisiones, el manipulador, Crouch Spoof y el bypass de Eyes nunca corrían. Ya está definida (detecta cualquier grupo de colisión de agacharse) y el manipulador desactiva todas las colisiones.\n"
-            .. "+- Vista del Position Spoof: la cámara vuelve a la altura normal (solo en tu cliente, el servidor no ve nada).\n"
-            .. "+- El bloque Main Port (Auto Library, Knob Farm, Auto Closet, etc.) leía variables fuera de alcance (Ex, FX, Hooks, Apply, SetFeature, NotifyUI). Ahora se exportan.\n"
-            .. "+- Ya no se pisa el atributo Crouching del propio juego.\n"
-            .. "MEJORAS\n+- Quitar Niebla Extra usa un listener en vez de escanear todo el mapa cada 0.5s (más ligero en móvil).\n"
-            .. "IMPORTANTE\n- No se portó Kill All with Carts del Main (solo sirve para matar a otros jugadores).",
-        ru = "НОВОЕ\n+ Вкладка Halloween: пропуск катсцен, удаление лишнего тумана, принос выпавших конфет (с авто-интервалом) и кнопки Death Farm (сторонние, запускаются только по нажатию).\n"
-            .. "+ Плавающие кнопки переработаны: теперь они в Keybinds > Мобильные клавиши. Создавайте и удаляйте кнопки, выбирайте функцию или свой переключатель по имени, перетаскивайте или закрепляйте их, меняйте размер. Кнопки, позиции и размер сохраняются в файле. Также можно создавать свои клавиши для ПК.\n"
-            .. "+ ESP для Candy Magic и новых предметов Хэллоуина.\n"
-            .. "+ Новые карточки уведомлений (иконка, цвет по типу, полоса времени, анимации, стек) со звуком badge.\n"
-            .. "ЗАМЕНЕНО\n+- Position Spoof теперь использует реальное состояние персонажа (повторно применяется после возрождения / нового этажа).\n"
-            .. "+- Обнаружение сущностей обновлено из Main: теперь включает Bash, Scribbles и Drones Stampede.\n"
-            .. "+- Состояние Slide читается из анимаций.\n"
-            .. "ИСПРАВЛЕНО\n+- Position Spoof: вы больше не умираете от Rush / Ambush. Убрано смещение торса.\n"
-            .. "+- Приседание: коллизии смещались, как будто вы под землёй, из-за чего нельзя было пройти низкие проходы. Исправлено.\n"
-            .. "+- Восстановлен индикатор приседания в HUD.\n"
-            .. "+- Anticheat Manipulator ничего не делал: отсутствовала функция IsCrouching, цикл персонажа падал каждый кадр. Функция добавлена, манипулятор отключает все коллизии.\n"
-            .. "+- Вид при Position Spoof: камера снова на нормальной высоте (только на клиенте).\n"
-            .. "+- Блок Main Port (Auto Library, Knob Farm, Auto Closet и др.) читал переменные вне области видимости. Теперь они экспортированы.\n"
-            .. "+- Атрибут Crouching игры больше не перезаписывается.\n"
-            .. "УЛУЧШЕНО\n+- Remove Extra Fog использует слушатель вместо сканирования всей карты (легче на мобильных).\n"
-            .. "ВАЖНО\n- Kill All with Carts из Main не перенесён (нужен только для убийства других игроков).",
+        en = "NEW\n+ Halloween tab: Skip Cutscenes, Remove Extra Fog and Bring Dropped Candy (with auto interval).\n+ Death Farm added to Community Scripts (by bocaj111004). It only runs when you press its button.\n+ Floating buttons remastered, now in Keybinds > Mobile keybinds (floating buttons): create and delete as many as you want, choose the function or a custom toggle by name, drag them anywhere or lock them, and change their size. Buttons, positions and size are saved automatically.\n+ Custom keybinds for PC.\n+ ESP for Candy Magic and the new Halloween items.\n+ New notification cards (icon, color by type, time bar, animations, stacking) with sound.\n+ New Discord tab (coming soon).\nREPLACED\n+- Position Spoof now follows the real state of your character and re-applies itself after respawning or changing floor.\n+- Entity detection updated, now including Bash, Scribbles and Drones Stampede.\n+- Slide state is read from the animations.\nFIXED\n+- Position Spoof: you no longer die to Rush / Ambush with it on, and the view stays at normal height.\n+- Crouch: you can pass low gaps and crouch spaces again.\n+- Anticheat Manipulator works again.\n+- Auto Library, Knob Farm, Auto Closet and the rest of the automation features work again.\n+- Crouch HUD indicator restored.\nIMPROVED\n+- Remove Extra Fog is lighter on mobile.\nIMPORTANT\n- The floating buttons moved from the Anticheat tab to Keybinds.",
+        es = "NUEVO\n+ Pestaña Halloween: Saltar Cinemáticas, Quitar Niebla Extra y Traer Caramelos Soltados (con intervalo automático).\n+ Death Farm añadido a Community Scripts (por bocaj111004). Solo se ejecuta al pulsar su botón.\n+ Botones flotantes remasterizados, ahora en Keybinds > Teclas móviles (botones flotantes): crea y borra los que quieras, elige la función o un toggle personalizado por nombre, arrástralos a donde quieras o bloquéalos, y cambia su tamaño. Los botones, sus posiciones y el tamaño se guardan solos.\n+ Teclas personalizadas para PC.\n+ ESP de Candy Magic y de los nuevos ítems de Halloween.\n+ Nuevas tarjetas de notificación (icono, color por tipo, barra de tiempo, animaciones, apilado) con sonido.\n+ Nueva pestaña Discord (muy pronto).\nREEMPLAZADO\n+- Position Spoof ahora sigue el estado real de tu personaje y se reaplica solo al reaparecer o cambiar de piso.\n+- Detección de entidades actualizada, ahora incluye Bash, Scribbles y Drones Stampede.\n+- El estado de Slide se lee de las animaciones.\nCORREGIDO\n+- Position Spoof: ya no mueres por Rush / Ambush con él activado y la vista se mantiene a la altura normal.\n+- Agacharse: vuelves a poder pasar por espacios bajos y lugares donde hay que agacharse.\n+- El Anticheat Manipulator vuelve a funcionar.\n+- Auto Library, Knob Farm, Auto Closet y el resto de funciones de automatización vuelven a funcionar.\n+- Se restauró el indicador de agacharse en el HUD.\nMEJORAS\n+- Quitar Niebla Extra es más ligero en móvil.\nIMPORTANTE\n- Los botones flotantes pasaron de la pestaña Anticheat a Keybinds.",
+        ru = "НОВОЕ\n+ Вкладка Halloween: пропуск катсцен, удаление лишнего тумана и принос выпавших конфет (с авто-интервалом).\n+ Death Farm добавлен в Community Scripts (автор bocaj111004). Запускается только по нажатию кнопки.\n+ Плавающие кнопки переработаны, теперь в Keybinds > Мобильные клавиши (плавающие кнопки): создавайте и удаляйте кнопки, выбирайте функцию или свой переключатель по имени, перетаскивайте или закрепляйте их, меняйте размер. Кнопки, позиции и размер сохраняются автоматически.\n+ Свои клавиши для ПК.\n+ ESP для Candy Magic и новых предметов Хэллоуина.\n+ Новые карточки уведомлений (иконка, цвет по типу, полоса времени, анимации, стек) со звуком.\n+ Новая вкладка Discord (скоро).\nЗАМЕНЕНО\n+- Position Spoof теперь следует за реальным состоянием персонажа и применяется заново после возрождения или смены этажа.\n+- Обнаружение сущностей обновлено, теперь включает Bash, Scribbles и Drones Stampede.\n+- Состояние Slide читается из анимаций.\nИСПРАВЛЕНО\n+- Position Spoof: вы больше не умираете от Rush / Ambush, а вид остаётся на нормальной высоте.\n+- Приседание: снова можно проходить низкие проходы и места, где нужно приседать.\n+- Anticheat Manipulator снова работает.\n+- Auto Library, Knob Farm, Auto Closet и остальные функции автоматизации снова работают.\n+- Восстановлен индикатор приседания в HUD.\nУЛУЧШЕНО\n+- Remove Extra Fog легче на мобильных.\nВАЖНО\n- Плавающие кнопки перенесены из вкладки Anticheat в Keybinds.",
     }
     local TITLES = { en = "Version 1.0.7", es = "Versión 1.0.7", ru = "Версия 1.0.7" }
     MainTab:Paragraph({ Title = TITLES[R4N_LANG] or TITLES.en, Desc = NOTES[R4N_LANG] or NOTES.en })
+    DiscordTab:Paragraph({ Title = "Discord", Desc = "Discord coming very soon. When it is finished you will see it here." })
 end
 MainTab:Section({ Title = "Game Mode" })
 ModeParagraph = MainTab:Paragraph({
@@ -6369,7 +6328,7 @@ local EntityDistances = {
 }
 FX.EntityDistances = EntityDistances
 
--- 1.0.7: version del Main. Mira las entidades registradas Y los modelos directos del Workspace (antes solo miraba el
+-- 1.0.7: Mira las entidades registradas Y los modelos directos del Workspace (antes solo miraba el
 -- Workspace y una entidad registrada en otro contenedor no contaba), y ya no revienta si el modelo no tiene PrimaryPart.
 Functions.GetNearestEntity = function(CheckDisabled, List, UseRaycasting)
 	local Nearest = { Distance = math.huge, Object = nil }
@@ -12043,7 +12002,7 @@ AddSlider(StairwellTab, "CreakRange", "Creak Text Range", "How close (in studs) 
 end)()
 
 -- ============================================================================================
--- HALLOWEEN TAB (1.0.7, del Main): saltar cinematicas, quitar niebla extra, traer caramelos soltados y farms de terceros
+-- HALLOWEEN TAB (1.0.7): saltar cinematicas, quitar niebla extra, traer caramelos soltados y farms de terceros
 -- ============================================================================================
 ;(function()
 local RS = game:GetService("ReplicatedStorage")
@@ -15676,7 +15635,7 @@ pcall(function()
 		if type(d) == "table" then list = d end
 	end
 end)
--- 1.0.7: Death Farm (del Main) vive aqui, con sus creditos, y solo se ejecuta al pulsar el boton
+-- 1.0.7: Death Farm vive aqui, con sus creditos, y solo se ejecuta al pulsar el boton
 do
 	local have = false
 	for _, e in ipairs(list) do if e.name == "Death Farm" then have = true break end end
