@@ -603,6 +603,23 @@ end
 -- Traduccion de la interfaz: se traducen los titulos (English es el idioma por defecto)
 R4N_I18N = {
     es = {
+        ["Mobile keybinds (floating buttons)"] = "Teclas móviles (botones flotantes)",
+        ["Your floating buttons"] = "Tus botones flotantes",
+        ["Show floating buttons"] = "Mostrar botones flotantes",
+        ["Lock buttons in place"] = "Bloquear botones en su lugar",
+        ["Button size (%)"] = "Tamaño de botones (%)",
+        ["Function"] = "Función",
+        ["Custom toggle name"] = "Nombre del toggle personalizado",
+        ["Button text (optional)"] = "Texto del botón (opcional)",
+        ["Create button"] = "Crear botón",
+        ["Your buttons & keybinds"] = "Tus botones y teclas",
+        ["Delete selected"] = "Borrar seleccionado",
+        ["Delete all"] = "Borrar todo",
+        ["Reset button positions"] = "Reiniciar posiciones",
+        ["Custom keybinds (PC)"] = "Teclas personalizadas (PC)",
+        ["Your own keys"] = "Tus propias teclas",
+        ["Key"] = "Tecla",
+        ["Create keybind"] = "Crear tecla",
         ["Halloween"] = "Halloween",
         ["Skip Cutscenes (Halloween)"] = "Saltar Cinemáticas (Halloween)",
         ["Remove Extra Fog"] = "Quitar Niebla Extra",
@@ -1267,7 +1284,7 @@ R4N_I18N = {
         ["Shows notifications for mode, auto-fixes and when it stops. Important warnings always show."] = "Muestra notificaciones del modo, auto-arreglos y cuando se detiene. Las advertencias importantes siempre se muestran.",
         ["Small on-screen panel with the mode, room, current action and statistics."] = "Pequeño panel en pantalla con el modo, la sala, la acción actual y estadísticas.",
         ["Removes the hold time of every interaction prompt (doors, drawers, levers, items...). Turning it off restores the original times."] = "Quita el tiempo de mantener de cada prompt de interacción (puertas, cajones, palancas, objetos...). Apagarlo restaura los tiempos originales.",
-        ["Main switch. PC: keybind (Keybinds tab). Mobile: the ACM floating button."] = "Interruptor principal. PC: tecla (pestaña Keybinds). Móvil: el botón flotante ACM.",
+        ["Main switch. PC: keybind (Keybinds tab). Mobile: create an ACM floating button in Keybinds."] = "Interruptor principal. PC: tecla (pestaña Keybinds). Móvil: el botón flotante ACM.",
         ["Velocity: a tiny forward push (recommended). Pivot: moves the character relative to the camera."] = "Velocity: un pequeño empuje hacia delante (recomendado). Pivot: mueve el personaje respecto a la cámara.",
         ["If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot."] = "Si caes muy por debajo de tu último punto seguro mientras atraviesas, haces noclip o vuelas, se te devuelve a ese punto.",
         ["Completely disables the anticheat, after interacting with a ladder. It comes back after a cutscene, a Halt room, Void or Glitch: use a ladder again."] = "Desactiva por completo el anticheat, después de interactuar con una escalera. Vuelve tras una cinemática, una sala de Halt, Void o Glitch: usa una escalera otra vez.",
@@ -1436,6 +1453,23 @@ R4N_I18N = {
         ["Performance"] = "Rendimiento",
     },
     ru = {
+        ["Mobile keybinds (floating buttons)"] = "Мобильные клавиши (плавающие кнопки)",
+        ["Your floating buttons"] = "Ваши плавающие кнопки",
+        ["Show floating buttons"] = "Показать плавающие кнопки",
+        ["Lock buttons in place"] = "Закрепить кнопки",
+        ["Button size (%)"] = "Размер кнопок (%)",
+        ["Function"] = "Функция",
+        ["Custom toggle name"] = "Имя своего переключателя",
+        ["Button text (optional)"] = "Текст кнопки (необязательно)",
+        ["Create button"] = "Создать кнопку",
+        ["Your buttons & keybinds"] = "Ваши кнопки и клавиши",
+        ["Delete selected"] = "Удалить выбранное",
+        ["Delete all"] = "Удалить всё",
+        ["Reset button positions"] = "Сбросить позиции",
+        ["Custom keybinds (PC)"] = "Свои клавиши (ПК)",
+        ["Your own keys"] = "Ваши клавиши",
+        ["Key"] = "Клавиша",
+        ["Create keybind"] = "Создать клавишу",
         ["Halloween"] = "Хэллоуин",
         ["Skip Cutscenes (Halloween)"] = "Пропуск катсцен (Хэллоуин)",
         ["Remove Extra Fog"] = "Убрать лишний туман",
@@ -2100,7 +2134,7 @@ R4N_I18N = {
         ["Shows notifications for mode, auto-fixes and when it stops. Important warnings always show."] = "Показывает уведомления о режиме, автоисправлениях и остановке. Важные предупреждения показываются всегда.",
         ["Small on-screen panel with the mode, room, current action and statistics."] = "Небольшая панель на экране с режимом, комнатой, текущим действием и статистикой.",
         ["Removes the hold time of every interaction prompt (doors, drawers, levers, items...). Turning it off restores the original times."] = "Убирает время удержания у каждой подсказки взаимодействия (двери, ящики, рычаги, предметы...). Выключение возвращает исходное время.",
-        ["Main switch. PC: keybind (Keybinds tab). Mobile: the ACM floating button."] = "Главный переключатель. ПК: клавиша (вкладка Keybinds). Мобильные: плавающая кнопка ACM.",
+        ["Main switch. PC: keybind (Keybinds tab). Mobile: create an ACM floating button in Keybinds."] = "Главный переключатель. ПК: клавиша (вкладка Keybinds). Мобильные: плавающая кнопка ACM.",
         ["Velocity: a tiny forward push (recommended). Pivot: moves the character relative to the camera."] = "Velocity: крошечный толчок вперёд (рекомендуется). Pivot: двигает персонажа относительно камеры.",
         ["If you fall far below your last safe spot while phasing, noclipping or flying, you are sent back to that spot."] = "Если вы упали далеко ниже последней безопасной точки при прохождении сквозь объекты, ноклипе или полёте, вас вернут в эту точку.",
         ["Completely disables the anticheat, after interacting with a ladder. It comes back after a cutscene, a Halt room, Void or Glitch: use a ladder again."] = "Полностью отключает античит после взаимодействия с лестницей. Возвращается после катсцены, комнаты Halt, Void или Glitch: снова используйте лестницу.",
@@ -4469,7 +4503,8 @@ print("[R4NS0M] Loading Main Tab")
 MainTab:Section({ Title = "What's New" })
 do
     local NOTES = {
-        en = "NEW\n+ Halloween tab: Skip Cutscenes, Remove Extra Fog, Bring Dropped Candy (with auto interval) and the Death Farm buttons (third-party, only run when pressed).\n"
+        en = "NEW\n+ Halloween tab: Skip Cutscenes, Remove Extra Fog and Bring Dropped Candy (with auto interval).\n+ Death Farm (third-party, by bocaj111004) is now a ready-made entry in Community Scripts; it only runs when you press its button.\n"
+            .. "+ Floating buttons remastered: they now live in Keybinds > Mobile keybinds (floating buttons). Create and delete as many as you want, pick the function (ACM, Noclip, Fly, Speed, Position Spoof, Slide, Hub...) or a custom toggle by name, drag them anywhere or lock them, and change their size. Buttons, positions and size are saved to a file, so you never recreate or move them again. You can also create custom keybinds for PC.\n"
             .. "+ ESP for Candy Magic and the new Halloween items (Candy Basket, Broken Headstone, Giant Gummyworm, Crate of Chocolate, Candy Bucket, Large Candy Bag, Small Cauldron, Haybale, Wizard Hat, Jewelry Key).\n"
             .. "+ New notification cards (icon, color by type, time bar, animations, stacking) with the badge sound.\n"
             .. "REPLACED\n+- Position Spoof now uses the real state of the character (it re-applies itself after respawn / new floor) instead of just the switch.\n"
@@ -4478,9 +4513,14 @@ do
             .. "FIXED\n+- Position Spoof: you no longer die to Rush / Ambush with it on. Removed the torso offset that made the server see you standing.\n"
             .. "+- Crouch: collisions were moved as if you were underground when you were not, so you could not pass low gaps. Fixed.\n"
             .. "+- Crouch HUD indicator restored.\n"
+            .. "+- Anticheat Manipulator did nothing: a missing function (IsCrouching) crashed the character loop every frame, so collisions, the manipulator, Crouch Spoof and the Eyes bypass never ran. Defined it (it now detects any crouch collision group) and the manipulator also disables every collision part.\n"
+            .. "+- Position Spoof view: the camera is lifted back to normal height (client side only, nothing the server sees).\n"
+            .. "+- The Main Port block (Auto Library, Knob Farm, Auto Closet, etc.) was reading variables out of scope (Ex, FX, Hooks, Apply, SetFeature, NotifyUI). They are exported now.\n"
+            .. "+- The game's own Crouching attribute is no longer overwritten.\n"
             .. "IMPROVED\n+- Remove Extra Fog uses a listener instead of scanning the whole map every 0.5s (lighter on mobile).\n"
             .. "IMPORTANT\n- Kill All with Carts from Main was not ported (it only exists to kill other players).",
-        es = "NUEVO\n+ Pestaña Halloween: Saltar Cinemáticas, Quitar Niebla Extra, Traer Caramelos Soltados (con intervalo automático) y los botones de Death Farm (de terceros, solo se ejecutan al pulsarlos).\n"
+        es = "NUEVO\n+ Pestaña Halloween: Saltar Cinemáticas, Quitar Niebla Extra y Traer Caramelos Soltados (con intervalo automático).\n+ Death Farm (de terceros, por bocaj111004) ahora es una entrada lista en Community Scripts; solo se ejecuta al pulsar su botón.\n"
+            .. "+ Botones flotantes remasterizados: ahora están en Keybinds > Teclas móviles (botones flotantes). Crea y borra los que quieras, elige la función (ACM, Noclip, Fly, Speed, Position Spoof, Slide, Hub...) o un toggle personalizado por nombre, arrástralos a donde quieras o bloquéalos, y cambia su tamaño. Los botones, sus posiciones y el tamaño se guardan en un archivo, así que no tienes que volver a crearlos ni moverlos. También puedes crear teclas personalizadas para PC.\n"
             .. "+ ESP de Candy Magic y de los nuevos ítems de Halloween (Candy Basket, Broken Headstone, Giant Gummyworm, Crate of Chocolate, Candy Bucket, Large Candy Bag, Small Cauldron, Haybale, Wizard Hat, Jewelry Key).\n"
             .. "+ Nuevas tarjetas de notificación (icono, color por tipo, barra de tiempo, animaciones, apilado) con el sonido de badge.\n"
             .. "REEMPLAZADO\n+- Position Spoof ahora usa el estado real del personaje (se reaplica solo al reaparecer / piso nuevo) en vez de solo el interruptor.\n"
@@ -4489,9 +4529,14 @@ do
             .. "CORREGIDO\n+- Position Spoof: ya no mueres por Rush / Ambush con él activado. Se quitó el desplazamiento del torso que hacía que el servidor te viera de pie.\n"
             .. "+- Agacharse: las colisiones se movían como si estuvieras bajo tierra sin estarlo, así que no pasabas por espacios bajos. Arreglado.\n"
             .. "+- Se restauró el indicador de agacharse en el HUD.\n"
+            .. "+- El Anticheat Manipulator no hacía nada: faltaba una función (IsCrouching) y el bucle del personaje fallaba en cada frame, así que las colisiones, el manipulador, Crouch Spoof y el bypass de Eyes nunca corrían. Ya está definida (detecta cualquier grupo de colisión de agacharse) y el manipulador desactiva todas las colisiones.\n"
+            .. "+- Vista del Position Spoof: la cámara vuelve a la altura normal (solo en tu cliente, el servidor no ve nada).\n"
+            .. "+- El bloque Main Port (Auto Library, Knob Farm, Auto Closet, etc.) leía variables fuera de alcance (Ex, FX, Hooks, Apply, SetFeature, NotifyUI). Ahora se exportan.\n"
+            .. "+- Ya no se pisa el atributo Crouching del propio juego.\n"
             .. "MEJORAS\n+- Quitar Niebla Extra usa un listener en vez de escanear todo el mapa cada 0.5s (más ligero en móvil).\n"
             .. "IMPORTANTE\n- No se portó Kill All with Carts del Main (solo sirve para matar a otros jugadores).",
         ru = "НОВОЕ\n+ Вкладка Halloween: пропуск катсцен, удаление лишнего тумана, принос выпавших конфет (с авто-интервалом) и кнопки Death Farm (сторонние, запускаются только по нажатию).\n"
+            .. "+ Плавающие кнопки переработаны: теперь они в Keybinds > Мобильные клавиши. Создавайте и удаляйте кнопки, выбирайте функцию или свой переключатель по имени, перетаскивайте или закрепляйте их, меняйте размер. Кнопки, позиции и размер сохраняются в файле. Также можно создавать свои клавиши для ПК.\n"
             .. "+ ESP для Candy Magic и новых предметов Хэллоуина.\n"
             .. "+ Новые карточки уведомлений (иконка, цвет по типу, полоса времени, анимации, стек) со звуком badge.\n"
             .. "ЗАМЕНЕНО\n+- Position Spoof теперь использует реальное состояние персонажа (повторно применяется после возрождения / нового этажа).\n"
@@ -4500,6 +4545,10 @@ do
             .. "ИСПРАВЛЕНО\n+- Position Spoof: вы больше не умираете от Rush / Ambush. Убрано смещение торса.\n"
             .. "+- Приседание: коллизии смещались, как будто вы под землёй, из-за чего нельзя было пройти низкие проходы. Исправлено.\n"
             .. "+- Восстановлен индикатор приседания в HUD.\n"
+            .. "+- Anticheat Manipulator ничего не делал: отсутствовала функция IsCrouching, цикл персонажа падал каждый кадр. Функция добавлена, манипулятор отключает все коллизии.\n"
+            .. "+- Вид при Position Spoof: камера снова на нормальной высоте (только на клиенте).\n"
+            .. "+- Блок Main Port (Auto Library, Knob Farm, Auto Closet и др.) читал переменные вне области видимости. Теперь они экспортированы.\n"
+            .. "+- Атрибут Crouching игры больше не перезаписывается.\n"
             .. "УЛУЧШЕНО\n+- Remove Extra Fog использует слушатель вместо сканирования всей карты (легче на мобильных).\n"
             .. "ВАЖНО\n- Kill All with Carts из Main не перенесён (нужен только для убийства других игроков).",
     }
@@ -5503,7 +5552,7 @@ end
 RunService.Stepped:Connect(function()
     local char = LocalPlayer.Character
     if not char then return end
-    local want = Ex.Noclip
+    local want = Ex.Noclip or Ex.ACM   -- 1.0.7: el Anticheat Manipulator tambien desactiva TODAS las colisiones del personaje
     if want then
         for _, p in ipairs(char:GetDescendants()) do
             if p:IsA("BasePart") then
@@ -5687,64 +5736,274 @@ end)
 print("[R4NS0M] Loaded PC Keybinds")
 print("[R4NS0M] Loading Mobile Floating Buttons")
 ----------------------------------------------------
--- Botones flotantes (movil): ACM, Slide y Fly. Se pueden arrastrar.
+-- MOBILE KEYBINDS (floating buttons) - REMASTER 1.0.7
+--   * Botones creables / borrables, con la funcion que quieras (o un toggle custom por nombre).
+--   * Arrastrables por defecto, con opcion de bloquearlos. Posicion, tamano y lista se guardan en un archivo propio,
+--     asi que al volver a ejecutar el script no hay que crearlos ni moverlos otra vez.
+--   * Las mismas entradas pueden tener una tecla personalizada para PC.
 ----------------------------------------------------
-local Floating = {}
-local function MakeFloat(text, y, onTap, getOn, flag)
-    local b = Instance.new("TextButton")
-    b.Name = "R4NS0M_Float_" .. text
-    b.Size = UDim2.fromOffset(46, 46)
-    b.Position = UDim2.new(1, -66, 0.5, y)
-    b.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    b.BackgroundTransparency = 0.2
-    b.AutoButtonColor = false
-    b.Text = text
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 12
-    b.Visible = false
-    b.ZIndex = 50
-    b.Parent = Gui
-    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(1, 0); c.Parent = b
-    local st = Instance.new("UIStroke"); st.Thickness = 2; st.Color = Color3.fromRGB(120, 120, 120); st.Parent = b
-
-    local dragging, moved = false, false
-    local startPt, startPos = Vector2.zero, Vector2.zero
-    b.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging, moved = true, false
-            startPt = Vector2.new(input.Position.X, input.Position.Y)
-            startPos = b.AbsolutePosition
+local MB = { List = {}, Btns = {}, Lock = false, Size = 1, Max = 12, Drag = nil }
+FX.MB = MB
+do
+    local FILE = "R4NS0M_MobileKeybinds.json"
+    -- { texto de la lista, texto corto del boton, tipo, destino }
+    MB.ACTIONS = {
+        { "Anticheat Manipulator (ACM)", "ACM", "toggle", "ACM" },
+        { "Noclip", "NOCLIP", "toggle", "Noclip" },
+        { "Fly", "FLY", "toggle", "Fly" },
+        { "Speed Boost", "SPEED", "toggle", "Speed" },
+        { "Speed Hack", "SPD", "toggle", "SpeedHack" },
+        { "Position Spoof", "SPOOF", "toggle", "PositionSpoof" },
+        { "Crouch Spoof", "CROUCH", "toggle", "CrouchSpoof" },
+        { "Fullbright", "LIGHT", "toggle", "Fullbright" },
+        { "No Fog", "FOG", "toggle", "NoFog" },
+        { "Auto Interact", "INTER", "toggle", "AutoInteract" },
+        { "Slide", "SLIDE", "slide" },
+        { "Restore Prompts", "PROMPT", "restore" },
+        { "Open / Close Hub", "HUB", "hub" },
+        { "Custom toggle (type its name)", "CUSTOM", "custom" },
+    }
+    local function ActionOf(e)
+        for _, a in ipairs(MB.ACTIONS) do
+            if a[3] == e.a and (a[4] == e.t2 or a[3] ~= "toggle") then return a end
         end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
-            local d = Vector2.new(input.Position.X, input.Position.Y) - startPt
-            if d.Magnitude > 10 then moved = true end
-            if moved then b.Position = UDim2.fromOffset(startPos.X + d.X, startPos.Y + d.Y) end
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
-            dragging = false
-            if not moved then pcall(onTap) end
-        end
-    end)
-    Floating[#Floating + 1] = { Btn = b, Stroke = st, GetOn = getOn, Flag = flag }
-end
-
-MakeFloat("ACM", -70, function() Flip("ACM", "Anticheat Manipulator") end, function() return Ex.ACM end, "BtnACM")
-MakeFloat("FLY", -16, function() Flip("Fly", "Fly") end, function() return Ex.Fly end, "BtnFly")
-MakeFloat("SPD", 38, function() Flip("SpeedHack", "Speed Hack") end, function() return Ex.SpeedHack end, "BtnSpeedHack")
-
-function FX.UpdateButtons()
-    for _, f in ipairs(Floating) do
-        f.Btn.Visible = Ex.FloatButtons and (f.Flag == nil or Ex[f.Flag] ~= false)
-        local on = f.GetOn and f.GetOn() or false
-        f.Stroke.Color = on and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(120, 120, 120)
     end
-end
+    MB.ActionOf = ActionOf
 
+    local function Clamp01(v, lo, hi) return math.clamp(tonumber(v) or lo, lo, hi) end
+
+    -- ---------- guardado ----------
+    local saveToken = 0
+    function MB.Save()
+        saveToken = saveToken + 1
+        local my = saveToken
+        task.delay(0.4, function()
+            if my ~= saveToken or not writefile then return end
+            local data = { v = 1, show = Ex.FloatButtons, lock = MB.Lock, size = MB.Size, list = MB.List }
+            pcall(function() writefile(FILE, HttpService:JSONEncode(data)) end)
+        end)
+    end
+
+    local function Load()
+        local ok, data = pcall(function()
+            if isfile and readfile and isfile(FILE) then return HttpService:JSONDecode(readfile(FILE)) end
+        end)
+        if ok and type(data) == "table" and type(data.list) == "table" then
+            for _, e in ipairs(data.list) do
+                if type(e) == "table" and type(e.a) == "string" then
+                    MB.List[#MB.List + 1] = {
+                        a = e.a, t2 = e.t2, c = e.c, t = tostring(e.t or ""), k = e.k, b = e.b ~= false,
+                        x = Clamp01(e.x, 0.03, 0.97), y = Clamp01(e.y, 0.03, 0.97),
+                    }
+                end
+            end
+            if data.show ~= nil then Ex.FloatButtons = data.show == true end
+            MB.Lock = data.lock == true
+            MB.Size = Clamp01(data.size, 0.6, 1.6)
+        else
+            -- primera vez: los mismos 3 botones que ya existian (ACM, FLY, SPD)
+            MB.List = {
+                { a = "toggle", t2 = "ACM", t = "ACM", b = true, x = 0.92, y = 0.40 },
+                { a = "toggle", t2 = "Fly", t = "FLY", b = true, x = 0.92, y = 0.50 },
+                { a = "toggle", t2 = "SpeedHack", t = "SPD", b = true, x = 0.92, y = 0.60 },
+            }
+        end
+    end
+
+    -- ---------- acciones ----------
+    local function ResolveToggle(name)
+        name = tostring(name or ""):gsub("^%s+", ""):gsub("%s+$", "")
+        if name == "" then return nil end
+        if type(Ex[name]) == "boolean" then return name end
+        local low = name:lower()
+        for k, v in pairs(Ex) do
+            if type(k) == "string" and type(v) == "boolean" and k:lower() == low then return k end
+        end
+    end
+    MB.ResolveToggle = ResolveToggle
+
+    local function TargetOf(e)
+        if e.a == "toggle" then return e.t2 end
+        if e.a == "custom" then return ResolveToggle(e.c) end
+    end
+
+    function MB.Run(e)
+        local a = e.a
+        if a == "toggle" then Flip(e.t2, (ActionOf(e) or {})[1] or e.t2)
+        elseif a == "custom" then
+            local id = ResolveToggle(e.c)
+            if id then Flip(id, id) else NotifyUI("Keybind", "No toggle named '" .. tostring(e.c) .. "'.") end
+        elseif a == "slide" then DoSlide()
+        elseif a == "restore" then if FX.RestorePrompts then FX.RestorePrompts() end
+        elseif a == "hub" then FX.ToggleHub() end
+    end
+
+    function MB.LabelOf(e)
+        if e.t and e.t ~= "" then return e.t end
+        local act = ActionOf(e)
+        if e.a == "custom" then return tostring(e.c or "?"):sub(1, 8):upper() end
+        return act and act[2] or "?"
+    end
+
+    -- ---------- botones ----------
+    local function PlaceFromFrac(b, e)
+        b.Position = UDim2.fromScale(e.x, e.y)
+    end
+
+    local function BuildButton(e)
+        local b = Instance.new("TextButton")
+        b.Name = "R4NS0M_Float"
+        b.AnchorPoint = Vector2.new(0.5, 0.5)
+        b.Size = UDim2.fromOffset(46 * MB.Size, 46 * MB.Size)
+        b.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        b.BackgroundTransparency = 0.2
+        b.AutoButtonColor = false
+        b.Text = MB.LabelOf(e)
+        b.TextColor3 = Color3.new(1, 1, 1)
+        b.Font = Enum.Font.GothamBold
+        b.TextScaled = true
+        b.Visible = false
+        b.ZIndex = 50
+        b.Parent = Gui
+        PlaceFromFrac(b, e)
+        local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(1, 0); c.Parent = b
+        local pad = Instance.new("UIPadding")
+        pad.PaddingLeft, pad.PaddingRight = UDim.new(0.12, 0), UDim.new(0.12, 0)
+        pad.PaddingTop, pad.PaddingBottom = UDim.new(0.28, 0), UDim.new(0.28, 0)
+        pad.Parent = b
+        local tc = Instance.new("UITextSizeConstraint"); tc.MaxTextSize = 14; tc.MinTextSize = 6; tc.Parent = b
+        local st = Instance.new("UIStroke"); st.Thickness = 2; st.Color = Color3.fromRGB(120, 120, 120); st.Parent = b
+
+        b.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                MB.Drag = {
+                    btn = b, e = e, input = input, moved = false,
+                    start = Vector2.new(input.Position.X, input.Position.Y), x0 = e.x, y0 = e.y,
+                }
+            end
+        end)
+        MB.Btns[#MB.Btns + 1] = { Btn = b, Stroke = st, E = e }
+    end
+
+    local dragHooked = false
+    local function HookDrag()
+        if dragHooked then return end
+        dragHooked = true
+        UserInputService.InputChanged:Connect(function(input)
+            local d = MB.Drag
+            if not d or MB.Lock then return end
+            if input == d.input or (d.input.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseMovement) then
+                local delta = Vector2.new(input.Position.X, input.Position.Y) - d.start
+                if delta.Magnitude > 10 then d.moved = true end
+                if d.moved then
+                    local sz = Gui.AbsoluteSize
+                    if sz.X > 0 and sz.Y > 0 then
+                        d.e.x = math.clamp(d.x0 + delta.X / sz.X, 0.03, 0.97)
+                        d.e.y = math.clamp(d.y0 + delta.Y / sz.Y, 0.03, 0.97)
+                        PlaceFromFrac(d.btn, d.e)
+                    end
+                end
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            local d = MB.Drag
+            if not d then return end
+            if input == d.input or input.UserInputType == d.input.UserInputType then
+                MB.Drag = nil
+                if d.moved and not MB.Lock then MB.Save()
+                else pcall(MB.Run, d.e) end
+            end
+        end)
+    end
+
+    function MB.Rebuild()
+        for _, f in ipairs(MB.Btns) do pcall(function() f.Btn:Destroy() end) end
+        MB.Btns = {}
+        for _, e in ipairs(MB.List) do
+            if e.b then BuildButton(e) end
+        end
+        MB.Refresh()
+    end
+
+    function MB.Refresh()
+        for _, f in ipairs(MB.Btns) do
+            f.Btn.Visible = Ex.FloatButtons == true
+            local id = TargetOf(f.E)
+            local on = id ~= nil and Ex[id] == true
+            f.Stroke.Color = on and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(120, 120, 120)
+        end
+    end
+    FX.UpdateButtons = MB.Refresh
+
+    function MB.Resize()
+        for _, f in ipairs(MB.Btns) do f.Btn.Size = UDim2.fromOffset(46 * MB.Size, 46 * MB.Size) end
+    end
+
+    -- ---------- lista ----------
+    function MB.Add(e)
+        if #MB.List >= MB.Max then NotifyUI("Keybinds", "Maximum of " .. MB.Max .. " entries.") return false end
+        if e.x == nil then
+            local n = 0
+            for _, x in ipairs(MB.List) do if x.b then n = n + 1 end end
+            e.x = 0.5
+            e.y = math.clamp(0.25 + 0.08 * (n % 8), 0.05, 0.95)
+        end
+        MB.List[#MB.List + 1] = e
+        MB.Rebuild()
+        MB.Save()
+        return true
+    end
+    function MB.Remove(i)
+        if MB.List[i] then
+            table.remove(MB.List, i)
+            MB.Rebuild()
+            MB.Save()
+            return true
+        end
+    end
+    function MB.Clear()
+        MB.List = {}
+        MB.Rebuild()
+        MB.Save()
+    end
+    function MB.ResetPositions()
+        local n = 0
+        for _, e in ipairs(MB.List) do
+            if e.b then
+                e.x, e.y = 0.92, math.clamp(0.20 + 0.08 * n, 0.05, 0.95)
+                n = n + 1
+            end
+        end
+        MB.Rebuild()
+        MB.Save()
+    end
+    function MB.Names()
+        local out = {}
+        for i, e in ipairs(MB.List) do
+            local tags = {}
+            if e.b then tags[#tags + 1] = "button" end
+            if e.k then tags[#tags + 1] = "key " .. e.k end
+            local act = ActionOf(e)
+            local what = e.a == "custom" and ("custom: " .. tostring(e.c)) or (act and act[1] or e.a)
+            out[#out + 1] = string.format("%d. %s (%s)", i, what, table.concat(tags, ", "))
+        end
+        if #out == 0 then out[1] = "(none)" end
+        return out
+    end
+
+    -- ---------- teclas personalizadas (PC) ----------
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+        local k = input.KeyCode.Name
+        for _, e in ipairs(MB.List) do
+            if e.k and e.k == k then pcall(MB.Run, e) end
+        end
+    end)
+
+    Load()
+    HookDrag()
+    MB.Rebuild()
+end
 print("[R4NS0M] Loaded Mobile Floating Buttons")
 print("[R4NS0M] Loading Extra UI Helpers")
 ----------------------------------------------------
@@ -6013,7 +6272,7 @@ AntiCheatTab:Paragraph({
     Desc = "The Anticheat Manipulator now uses Velocity Manipulation: it moves your character forward very slowly (or pivots it relative to the camera), "
         .. "which mitigates the game's anti-noclip so you can walk through walls and doors. There is no guarantee: the server may still flag you, so use it at your own risk."
 })
-AddToggle(AntiCheatTab, "ACM", "Anticheat Manipulator", "Main switch. PC: keybind (Keybinds tab). Mobile: the ACM floating button.", Ex.ACM, function(v) Apply("ACM", v) end)
+AddToggle(AntiCheatTab, "ACM", "Anticheat Manipulator", "Main switch. PC: keybind (Keybinds tab). Mobile: create an ACM floating button in Keybinds.", Ex.ACM, function(v) Apply("ACM", v) end)
 AddDropdown(AntiCheatTab, "VelocityManipulationMode", "Manipulation Method",
     "Velocity: a tiny forward push (recommended). Pivot: moves the character relative to the camera.",
     { "Velocity", "Pivot" }, Ex.VelocityManipulationMode, function(v) Ex.VelocityManipulationMode = v end)
@@ -6232,6 +6491,28 @@ end
 
 Hooks.PositionSpoof = function(Value)
 	Functions.SyncPositionSpoof()
+end
+
+-- 1.0.7: vista normal con Position Spoof. El cuerpo esta 2.346 mas abajo y la camara quedaba dentro del piso.
+-- Se resta el desplazamiento justo antes del script de camara del juego y se suma justo despues, asi no se acumula
+-- y no se modifica nada que el servidor vea.
+if not Globals.CamSpoofBound then
+	Globals.CamSpoofBound = true
+	local RS = game:GetService("RunService")
+	local Shift = nil
+	pcall(function() RS:UnbindFromRenderStep("R4N_SpoofCamPre") RS:UnbindFromRenderStep("R4N_SpoofCamPost") end)
+	RS:BindToRenderStep("R4N_SpoofCamPre", Enum.RenderPriority.Camera.Value - 1, function()
+		local Cam = workspace.CurrentCamera
+		if Shift and Cam then Cam.CFrame = Cam.CFrame - Shift end
+		Shift = nil
+	end)
+	RS:BindToRenderStep("R4N_SpoofCamPost", Enum.RenderPriority.Camera.Value + 1, function()
+		local Cam = workspace.CurrentCamera
+		if Cam and Globals.SpoofApplied and Character and Character.Parent and not Cam:FindFirstChild("MinecartRig") then
+			Shift = Vector3.new(0, 2.346, 0)
+			Cam.CFrame = Cam.CFrame + Shift
+		end
+	end)
 end
 
 Hooks.CrouchSpoof = function(Value)
@@ -6771,6 +7052,18 @@ local CharacterOldConnectionKeys = {
 	"MainHandler", "SHMFixer", "AnticheatDisabler", "AnticheatEnableDetector1", "AnticheatEnableDetector2", "AutoReviveHandler",
 }
 
+-- 1.0.7: esta funcion NO existia en el hub (en el Main si). Cada frame el bucle del personaje fallaba al llamarla y todo lo que
+-- venia despues (colisiones, Anticheat Manipulator, Crouch Spoof, bypass de Eyes...) nunca se ejecutaba.
+local function PartIsCrouch(Part)
+	return Part ~= nil and Part.Parent ~= nil and string.find(string.lower(Part.CollisionGroup), "crouch", 1, true) ~= nil
+end
+Functions.IsCrouching = function()
+	if Floor == "Fools" or Floor == "OldHotel" then
+		return Character ~= nil and Character:GetAttribute("Crouching") == true
+	end
+	return PartIsCrouch(CollisionPart) or PartIsCrouch(Collision)
+end
+
 Functions.HandleCharacter = function(NewCharacter)
 	for _, Key in CharacterOldConnectionKeys do
 		if Connections[Key] then
@@ -6911,14 +7204,20 @@ Functions.HandleCharacter = function(NewCharacter)
 			Globals.LastAnimationCheck = tick()
 		end
 		Character:SetAttribute("Sliding", Globals.Sliding == true)
-		if Character:GetAttribute("Crouching") ~= Functions.IsCrouching() then
-			Character:SetAttribute("Crouching", Functions.IsCrouching())
+		local CrouchNow = Functions.IsCrouching()
+		local CrouchAttr = Character:GetAttribute("Crouching")
+		if CrouchNow then
+			if CrouchAttr ~= true then Character:SetAttribute("Crouching", true) Globals.CrouchSetByHub = true end
+		elseif Globals.CrouchSetByHub and CrouchAttr == true then
+			Character:SetAttribute("Crouching", false) Globals.CrouchSetByHub = false
+		elseif CrouchAttr == nil then
+			Character:SetAttribute("Crouching", false)
 		end
 
 		local HudFrame = LocalPlayer.PlayerGui:FindFirstChild("MainUI") and LocalPlayer.PlayerGui.MainUI:FindFirstChild("MainFrame")
 		local HudEffects = HudFrame and HudFrame:FindFirstChild("Healthbar") and HudFrame.Healthbar:FindFirstChild("Effects")
 		if HudEffects and HudEffects:FindFirstChild("Crouching") then
-			HudEffects.Crouching.Visible = Functions.IsCrouching()
+			HudEffects.Crouching.Visible = CrouchNow
 		end
 
 		if (Toggles.CrouchSpoof.Value or Toggles.PositionSpoof.Value) and RemotesFolder:FindFirstChild("Crouch") then
@@ -7661,6 +7960,7 @@ local AI_BLACKLIST = {
 	LongPushPrompt = true, BigPropPrompt = true, PushPrompt = true,
 }
 local AI = { Last = 0, Set = setmetatable({}, { __mode = "k" }), Static = setmetatable({}, { __mode = "k" }) }
+FX.AI = AI
 
 -- ------------------------------------------------------------------------------------------
 -- Ignorar asientos (sentarse) y cosas de Jeff / innecesarias.
@@ -8466,14 +8766,7 @@ AddToggle(StairwellTab, "MeldStopGrowth", "Stop Meld Growth", "Disables the scri
 AddToggle(StairwellTab, "MeldRemove", "Remove Meld (keep ropes & doors)", "Hides Meld and removes its collision/touch, except its ropes and doors.", Ex.MeldRemove, function(v) Apply("MeldRemove", v) end)
 end)()
 
-AntiCheatTab:Section({ Title = "Mobile Buttons" })
-AddToggle(AntiCheatTab, "FloatButtons", "Floating Buttons", "Small draggable buttons for ACM, SLIDE and FLY. On by default on touch devices.", Ex.FloatButtons, function(v)
-    Ex.FloatButtons = v
-    FX.UpdateButtons()
-end)
-AddToggle(AntiCheatTab, "BtnACM", "ACM Button", "Show the ACM floating button.", Ex.BtnACM, function(v) Ex.BtnACM = v; FX.UpdateButtons() end)
-AddToggle(AntiCheatTab, "BtnFly", "FLY Button", "Show the FLY floating button.", Ex.BtnFly, function(v) Ex.BtnFly = v; FX.UpdateButtons() end)
-AddToggle(AntiCheatTab, "BtnSpeedHack", "SPD Button", "Show the SPD (Speed Hack) floating button.", Ex.BtnSpeedHack, function(v) Ex.BtnSpeedHack = v; FX.UpdateButtons() end)
+-- 1.0.7: los botones flotantes se movieron a Keybinds > "Mobile keybinds (floating buttons)"
 
 print("[R4NS0M] Loading Batch 2")
 -- ============================================================================================
@@ -8591,6 +8884,8 @@ Ex.AIExtraSkip = function(pp)
 	return false
 end
 Ex.AIReset = function()
+	local AI = FX.AI
+	if not AI then return end
 	AI.Static = setmetatable({}, { __mode = "k" })
 	AICache = setmetatable({}, { __mode = "k" })
 	AIItemCache = setmetatable({}, { __mode = "k" })
@@ -10955,6 +11250,7 @@ UIS.InputBegan:Connect(function(input, gpe)
 	if input.KeyCode.Name == Ex.Key_RestorePrompts then B.RestorePrompts() end
 end)
 
+FX.RestorePrompts = function() B.RestorePrompts() end
 AutomationTab:Section({ Title = "Prompt Tools" })
 AutomationTab:Button({ Title = "Restore Prompts", Desc = "Use this if proximity prompts stop appearing: restores real prompts, removes leftover fake ones and refreshes the ones near you.", Callback = function() B.RestorePrompts() end })
 AutomationTab:Button({ Title = "Auto Interact: why is it skipping?", Desc = "Prints (and copies) every prompt within 20 studs with the reason Auto Interact skips it, or says it is allowed.", Callback = function()
@@ -11818,18 +12114,6 @@ AddSlider(HalloweenTab, "HW_Interval", "Bring Interval (s)", "How often dropped 
 	if Ex.HW_AutoBring then Loop("HW_AutoBring", BringCandy, math.max(v, 0.05)) end
 end)
 
-local DF = 'loadstring(game:HttpGet("https://raw.githubusercontent.com/bocaj111004/Abysall/refs/heads/main/Scripts/DeathFarm.luau"))()'
-HalloweenTab:Section({ Title = "Third-party Farms" })
-HalloweenTab:Button({ Title = "Start Death Farm", Desc = "Third-party script (Abysall / bocaj111004). Runs only when you press this. Farms deaths and joins new runs.", Callback = function()
-	NotifyUI("Death Farm", "Made by bocaj111004 (Abysall). All credits to the creator.")
-	task.spawn(function()
-		local ok, err = pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/bocaj111004/Abysall/refs/heads/main/Scripts/DeathFarm.luau"))() end)
-		if not ok then NotifyUI("Death Farm", "Failed: " .. tostring(err)) end
-	end)
-end })
-HalloweenTab:Button({ Title = "Copy Death Farm Loadstring", Desc = "Copies the Death Farm loadstring to your clipboard.", Callback = function()
-	if toclipboard then toclipboard(DF) NotifyUI("Death Farm", "Loadstring copied.") else NotifyUI("Death Farm", "Your executor has no clipboard function.") end
-end })
 end)()
 
 -- ============================================================================================
@@ -13352,6 +13636,141 @@ MiscTab:Button({
         end
     end
 })
+
+-- ============================================================================================
+-- MOBILE KEYBINDS (floating buttons) UI - 1.0.7
+-- ============================================================================================
+do
+    local MB = FX.MB
+    local pick = { label = MB.ACTIONS[1][1], text = "", custom = "", key = nil, sel = nil }
+    local function PickedAction()
+        for _, a in ipairs(MB.ACTIONS) do if a[1] == pick.label then return a end end
+        return MB.ACTIONS[1]
+    end
+    local function BuildEntry(asButton)
+        local a = PickedAction()
+        local e = { a = a[3], t2 = a[3] == "toggle" and a[4] or nil, t = pick.text, b = asButton }
+        if a[3] == "custom" then
+            local id = MB.ResolveToggle(pick.custom)
+            if not id then
+                NotifyUI("Keybinds", "There is no toggle named '" .. tostring(pick.custom) .. "'. Use the id of the feature (for example NoFog or AutoInteract).")
+                return nil
+            end
+            e.c = id
+        end
+        return e
+    end
+
+    KeybindsTab:Section({ Title = "Mobile keybinds (floating buttons)" })
+    KeybindsTab:Paragraph({
+        Title = "Your floating buttons",
+        Desc = "Buttons are draggable by default: drag one to put it wherever you want. Lock them to stop accidental moves. "
+            .. "Your buttons, their positions and the size are saved automatically, so you never have to create or move them again.",
+    })
+    local showEl = KeybindsTab:Toggle({
+        Title = "Show floating buttons", Desc = "Shows or hides every floating button. On by default on touch devices.",
+        Value = Ex.FloatButtons == true,
+        Callback = function(v) Ex.FloatButtons = v MB.Refresh() MB.Save() end,
+    })
+    Setters.FloatButtons = function(v) pcall(function() showEl:Set(v) end) end
+    KeybindsTab:Toggle({
+        Title = "Lock buttons in place", Desc = "When on, buttons can no longer be dragged (they still work when tapped).",
+        Value = MB.Lock, Callback = function(v) MB.Lock = v MB.Save() end,
+    })
+    KeybindsTab:Slider({
+        Title = "Button size (%)", Desc = "Size of every floating button.", Step = 5,
+        Value = { Min = 60, Max = 160, Default = math.floor(MB.Size * 100 + 0.5) },
+        Callback = function(v) MB.Size = (tonumber(v) or 100) / 100 MB.Resize() MB.Save() end,
+    })
+
+    local labels = {}
+    for _, a in ipairs(MB.ACTIONS) do labels[#labels + 1] = a[1] end
+    KeybindsTab:Dropdown({
+        Title = "Function", Desc = "What the new button (or keybind) does. Only features that make sense as a quick switch are listed.",
+        Values = labels, Value = labels[1], Callback = function(v) pick.label = v end,
+    })
+    KeybindsTab:Input({
+        Title = "Custom toggle name", Desc = "Only for 'Custom toggle'. Write the id of any on/off feature, for example NoFog, AutoInteract or PromptClip.",
+        Placeholder = "ToggleName", Callback = function(t) pick.custom = tostring(t or "") end,
+    })
+    KeybindsTab:Input({
+        Title = "Button text (optional)", Desc = "Short text shown on the button. Empty = automatic.",
+        Placeholder = "ACM", Callback = function(t) pick.text = tostring(t or ""):sub(1, 8) end,
+    })
+    KeybindsTab:Button({
+        Title = "Create button", Desc = "Adds a floating button with the selected function.",
+        Callback = function()
+            local e = BuildEntry(true)
+            if e and MB.Add(e) then
+                NotifyUI("Keybinds", "Button created. Drag it where you want.")
+                if MB.Refresh then MB.Refresh() end
+                if pick.refreshList then pick.refreshList() end
+            end
+        end,
+    })
+
+    local listDD = KeybindsTab:Dropdown({
+        Title = "Your buttons & keybinds", Desc = "Everything you created. Select one to delete it.",
+        Values = MB.Names(), Value = MB.Names()[1], Callback = function(v) pick.sel = v end,
+    })
+    function pick.refreshList()
+        local n = MB.Names()
+        pick.sel = nil
+        pcall(function() listDD:Refresh(n) end)
+        pcall(function() listDD:Select(n[1]) end)
+    end
+    KeybindsTab:Button({
+        Title = "Delete selected", Desc = "Deletes the button / keybind selected in the list above.",
+        Callback = function()
+            local k = pick.sel or MB.Names()[1]
+            local i = tonumber(tostring(k):match("^(%d+)%."))
+            if i and MB.Remove(i) then NotifyUI("Keybinds", "Deleted.") else NotifyUI("Keybinds", "Nothing to delete.") end
+            pick.refreshList()
+        end,
+    })
+    KeybindsTab:Button({
+        Title = "Delete all", Desc = "Deletes every floating button and custom keybind.",
+        Callback = function() MB.Clear() pick.refreshList() NotifyUI("Keybinds", "All deleted.") end,
+    })
+    KeybindsTab:Button({
+        Title = "Reset button positions", Desc = "Puts every floating button back in a column on the right side.",
+        Callback = function() MB.ResetPositions() NotifyUI("Keybinds", "Positions reset.") end,
+    })
+
+    KeybindsTab:Section({ Title = "Custom keybinds (PC)" })
+    KeybindsTab:Paragraph({
+        Title = "Your own keys",
+        Desc = "Uses the function chosen above ('Function' and 'Custom toggle name'). Pick a key and press Create keybind. "
+            .. "Created keybinds appear in the list above, where you can delete them.",
+    })
+    local function SetKey(v)
+        local name = typeof(v) == "EnumItem" and v.Name or tostring(v)
+        local ok = pcall(function() return Enum.KeyCode[name] end)
+        if ok then pick.key = name end
+        FX.LastKeySet = os.clock()
+    end
+    local okKB = pcall(function()
+        KeybindsTab:Keybind({ Title = "Key", Desc = "Key for the new keybind.", Value = "H", Callback = SetKey })
+    end)
+    if not okKB then
+        KeybindsTab:Dropdown({ Title = "Key", Desc = "Key for the new keybind.", Values = KEY_CHOICES, Value = "H", Callback = SetKey })
+    end
+    pick.key = "H"
+    KeybindsTab:Button({
+        Title = "Create keybind", Desc = "Creates a keyboard shortcut (no floating button) for the selected function.",
+        Callback = function()
+            if not pick.key then NotifyUI("Keybinds", "Pick a key first.") return end
+            local e = BuildEntry(false)
+            if e then
+                e.k = pick.key
+                if MB.Add(e) then
+                    NotifyUI("Keybinds", "Keybind created: " .. pick.key)
+                    pick.refreshList()
+                end
+            end
+        end,
+    })
+end
 
 FX.UpdateButtons()
 
@@ -15257,6 +15676,14 @@ pcall(function()
 		if type(d) == "table" then list = d end
 	end
 end)
+-- 1.0.7: Death Farm (del Main) vive aqui, con sus creditos, y solo se ejecuta al pulsar el boton
+do
+	local have = false
+	for _, e in ipairs(list) do if e.name == "Death Farm" then have = true break end end
+	if not have then
+		table.insert(list, 1, { name = "Death Farm", creator = "bocaj111004 (Abysall)", url = "https://raw.githubusercontent.com/bocaj111004/Abysall/refs/heads/main/Scripts/DeathFarm.luau" })
+	end
+end
 local function Save() if writefile then pcall(writefile, FILE, HttpService:JSONEncode(list)) end end
 local function Names()
 	local n = {}
@@ -15403,6 +15830,10 @@ FunTab:Button({ Title = "Remove Selected Script", Desc = "Deletes the selected s
 	Refresh()
 end })
 end)()
+
+-- 1.0.7: el bloque "PORT DEL SCRIPT MAIN" corre fuera de este alcance y usaba Ex / FX / Hooks / Apply / SetFeature / NotifyUI
+-- como globales (nil). Se exportan aqui para que funcione.
+R4N_BRIDGE = { FX = FX, Hooks = Hooks, Apply = Apply, SetFeature = SetFeature, NotifyUI = NotifyUI }
 
 end)()
 
@@ -16361,6 +16792,8 @@ print("[R4NS0M] Loading Main Port (bypass / automation)")
 -- gastar variables locales del script.
 -- ============================================================================================
 ;(function()
+local Ex = R4N_EX
+local FX, Hooks, Apply, SetFeature, NotifyUI = R4N_BRIDGE.FX, R4N_BRIDGE.Hooks, R4N_BRIDGE.Apply, R4N_BRIDGE.SetFeature, R4N_BRIDGE.NotifyUI
 local Env = {
 	fireproximityprompt = fireproximityprompt, replicatesignal = replicatesignal,
 	hookmetamethod = hookmetamethod, newcclosure = newcclosure, getnamecallmethod = getnamecallmethod,
