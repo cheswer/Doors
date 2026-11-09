@@ -603,6 +603,12 @@ end
 -- Traduccion de la interfaz: se traducen los titulos (English es el idioma por defecto)
 R4N_I18N = {
     es = {
+        ["Early access toggles"] = "Funciones Early access",
+        ["Early Access"] = "Early Access",
+        ["Early access"] = "Early access",
+        ["VIP functions will appear here. They can practically end up being free, which is why this is an \"Early access\". The options here will last 2-3 months before becoming free."] = "Aquí aparecerán funciones VIP. Prácticamente pueden llegar a ser gratis, por eso es un \"Early access\". Las opciones de aquí durarán de 2 a 3 meses antes de pasar a ser gratis.",
+        ["Buy early access gamepass. 500rbx (3 usd)"] = "Comprar gamepass de early access. 500rbx (3 usd)",
+        ["Copies the gamepass link and opens it in your browser right away."] = "Copia el link del gamepass y te envía al navegador de inmediato.",
         ["Discord coming very soon. When it is finished you will see it here."] = "Discord muy pronto, cuando esté finalizado lo verás aquí",
         ["Mobile keybinds (floating buttons)"] = "Teclas móviles (botones flotantes)",
         ["Your floating buttons"] = "Tus botones flotantes",
@@ -1454,6 +1460,10 @@ R4N_I18N = {
         ["Performance"] = "Rendimiento",
     },
     ru = {
+        ["Early access toggles"] = "Функции раннего доступа",
+        ["VIP functions will appear here. They can practically end up being free, which is why this is an \"Early access\". The options here will last 2-3 months before becoming free."] = "Здесь появятся VIP-функции. Они практически могут стать бесплатными, поэтому это «Ранний доступ». Эти опции будут здесь 2-3 месяца, прежде чем стать бесплатными.",
+        ["Buy early access gamepass. 500rbx (3 usd)"] = "Купить геймпасс раннего доступа. 500rbx (3 usd)",
+        ["Copies the gamepass link and opens it in your browser right away."] = "Копирует ссылку на геймпасс и сразу открывает её в браузере.",
         ["Discord coming very soon. When it is finished you will see it here."] = "Discord скоро, когда он будет готов, вы увидите его здесь",
         ["Mobile keybinds (floating buttons)"] = "Мобильные клавиши (плавающие кнопки)",
         ["Your floating buttons"] = "Ваши плавающие кнопки",
@@ -2351,6 +2361,7 @@ HalloweenTab = Window:Tab({ Title = "Halloween", Icon = "ghost" })    -- 1.0.7, 
 local AlertsTab     = Window:Tab({ Title = "Alerts",     Icon = "bell" })
 local MiscTab       = Window:Tab({ Title = "Misc",       Icon = "ellipsis" })
 FunTab = Window:Tab({ Title = "Fun", Icon = "smile" }) -- global a proposito (limite de locales)
+EarlyTab = Window:Tab({ Title = "Early access toggles", Icon = "store" }) -- global a proposito (limite de locales)
 local KeybindsTab   = Window:Tab({ Title = "Keybinds",   Icon = "keyboard" })
 local ConfigsTab    = Window:Tab({ Title = "Configs",    Icon = "settings" })
 
@@ -4506,9 +4517,9 @@ print("[R4NS0M] Loading Main Tab")
 MainTab:Section({ Title = "What's New" })
 do
     local NOTES = {
-        en = "NEW\n+ Halloween tab: Skip Cutscenes, Remove Extra Fog and Bring Dropped Candy (with auto interval).\n+ Death Farm added to Community Scripts (by bocaj111004). It only runs when you press its button.\n+ Floating buttons remastered, now in Keybinds > Mobile keybinds (floating buttons): create and delete as many as you want, choose the function or a custom toggle by name, drag them anywhere or lock them, and change their size. Buttons, positions and size are saved automatically.\n+ Custom keybinds for PC.\n+ ESP for Candy Magic and the new Halloween items.\n+ New notification cards (icon, color by type, time bar, animations, stacking) with sound.\n+ New Discord tab (coming soon).\nREPLACED\n+- Position Spoof now follows the real state of your character and re-applies itself after respawning or changing floor.\n+- Entity detection updated, now including Bash, Scribbles and Drones Stampede.\n+- Slide state is read from the animations.\nFIXED\n+- Position Spoof: you no longer die to Rush / Ambush with it on, and the view stays at normal height.\n+- Crouch: you can pass low gaps and crouch spaces again.\n+- Anticheat Manipulator works again.\n+- Auto Library, Knob Farm, Auto Closet and the rest of the automation features work again.\n+- Crouch HUD indicator restored.\nIMPROVED\n+- Remove Extra Fog is lighter on mobile.\nIMPORTANT\n- The floating buttons moved from the Anticheat tab to Keybinds.",
-        es = "NUEVO\n+ Pestaña Halloween: Saltar Cinemáticas, Quitar Niebla Extra y Traer Caramelos Soltados (con intervalo automático).\n+ Death Farm añadido a Community Scripts (por bocaj111004). Solo se ejecuta al pulsar su botón.\n+ Botones flotantes remasterizados, ahora en Keybinds > Teclas móviles (botones flotantes): crea y borra los que quieras, elige la función o un toggle personalizado por nombre, arrástralos a donde quieras o bloquéalos, y cambia su tamaño. Los botones, sus posiciones y el tamaño se guardan solos.\n+ Teclas personalizadas para PC.\n+ ESP de Candy Magic y de los nuevos ítems de Halloween.\n+ Nuevas tarjetas de notificación (icono, color por tipo, barra de tiempo, animaciones, apilado) con sonido.\n+ Nueva pestaña Discord (muy pronto).\nREEMPLAZADO\n+- Position Spoof ahora sigue el estado real de tu personaje y se reaplica solo al reaparecer o cambiar de piso.\n+- Detección de entidades actualizada, ahora incluye Bash, Scribbles y Drones Stampede.\n+- El estado de Slide se lee de las animaciones.\nCORREGIDO\n+- Position Spoof: ya no mueres por Rush / Ambush con él activado y la vista se mantiene a la altura normal.\n+- Agacharse: vuelves a poder pasar por espacios bajos y lugares donde hay que agacharse.\n+- El Anticheat Manipulator vuelve a funcionar.\n+- Auto Library, Knob Farm, Auto Closet y el resto de funciones de automatización vuelven a funcionar.\n+- Se restauró el indicador de agacharse en el HUD.\nMEJORAS\n+- Quitar Niebla Extra es más ligero en móvil.\nIMPORTANTE\n- Los botones flotantes pasaron de la pestaña Anticheat a Keybinds.",
-        ru = "НОВОЕ\n+ Вкладка Halloween: пропуск катсцен, удаление лишнего тумана и принос выпавших конфет (с авто-интервалом).\n+ Death Farm добавлен в Community Scripts (автор bocaj111004). Запускается только по нажатию кнопки.\n+ Плавающие кнопки переработаны, теперь в Keybinds > Мобильные клавиши (плавающие кнопки): создавайте и удаляйте кнопки, выбирайте функцию или свой переключатель по имени, перетаскивайте или закрепляйте их, меняйте размер. Кнопки, позиции и размер сохраняются автоматически.\n+ Свои клавиши для ПК.\n+ ESP для Candy Magic и новых предметов Хэллоуина.\n+ Новые карточки уведомлений (иконка, цвет по типу, полоса времени, анимации, стек) со звуком.\n+ Новая вкладка Discord (скоро).\nЗАМЕНЕНО\n+- Position Spoof теперь следует за реальным состоянием персонажа и применяется заново после возрождения или смены этажа.\n+- Обнаружение сущностей обновлено, теперь включает Bash, Scribbles и Drones Stampede.\n+- Состояние Slide читается из анимаций.\nИСПРАВЛЕНО\n+- Position Spoof: вы больше не умираете от Rush / Ambush, а вид остаётся на нормальной высоте.\n+- Приседание: снова можно проходить низкие проходы и места, где нужно приседать.\n+- Anticheat Manipulator снова работает.\n+- Auto Library, Knob Farm, Auto Closet и остальные функции автоматизации снова работают.\n+- Восстановлен индикатор приседания в HUD.\nУЛУЧШЕНО\n+- Remove Extra Fog легче на мобильных.\nВАЖНО\n- Плавающие кнопки перенесены из вкладки Anticheat в Keybinds.",
+        en = "NEW\n+ Halloween tab: Skip Cutscenes, Remove Extra Fog and Bring Dropped Candy (with auto interval).\n+ Death Farm added to Community Scripts (by bocaj111004). It only runs when you press its button.\n+ Floating buttons remastered, now in Keybinds > Mobile keybinds (floating buttons): create and delete as many as you want, choose the function or a custom toggle by name, drag them anywhere or lock them, and change their size. Buttons, positions and size are saved automatically.\n+ Custom keybinds for PC.\n+ ESP for Candy Magic and the new Halloween items.\n+ New notification cards (icon, color by type, time bar, animations, stacking) with sound.\n+ New Discord tab (coming soon).\n+ New Early access toggles tab with the early access gamepass button.\nREPLACED\n+- Position Spoof now follows the real state of your character and re-applies itself after respawning or changing floor.\n+- Entity detection updated, now including Bash, Scribbles and Drones Stampede.\n+- Slide state is read from the animations.\nFIXED\n+- Position Spoof: you no longer die to Rush / Ambush with it on, and the view stays at normal height.\n+- Crouch: you can pass low gaps and crouch spaces again.\n+- Anticheat Manipulator works again.\n+- Auto Library, Knob Farm, Auto Closet and the rest of the automation features work again.\n+- Crouch HUD indicator restored.\nIMPROVED\n+- Remove Extra Fog is lighter on mobile.\nIMPORTANT\n- The floating buttons moved from the Anticheat tab to Keybinds.",
+        es = "NUEVO\n+ Pestaña Halloween: Saltar Cinemáticas, Quitar Niebla Extra y Traer Caramelos Soltados (con intervalo automático).\n+ Death Farm añadido a Community Scripts (por bocaj111004). Solo se ejecuta al pulsar su botón.\n+ Botones flotantes remasterizados, ahora en Keybinds > Teclas móviles (botones flotantes): crea y borra los que quieras, elige la función o un toggle personalizado por nombre, arrástralos a donde quieras o bloquéalos, y cambia su tamaño. Los botones, sus posiciones y el tamaño se guardan solos.\n+ Teclas personalizadas para PC.\n+ ESP de Candy Magic y de los nuevos ítems de Halloween.\n+ Nuevas tarjetas de notificación (icono, color por tipo, barra de tiempo, animaciones, apilado) con sonido.\n+ Nueva pestaña Discord (muy pronto).\n+ Nueva pestaña Early access toggles con el botón del gamepass de early access.\nREEMPLAZADO\n+- Position Spoof ahora sigue el estado real de tu personaje y se reaplica solo al reaparecer o cambiar de piso.\n+- Detección de entidades actualizada, ahora incluye Bash, Scribbles y Drones Stampede.\n+- El estado de Slide se lee de las animaciones.\nCORREGIDO\n+- Position Spoof: ya no mueres por Rush / Ambush con él activado y la vista se mantiene a la altura normal.\n+- Agacharse: vuelves a poder pasar por espacios bajos y lugares donde hay que agacharse.\n+- El Anticheat Manipulator vuelve a funcionar.\n+- Auto Library, Knob Farm, Auto Closet y el resto de funciones de automatización vuelven a funcionar.\n+- Se restauró el indicador de agacharse en el HUD.\nMEJORAS\n+- Quitar Niebla Extra es más ligero en móvil.\nIMPORTANTE\n- Los botones flotantes pasaron de la pestaña Anticheat a Keybinds.",
+        ru = "НОВОЕ\n+ Вкладка Halloween: пропуск катсцен, удаление лишнего тумана и принос выпавших конфет (с авто-интервалом).\n+ Death Farm добавлен в Community Scripts (автор bocaj111004). Запускается только по нажатию кнопки.\n+ Плавающие кнопки переработаны, теперь в Keybinds > Мобильные клавиши (плавающие кнопки): создавайте и удаляйте кнопки, выбирайте функцию или свой переключатель по имени, перетаскивайте или закрепляйте их, меняйте размер. Кнопки, позиции и размер сохраняются автоматически.\n+ Свои клавиши для ПК.\n+ ESP для Candy Magic и новых предметов Хэллоуина.\n+ Новые карточки уведомлений (иконка, цвет по типу, полоса времени, анимации, стек) со звуком.\n+ Новая вкладка Discord (скоро).\n+ Новая вкладка Early access toggles с кнопкой геймпасса раннего доступа.\nЗАМЕНЕНО\n+- Position Spoof теперь следует за реальным состоянием персонажа и применяется заново после возрождения или смены этажа.\n+- Обнаружение сущностей обновлено, теперь включает Bash, Scribbles и Drones Stampede.\n+- Состояние Slide читается из анимаций.\nИСПРАВЛЕНО\n+- Position Spoof: вы больше не умираете от Rush / Ambush, а вид остаётся на нормальной высоте.\n+- Приседание: снова можно проходить низкие проходы и места, где нужно приседать.\n+- Anticheat Manipulator снова работает.\n+- Auto Library, Knob Farm, Auto Closet и остальные функции автоматизации снова работают.\n+- Восстановлен индикатор приседания в HUD.\nУЛУЧШЕНО\n+- Remove Extra Fog легче на мобильных.\nВАЖНО\n- Плавающие кнопки перенесены из вкладки Anticheat в Keybinds.",
     }
     local TITLES = { en = "Version 1.0.7", es = "Versión 1.0.7", ru = "Версия 1.0.7" }
     MainTab:Paragraph({ Title = TITLES[R4N_LANG] or TITLES.en, Desc = NOTES[R4N_LANG] or NOTES.en })
@@ -13595,6 +13606,39 @@ MiscTab:Button({
         end
     end
 })
+
+-- ============================================================================================
+-- EARLY ACCESS TOGGLES (1.0.7)
+-- ============================================================================================
+do
+    local PASS_URL = "https://www.roblox.com/es/game-pass/2075194721/Early-access"
+    EarlyTab:Section({ Title = "Early Access" })
+    EarlyTab:Paragraph({
+        Title = "Early access",
+        Desc = "VIP functions will appear here. They can practically end up being free, which is why this is an \"Early access\". "
+            .. "The options here will last 2-3 months before becoming free.",
+    })
+    EarlyTab:Button({
+        Title = "Buy early access gamepass. 500rbx (3 usd)",
+        Desc = "Copies the gamepass link and opens it in your browser right away.",
+        Callback = function()
+            local copied = false
+            pcall(function()
+                local fn = setclipboard or toclipboard or (syn and syn.write_clipboard)
+                if fn then fn(PASS_URL) copied = true end
+            end)
+            local opened = false
+            pcall(function()
+                game:GetService("GuiService"):OpenBrowserWindow(PASS_URL)
+                opened = true
+            end)
+            if copied and opened then NotifyUI("Early access", "Link copied and opened in your browser.")
+            elseif copied then NotifyUI("Early access", "Link copied to your clipboard. Paste it in your browser.")
+            elseif opened then NotifyUI("Early access", "Opened in your browser.")
+            else NotifyUI("Early access", "Could not copy the link: " .. PASS_URL) end
+        end,
+    })
+end
 
 -- ============================================================================================
 -- MOBILE KEYBINDS (floating buttons) UI - 1.0.7
